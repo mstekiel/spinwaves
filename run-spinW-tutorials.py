@@ -23,7 +23,7 @@ def tutorial_4() -> Figure:
             ]
     }
 
-    sw = spinwaves.Structure(lattice=hex, magnetic_atoms=atoms, magnetic_structure=magnetic_structure)
+    sw = spinwaves.SpinW(lattice=hex, magnetic_atoms=atoms, magnetic_structure=magnetic_structure)
 
     print('Add couplings...')
     J1, J2 = 1, -0.1
@@ -69,7 +69,7 @@ def tutorial_12(show_struct: bool=False) -> Figure:
         ]
     }
 
-    sw_12 = spinwaves.Structure(lattice=hex, magnetic_atoms=atoms, magnetic_structure=magnetic_structure)
+    sw_12 = spinwaves.SpinW(lattice=hex, magnetic_atoms=atoms, magnetic_structure=magnetic_structure)
 
     print('Add couplings...')
     Jx = 1
@@ -127,7 +127,7 @@ def tutorial_19(show_struct: bool=False) -> Figure:
         ]
     }
 
-    sw = spinwaves.Structure(lattice=hex, magnetic_atoms=atoms, magnetic_structure=magnetic_structure)
+    sw = spinwaves.SpinW(lattice=hex, magnetic_atoms=atoms, magnetic_structure=magnetic_structure)
 
     print('Add couplings...')
     Jcc, Jff, Jcf = 1, 1, -0.1
@@ -170,7 +170,7 @@ def erb2(show_struct: bool=False) -> Figure:
         ]
     }
 
-    sw_er = spinwaves.Structure(lattice=hex, magnetic_atoms=atoms, magnetic_structure=magnetic_structure)
+    sw_er = spinwaves.SpinW(lattice=hex, magnetic_atoms=atoms, magnetic_structure=magnetic_structure)
 
     print('Add couplings...')
     Jx = -0.0354
@@ -218,6 +218,81 @@ def erb2(show_struct: bool=False) -> Figure:
 
     return fig
 
+#######################################################   
+def nbcp(show_struct: bool=False) -> Figure:
+    print('Define structure...')
+    a, c = 5.3285, 7.0081
+    hex = spinwaves.Lattice([3*a, 3*a, c, 90, 90, 120])
+    atoms = [
+        {'label':'Co1', 'w':(0,0,0), 'S':1/2},
+        {'label':'Co1', 'w':(1/3,0,0), 'S':1/2},
+        {'label':'Co1', 'w':(2/3,0,0), 'S':1/2},
+        {'label':'Co1', 'w':(0,1/3,0), 'S':1/2},
+        {'label':'Co1', 'w':(1/3,1/3,0), 'S':1/2},
+        {'label':'Co1', 'w':(2/3,1/3,0), 'S':1/2},
+        {'label':'Co1', 'w':(0,1/3,0), 'S':1/2},
+        {'label':'Co1', 'w':(1/3,1/3,0), 'S':1/2},
+        {'label':'Co1', 'w':(2/3,1/3,0), 'S':1/2}
+    ]   # position in crystal coordinates
+
+    mx, mz = 0.3, 0.4
+    magnetic_structure = {
+        'k':(0, 0, 0),
+        'n':(0,0,1),
+        'spins':[
+            (0,0,-1)
+            (0,0,)
+            (0,0,-1)
+        ]
+    }
+
+    sw_er = spinwaves.SpinW(lattice=hex, magnetic_atoms=atoms, magnetic_structure=magnetic_structure)
+
+    print('Add couplings...')
+    Jx = -0.0354
+    Jxz = -0.004
+    Jz, J2z = -0.0155, -0.002
+    couplings = {
+        'K':[[0,0,0], 0, 0, np.diag([0,0.002,6.7]), ['1']], # K
+
+        'Jx':[[1, 0,0], 0, 0, Jx*np.eye(3,3), ['6z']],
+        'Jxz':[[1,0,1], 0, 0, Jxz*np.eye(3,3), ['6z','-1']],
+        'Jz':[[0,0,1], 0, 0, Jz*np.eye(3,3), ['-1']],
+        'J2z':[[0,0,2], 0, 0, J2z*np.eye(3,3), ['-1']],
+       }   # (d,i,j,J) d has to be symmetrized by hand; Indices here correspond to atoms in the `atoms` list
+    sw_er.add_couplings(couplings)
+
+
+    # for label,(r_uvw, i,j, J, symmetry) in sw_er.couplings.items():
+    #     print(label,r_uvw,i,j,symmetry)
+    #     print(J)
+
+    # for r_xyz,i,j,J in sw_er.formatted_couplings:
+    #     print(r_xyz,i,j)
+    #     print(J)
+
+    if show_struct:
+        sw_er.plot_structure(extent=(3,3,1))
+
+
+    print('Prepare qPath...')
+    N = 51
+    # CAMEA path
+    q1 = np.asarray([-1/3, 2/3,  -1])
+    q2 = np.asarray([ 1/3,-2/3,  -1])
+    q3 = np.asarray([ 1/3,-2/3,-0.5])
+    q4 = np.asarray([   0,   0,-0.5])
+    q5 = np.asarray([   0,   0,-1.5])
+    qs = [q1, q2, q3, q4, q5]
+    qPath = sw_er.lattice.make_qPath(qs, [N,N,N,N])
+    
+    print('Calculate excitations...')
+    Es = sw_er.calculate_excitations(qPath, silent=True)
+
+    fig, ax = plt.subplots(tight_layout=True)
+    fig = sw_er.plot_dispersion(fig=fig)
+
+    return fig
 
 if __name__ == '__main__':
     fig = tutorial_4()

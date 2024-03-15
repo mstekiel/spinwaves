@@ -2,7 +2,7 @@ import numpy as np
 
 from typing import Union, List, Tuple
 
-import spinwaves.functions as funs
+from . import functions as funs
 
 import warnings
 warnings.filterwarnings("error")
@@ -45,7 +45,12 @@ class Lattice:
 
     def __init__(self, lattice_parameters: list[float], orientation: Union[None, tuple, np.ndarray]=None):
         '''
-        Lattice parameters are: a,b,c,alpha,beta,gamma.
+        Object representing crystal lattice and coordinate system in cartesian space.
+
+        Parameters:
+        -----------
+
+        lattice parameters: [a,b,c,alpha,beta,gamma]
         
         orientation : None
             Identity matrix

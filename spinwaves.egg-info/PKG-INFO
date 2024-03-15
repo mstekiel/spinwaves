@@ -1,0 +1,8 @@
+Metadata-Version: 2.1
+Name: spinwaves
+Version: 0.1.0
+Summary: Linear spin wave theory in python as in SpinW
+Author: Michal Stekiel
+Author-email: michal.stekiel@gmail.com
+Requires-Python: ==3.9.*
+Provides-Extra: dev

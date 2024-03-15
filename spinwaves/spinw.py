@@ -1,14 +1,40 @@
+# Core
 import numpy as np
 import scipy.linalg
 import matplotlib.pyplot as plt
+import matplotlib
+import warnings
+from dataclasses import dataclass
 
+# Plotting
+import numpy as np
+from vispy import scene
+import vispy
+# from vispy.color import color_array
+# from itertools import chain
+# from vispy.visuals.filters import ShadingFilter, WireframeFilter
+# from vispy.geometry import create_sphere
+# import copy
+# from scipy.spatial.transform import Rotation
+# from scipy.spatial import ConvexHull
+# from dataclasses import dataclass
+# import warnings
+
+# Typing
 from matplotlib.figure import Figure
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Union
 from numpy.typing import NDArray
 
-from spinwaves.lattice import Lattice
-from spinwaves import functions as funs
+# Internal
+from . import functions as funs
+from .lattice import Lattice
+from .unitcell import Atom, UnitCell
+
 import mikibox as ms
+
+# Tobi confirmed the factor of two is missing from single-ion naisotropies.
+# He also mentioned the inverted sign mistake in the phase factor somewhere
+# in the spin-spin correlation function calculations.
 
 class Couplings:
     pass
@@ -16,24 +42,42 @@ class Couplings:
 class Dispersion:
     pass
 
-class Structure:
+
+
+class SpinW:
     '''
     Main object used to calculate spin waves.
 
-    TODO:
-        1. Each object of the constructor should be its own well defined class, or np.array with defined fields.
+    Fields:
+    -------
+
+    lattice:
+        `Lattice` object
+    magnetic_atoms:
+        List of dictionaries [ {'label':'Er', 'w':(0,0,0), 'S':8},...]               
+    couplings: 
+        List[d, i, j, J]
+    magnetic_str:
+        [k, n, spins]
+
+
+
+    TODO
+    ----
+        - Each object of the constructor should be its own well defined class, or np.array with defined fields.
+            - `Atom`s in `UnitCell` object that lives independently on the lattice.
     '''
-    def __init__(self, lattice: Lattice, magnetic_atoms: List, magnetic_structure: Dict):
+    def __init__(self, lattice: Lattice, unit_cell: UnitCell, magnetic_structure: Dict):
         '''
         lattice: Lattice
-        magnetic_atoms: List[label, Wyckoff pos, S]
+        unit_cell: UnitCell
         couplings: List[d, i, j, J]
-        magnetic_str: [k, n, spins]
+        magnetic_str: [k, n]
         '''
         self.lattice = lattice
-        self.magnetic_atoms = magnetic_atoms
+        self.unit_cell = unit_cell # extend to handle bot magnetic and non-magnetic atoms
 
-        assert len(magnetic_structure['spins']) == len(magnetic_atoms)  # Must define spin in the unit cell for each magnetic atom
+        # assert len(magnetic_structure['spins']) == len(self.magnetic_atoms)  # Must define spin in the unit cell for each magnetic atom
         self.magnetic_structure = magnetic_structure
 
         self.couplings = None
@@ -82,12 +126,14 @@ class Structure:
         '''
         Generate couplings bettween magnetic atoms.        
 
-        couplings: List[r_uvw, atom_i, atom_j, J, symmetry]
-            Couple atom with index `atom_j` in the unit cell with index `r_uvw` with atom of index `atom_i` in
+        couplings: List[n_uvw, atom_i, atom_j, J, symmetry]
+            Couple atom with index `atom_j` in the unit cell with index `n_uvw` with atom of index `atom_i` in
             the original unit cell. The coupling can be symmetrized, that is equivalent atoms can be coupled,
             based on the symmetry operations in `symmetry` list.
 
-            r_uvw: (3) array
+            Parameters
+            ----------
+            n_uvw: (3) array
             atom_i: int
             atom_j: int
             J: (3,3) array
@@ -103,11 +149,11 @@ class Structure:
         formatted_couplings = []
 
         for label,(n_uvw, atom_i, atom_j, J, sym_ops) in couplings.items():
-            assert atom_i < len(self.magnetic_atoms)    # coupled atom not in the `atom` list
-            assert atom_j < len(self.magnetic_atoms)    # coupled atom not in the `atom` list
+            assert atom_i < len(self.unit_cell.atoms)    # coupled atom not in the `atom` list
+            assert atom_j < len(self.unit_cell.atoms)    # coupled atom not in the `atom` list
 
-            ri_xyz = self.lattice.uvw2xyz(self.magnetic_atoms[atom_i]['w'])
-            rj_xyz = self.lattice.uvw2xyz(self.magnetic_atoms[atom_j]['w'])
+            ri_xyz = self.lattice.uvw2xyz(self.unit_cell.atoms[atom_i].r)
+            rj_xyz = self.lattice.uvw2xyz(self.unit_cell.atoms[atom_j].r)
             d_xyz = self.lattice.uvw2xyz(n_uvw) + rj_xyz - ri_xyz
             for sym in self.symmetry_operations(sym_ops):
                 Jsym = sym @ J @ sym.T
@@ -115,8 +161,8 @@ class Structure:
                 nsym_uvw = np.round(self.lattice.xyz2uvw(ri_xyz + dsym_xyz - rj_xyz))
                 formatted_couplings.append([dsym_xyz, nsym_uvw, atom_i, atom_j, Jsym])
 
-        self.couplings = couplings
-        self.formatted_couplings = formatted_couplings
+        self.couplings = couplings                      # [n_uvw, atom_i, atom_j, J, sym]
+        self.formatted_couplings = formatted_couplings  # [dsym_xyz, nsym_uvw, atom_i, atom_j, Jsym]
 
         return formatted_couplings
 
@@ -129,10 +175,7 @@ class Structure:
 
         Rn determined by the modulation vector, normal to modulation, and the unit cell coordinates.
         '''
-        k = self.lattice.hkl2xyz(self.magnetic_structure['k'])
-        n_xyz = self.lattice.uvw2xyz(n_uvw)
-        phi = np.dot(k, n_xyz)
-        # phi = 2*np.pi*np.dot(self.modulation[0], uvw) # Why is the Miller notation not working?
+        phi = 2*np.pi*np.dot(self.magnetic_structure['k'], n_uvw)
         Rn = ms.rotate(self.magnetic_structure['n'], phi)
         return Rn
     
@@ -228,7 +271,26 @@ class Structure:
 
         return h
 
-    def plot_structure(self, extent: Tuple[int,int,int]):
+    def plot_structure(self, extent: Tuple[int,int,int], plot_mag=True, plot_bonds=True, plot_atoms=True,
+                             plot_labels=False, plot_cell=True, plot_axes=True, plot_plane=True, ion_type=None, polyhedra_args=None):
+        '''
+        Plot the structure.
+        '''
+        canvas = scene.SceneCanvas(bgcolor='white', show=True)
+        view = canvas.central_widget.add_view()
+        view.camera = scene.cameras.TurntableCamera()
+        
+        pos, mj, is_matom, colors, sizes, labels, iremove, iremove_mag = self.get_atomic_properties_in_supercell()
+
+        SupercellPlotter(self, view.scene, extent,
+                         plot_mag, plot_bonds, plot_atoms, plot_labels, plot_cell, plot_axes, plot_plane, ion_type, polyhedra_args)
+        
+        view.camera.set_range()  # centers camera on middle of data and auto-scales extent
+        canvas.app.run()
+        return canvas, view.scene
+    
+    
+    def plot_structure_old(self, extent: Tuple[int,int,int]):
 
         styles = {
             'Cr':dict(color='red'),
@@ -366,6 +428,14 @@ class Structure:
             # ax.plot(Qs+2/3, Es[:,branch])    # (2/3 2/3 0) branch
 
         return fig
+    
+    def __repr__(self):
+        rr = 'SpinW(\n'
+        rr += self.unit_cell.__repr__() + '\n'
+        rr += 'Couplings = '
+        rr += self.couplings.__repr__()
+        rr += '\t})'
+        return rr
 
 
 # TODO

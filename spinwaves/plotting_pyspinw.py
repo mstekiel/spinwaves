@@ -10,21 +10,350 @@ from scipy.spatial import ConvexHull
 from dataclasses import dataclass
 import warnings
 
-from typing import Tuple, Dict
+from . import functions as funs
+from .spinw import SpinW
+from .lattice import Lattice
+import mikibox as ms
 
-class SWObject:
-    # def set_magnetic_structure(self, swobj):
-    #     magstr = swobj.magstr(NExt=[int(ext) for ext in self.int_extent])
-    #     if not np.any(magstr['S']):
-    #         warnings.warn('No magnetic structure defined')
-    #         self.do_plot_mag = False
-    #         self.do_plot_plane = False
-    #         return
-    #     self.mj = magstr['S'].T
-    #     self.n = np.asarray(magstr['n'])  # plane of rotation of moment
+from typing import Tuple, Dict, List
 
-    def magstr(NExt: Tuple[int,int,int]) -> Dict:
-        return {}
+class SpinW_GL:
+    '''
+    Main object used to calculate spin waves.
+
+    Fields:
+    -------
+
+    lattice:
+        `Lattice` object
+    magnetic_atoms:
+        List of dictionaries [ {'label':'Er', 'w':(0,0,0), 'S':8},...]               
+    couplings: 
+        List[d, i, j, J]
+    magnetic_str:
+        [k, n, spins]
+
+
+
+    TODO
+    ----
+        - Each object of the constructor should be its own well defined class, or np.array with defined fields.
+            - `Atom`s in `UnitCell` object that lives independently on the lattice.
+    '''
+    def __init__(self, lattice: Lattice, magnetic_atoms: List[Dict], magnetic_structure: Dict):
+        '''
+        lattice: Lattice
+        atoms: List[label, Wyckoff pos, S]
+        couplings: List[d, i, j, J]
+        magnetic_str: [k, n, spins]
+        '''
+        self.lattice = lattice
+        self.magnetic_atoms = magnetic_atoms # extend to handle bot magnetic and non-magnetic atoms
+
+        assert len(magnetic_structure['spins']) == len(self.magnetic_atoms)  # Must define spin in the unit cell for each magnetic atom
+        self.magnetic_structure = magnetic_structure
+
+        self.couplings = None
+
+    def symmetry_operations(self, generators: List[str]) -> np.ndarray:
+        '''
+        Generate all symmetry operations in matrix form based on the generators list.
+        '''
+
+        sym_matrix = {
+            '1':np.eye(3,3),
+            '-1':-np.eye(3,3),
+            '2x':funs.Rx(np.pi),
+            '2y':funs.Ry(np.pi),
+            '2z':funs.Rz(np.pi),
+            '3z':funs.Rz(2*np.pi/3),
+            '4z':funs.Rz(np.pi/2),
+            '6z':funs.Rz(np.pi/3),
+        }
+
+        for gen in generators:
+            if not gen in sym_matrix:
+                raise KeyError(f'`{gen}` is not implemented/allowed symmetry operator\
+                                Allowed pars: {list(sym_matrix.keys())} ')
+
+        # Ensure identity is in the generators lsit
+        symmetry = np.concatenate(([sym_matrix[gen] for gen in generators], [sym_matrix['1']]))
+
+        # 1. Multiply all symmetry operators by each other and make a table with (N,N,3,3) shape
+        # 2. Find unique symmetry operations in the flattened table
+        # 3. If the flattened table is longer then the original symmetry some new perators were created GOTO 1
+        # Exit: When no new symmetry operators were created
+        flag = True
+        while flag:
+            sym_table = np.einsum('mij,njk->mnik', symmetry, symmetry)
+            new_symmetry = np.unique( np.around(sym_table.reshape((-1,3,3)), 10), axis=0)
+            
+            if new_symmetry.shape[0] == symmetry.shape[0]:
+                flag = False
+
+            symmetry = new_symmetry
+
+        return symmetry
+
+    def add_couplings(self, couplings: Dict):
+        '''
+        Generate couplings bettween magnetic atoms.        
+
+        couplings: List[r_uvw, atom_i, atom_j, J, symmetry]
+            Couple atom with index `atom_j` in the unit cell with index `r_uvw` with atom of index `atom_i` in
+            the original unit cell. The coupling can be symmetrized, that is equivalent atoms can be coupled,
+            based on the symmetry operations in `symmetry` list.
+
+            Parameters
+            ----------
+            n_uvw: (3) array
+            atom_i: int
+            atom_j: int
+            J: (3,3) array
+            symmetry: List[string]
+                Only strings with defined names are allowed.
+
+        Examples:
+
+        (1) Define easy-plane single-ion anisotropy.
+        >>> spinwaves.add_couplings([[0,0,0], 0, 0, np.diag([0,0,0.2]), ['1']])
+        '''
+
+        formatted_couplings = []
+
+        for label,(n_uvw, atom_i, atom_j, J, sym_ops) in couplings.items():
+            assert atom_i < len(self.magnetic_atoms)    # coupled atom not in the `atom` list
+            assert atom_j < len(self.magnetic_atoms)    # coupled atom not in the `atom` list
+
+            ri_xyz = self.lattice.uvw2xyz(self.magnetic_atoms[atom_i]['w'])
+            rj_xyz = self.lattice.uvw2xyz(self.magnetic_atoms[atom_j]['w'])
+            d_xyz = self.lattice.uvw2xyz(n_uvw) + rj_xyz - ri_xyz
+            for sym in self.symmetry_operations(sym_ops):
+                Jsym = sym @ J @ sym.T
+                dsym_xyz = sym @ d_xyz
+                nsym_uvw = np.round(self.lattice.xyz2uvw(ri_xyz + dsym_xyz - rj_xyz))
+                formatted_couplings.append([dsym_xyz, nsym_uvw, atom_i, atom_j, Jsym])
+
+        self.couplings = couplings                      # [n_uvw, atom_i, atom_j, J, sym]
+        self.formatted_couplings = formatted_couplings  # [dsym_xyz, nsym_uvw, atom_i, atom_j, Jsym]
+
+        return formatted_couplings
+
+    def determine_Rn(self, n_uvw: Tuple[int,int,int]) -> np.ndarray:
+        '''
+        Rn is the rotation corresponding to the modulation of the magnetic moments.
+            S_nj = R_n S_0j
+            S_nj : magnetic moment of j-th atom in the n-th unit cell, 
+                   where the n-th unit cell is indexed by triple-int `n_uvw`.
+
+        Rn determined by the modulation vector, normal to modulation, and the unit cell coordinates.
+        '''
+        k = self.lattice.hkl2xyz(self.magnetic_structure['k'])
+        n_xyz = self.lattice.uvw2xyz(n_uvw)
+        phi = np.dot(k, n_xyz)
+        # phi = 2*np.pi*np.dot(self.modulation[0], uvw) # Why is the Miller notation not working?
+        Rn = ms.rotate(self.magnetic_structure['n'], phi)
+        return Rn
+    
+    def determine_Rprime(self, S) -> np.ndarray:
+        '''
+        Rn' is the rotation that puts the magnetic moment along z axis.
+            S'_nj = R'_n S''_nj
+            S'_nj=S_0j : magnetic moment of j-th atom in the 0-th unit cell, independent on unit cell
+            S''_nj : spin oriented along the ferromagnetic axis
+
+        Rn is a function of modulation vector and normal to modulation.
+        '''
+
+        Rp = np.eye(3,3)
+
+        n = np.cross([0,0,1], S)
+        phi = ms.angle([0,0,1], S)
+        Rp = ms.rotate(n, phi)
+
+        return Rp
+    
+    
+class SpinWObjectParser:
+    '''
+    SpinW object, full ripoff from Matlab SpinW documentation.
+    '''
+
+    def __init__(self, spinw: SpinW_GL):
+        self.spinw = spinw
+
+        colors, labels = [], []
+        for index,atom in enumerate(self.spinw.magnetic_atoms):
+            labels.append(atom['label'])
+
+            RGB = atom_data[ spinwaves.atom_data.name==atom['label'] ][['R','G','B']].to_numpy()[0]
+            colors.append(RGB)
+
+        self.unit_cell = dict(color=np.array(colors), label=np.array(labels))
+
+
+        # coupling['idx', 'mat_idx', 'atom1', 'atom2', 'dl']
+
+
+    def magstr(self, NExt: List[int]):
+        '''
+        Is the list of moments going to be oriented just like list of atoms?
+        '''
+        spins_list = []
+        for n_u in range(NExt[0]-1):
+            for n_v in range(NExt[1]-1):
+                for n_w in range(NExt[2]-1):
+                    for atom_i,atom in enumerate(self.spinw.magnetic_atoms):
+                        n_uvw = [n_u, n_v, n_w]
+                        
+                        Sdir = self.spinw.magnetic_structure['spins'][atom_i]
+                        w = np.array(atom['w'])
+                        spin = np.array(atom['S'])
+                        mu = atom['S']*np.array(Sdir)   # this will need a g
+                        r_n = self.spinw.lattice.uvw2xyz(n_uvw)
+                        r_atom = self.spinw.lattice.uvw2xyz(n_uvw+w)
+
+                        mu_n = np.dot(self.spinw.determine_Rn(n_uvw), mu)
+                        spins_list.append(mu_n)
+        
+        
+        mstr = dict(S=np.array(spins_list).T, n=self.spinw.magnetic_structure['n'] )
+
+        return mstr
+
+
+
+    def intmatrix(self, plotmode= True, extend=False, sortDM=False, zeroC=False, nExt=[1, 1, 1]) -> Tuple:    # we just need single ion anisotropies here
+        '''
+        Ref: https://spinw.org/spinw_intmatrix
+        For each atom in `self.atoms` return the single ion anisotropies
+
+        If the single ion anisotropies were not defined for the atom set it to ???
+        Take care of the matrices shape
+        '''
+
+        if not self.spinw.couplings:
+            raise KeyError('Need to define couplings first.')
+
+        SS = None
+        RR = None
+
+        Jprototype = np.zeros((3,3))
+        SI = dict(aniso=np.asarray([Jprototype]*len(self.spinw.magnetic_atoms)))
+        for label,(n_uvw, atom_i, atom_j, J, symmetry) in self.spinw.couplings.items():
+            if n_uvw==[0,0,0] and atom_i==atom_j:
+                SI['aniso'][atom_i] = J
+
+        return SS, SI, RR
+    
+    def atom(self) -> List:
+        '''
+        https://spinw.org/spinw_atom
+        '''
+
+        rs, idx, mag = [], [], []
+        for index, atom in enumerate(self.spinw.magnetic_atoms):
+            rs.append(atom['w'])
+            idx.append(index)
+            mag.append(True)
+            
+        atomList = dict(r=np.array(rs).T, idx=np.array(idx), mag=np.array(mag))
+
+        return atomList
+    
+    def matom(self) -> List:
+        '''
+        https://spinw.org/spinw_atom
+        '''
+
+        rs, idx, Ss = [], [], []
+        for index, atom in enumerate(self.spinw.magnetic_atoms):
+            rs.append(atom['w'])
+            idx.append(index)
+            Ss.append(atom['S'])
+            
+        matomList = dict(r=np.array(rs).T, idx=np.array(idx), Ss=np.array(Ss))
+
+        return matomList
+
+
+
+    # def genlattice(self, lattice_dict):
+    #     '''
+    #     Generates all necessary parameters to define a lattice including space group symmetry
+    #     and store the result it in the `self.lattice` field.
+    #     '''
+
+    #     assert 'lat_const' in lattice_dict   # Input dictionary needs that field
+    #     lat_const = np.asarray(lattice_dict['lat_const'])
+    #     assert lat_const.shape == 3  # Need three lattice parameters
+
+    #     assert 'angled' in lattice_dict   # Input dictionary needs that field
+    #     angled = np.asarray(lattice_dict['angled'])
+    #     assert angled.shape == 3     # Need three angle values
+        
+    #     if 'sym' in lattice_dict:
+    #         sym = self.symmetry_operations(lattice_dict['sym'])
+    #     else:
+    #         sym = self.symmetry_operations(['1'])
+
+    #     # Lets keep it simple for now
+    #     origin = np.asarray([0,0,0])
+
+    #     if 'label' in lattice_dict:
+    #         label = lattice_dict['label']
+    #     else:
+    #         label = ''
+
+    #     self.lattice = dict(
+    #         lat_const = lat_const,
+    #         angle = angled,
+    #         sym = sym,
+    #         origin = origin,
+    #         label = label
+    #     )
+
+    #     return self.lattice
+    
+    # def symmetry_operations(self, generators: List[str]) -> np.ndarray:
+    #     '''
+    #     Generate all symmetry operations in matrix form based on the generators list.
+    #     '''
+
+    #     sym_matrix = {
+    #         '1':np.eye(3,3),
+    #         '-1':-np.eye(3,3),
+    #         '2x':funs.Rx(np.pi),
+    #         '2y':funs.Ry(np.pi),
+    #         '2z':funs.Rz(np.pi),
+    #         '3z':funs.Rz(2*np.pi/3),
+    #         '4z':funs.Rz(np.pi/2),
+    #         '6z':funs.Rz(np.pi/3),
+    #     }
+
+    #     for gen in generators:
+    #         if not gen in sym_matrix:
+    #             raise KeyError(f'`{gen}` is not implemented/allowed symmetry operator\
+    #                             Allowed pars: {list(sym_matrix.keys())} ')
+
+    #     # Ensure identity is in the generators lsit
+    #     symmetry = np.concatenate(([sym_matrix[gen] for gen in generators], [sym_matrix['1']]))
+
+    #     # 1. Multiply all symmetry operators by each other and make a table with (N,N,3,3) shape
+    #     # 2. Find unique symmetry operations in the flattened table
+    #     # 3. If the flattened table is longer then the original symmetry some new perators were created GOTO 1
+    #     # Exit: When no new symmetry operators were created
+    #     flag = True
+    #     while flag:
+    #         sym_table = np.einsum('mij,njk->mnik', symmetry, symmetry)
+    #         new_symmetry = np.unique( np.around(sym_table.reshape((-1,3,3)), 10), axis=0)
+            
+    #         if new_symmetry.shape[0] == symmetry.shape[0]:
+    #             flag = False
+
+    #         symmetry = new_symmetry
+
+    #     return symmetry
 
 @dataclass
 class PolyhedronMesh:
@@ -39,10 +368,10 @@ class PolyhedraArgs:
         self.color = color
 
 class SuperCell:
-    def __init__(self, matlab_caller, swobj, extent=(1,1,1), plot_mag=True, plot_bonds=False, plot_atoms=True,
-                 plot_labels=True, plot_cell=True, plot_axes=True, plot_plane=True, ion_type=None, polyhedra_args=None):
+    def __init__(self, spinw: SpinW, extent=(1,1,1), plot_mag=True, plot_bonds=True, plot_atoms=True,
+                 plot_labels=False, plot_cell=True, plot_axes=True, plot_plane=True, ion_type=None, polyhedra_args=None):
         """
-        :param swobj: spinw object to plot
+        :param swobj: spinw object to plot 
         :param extent: Tuple of supercell dimensions default is (1,1,1) - a single unit cell
         :param plot_mag: If True the magneitc moments (in rotating frame representation) will be 
                          plotted if a magnetic structure has been set on swobj
@@ -58,13 +387,13 @@ class SuperCell:
                                 nearest neighbours. These will be used to plot polyhedra.
         """
         # init with sw obj - could get NExt from object if not explicitly provide (i.e. make default None)
-        self.do_plot_mag=plot_mag
-        self.do_plot_bonds=plot_bonds
-        self.do_plot_atoms=plot_atoms
-        self.do_plot_labels=plot_labels
-        self.do_plot_cell=plot_cell
-        self.do_plot_axes=plot_axes
-        self.do_plot_plane=plot_plane
+        self.do_plot_mag = plot_mag
+        self.do_plot_bonds = plot_bonds
+        self.do_plot_atoms = plot_atoms
+        self.do_plot_labels = plot_labels
+        self.do_plot_cell = plot_cell
+        self.do_plot_axes = plot_axes
+        self.do_plot_plane = plot_plane
         self.do_plot_ion = ion_type is not None
         self.ion_type = ion_type  # "aniso" or "g"
         self.polyhedra_args = polyhedra_args
@@ -72,10 +401,14 @@ class SuperCell:
         self.mj = None
         self.n = None
 
+        # Convert to expected swobject
+        swobj = SpinWObjectParser(spinw)
+        self.spinw = spinw
+
         # get properties from swobj
         self.unit_cell = UnitCell()
         # add atoms
-        _, single_ion = swobj.intmatrix(plotmode= True, extend=False, sortDM=False, zeroC=False, nExt=[1, 1, 1])
+        _, single_ion, _ = swobj.intmatrix(plotmode= True, extend=False, sortDM=False, zeroC=False, nExt=[1, 1, 1]) 
         aniso_mats = single_ion['aniso'].reshape(3,3,-1)  # make 3D array even if only one atom
         g_mats = single_ion['aniso'].reshape(3,3,-1)  # make 3D array even if only one atom
         imat = -1  # index of aniso and g matrices
@@ -89,15 +422,20 @@ class SuperCell:
                 imat += 1
                 g_mat = g_mats[:,:,imat]
                 aniso_mat = aniso_mats[:,:,imat]
+                mom = swobj.spinw.magnetic_structure['spins'][atom_idx]
             else:
                 g_mat = None
                 aniso_mat = None
-            color = swobj.unit_cell['color'][:,atom_idx-1]/255
-            label = swobj.unit_cell['label'][atom_idx-1]
-            size = matlab_caller.sw_atomdata(label, 'radius')[0,0]
-            self.unit_cell.add_atom(Atom(atom_idx, swobj.atom()['r'][:,iatom], is_mag=atoms_mag[iatom], size=size, color=color, label=label,
+                mom = np.array([0,0,0])
+            color = swobj.unit_cell['color'][atom_idx]/255
+            label = swobj.unit_cell['label'][atom_idx]
+            size = spinwaves.atom_data[spinwaves.atom_data.name==label].radius.to_numpy()
+            self.unit_cell.add_atom(Atom(atom_idx, swobj.atom()['r'][:,iatom], moment=mom ,is_mag=atoms_mag[iatom], size=size, color=color, label=label,
                                          gtensor_mat=g_mat, aniso_mat=aniso_mat))
             
+        print(self.unit_cell)
+
+        # This is weird AF, skip    
         # add bonds - only plot bonds for which there is a mat_idx
         bond_idx = np.squeeze(swobj.coupling['idx'])
         bond_matrices = swobj.matrix['mat'].reshape(3,3,-1)
@@ -112,6 +450,13 @@ class SuperCell:
                                                      mat=bond_matrices[:,:,mat_idx-1],
                                                      color=swobj.matrix['color'][:,mat_idx-1]/255)
 
+        self.unit_cell.add_bond_vertices(name=f"bond{1}_mat{1}",
+                                        atom1_idx=0,
+                                        atom2_idx=1,
+                                        dl=2,
+                                        mat=np.diag([1,2,3]),
+                                        color=swobj.matrix['color'][:,mat_idx-1]/255)
+        
         # dimensions of supercell (pad by 1 for plotting)
         self.extent = np.asarray(extent)
         self.int_extent = np.ceil(self.extent).astype(int) + 1  # to plot additional unit cell along each dimension to get atoms on cell boundary
@@ -121,7 +466,7 @@ class SuperCell:
         self.set_magnetic_structure(swobj)
         
         # transforms
-        self.basis_vec = swobj.basisvector().T
+        self.basis_vec = swobj.spinw.lattice.A  # FLAG
         self.inv_basis_vec = np.linalg.inv(self.basis_vec)
                 
         # scale factors
@@ -132,7 +477,7 @@ class SuperCell:
         self.bond_width = 5
         self.spin_scale = 1
         self.arrow_width = 8
-        self.arrow_head_size = 5
+        self.arrow_head_size = 6
         self.font_size = 20
         self.axes_font_size = 50
         self.atom_alpha = 0.75
@@ -163,15 +508,20 @@ class SuperCell:
         view = canvas.central_widget.add_view()
         view.camera = scene.cameras.TurntableCamera()
         
-        pos, is_matom, colors, sizes, labels, iremove, iremove_mag = self.get_atomic_properties_in_supercell()
+        pos, mj, is_matom, colors, sizes, labels, iremove, iremove_mag = self.get_atomic_properties_in_supercell()
+
+        print(pos, pos.shape)
+        print(mj, mj.shape)
+        
+        # This makes no sense so far
         # delete spin vectors outside extent
-        if self.mj is not None:
-            mj = np.delete(self.mj, iremove_mag, axis=0)
+        # if self.mj is not None:
+        #     mj = np.delete(self.mj, iremove_mag, axis=0)
         
         if self.do_plot_cell:
             self.plot_unit_cell_box(view.scene)  # plot gridlines for unit cell boundaries
         if self.do_plot_mag:
-            self.plot_magnetic_structure(view.scene, mj, pos[is_matom], colors[is_matom])
+            self.plot_magnetic_structure(view.scene, mj, pos, colors)
         if self.do_plot_atoms:
             self.plot_atoms(view.scene, pos, colors, sizes, labels)
         if self.do_plot_bonds:
@@ -224,20 +574,32 @@ class SuperCell:
 
     def get_atomic_properties_in_supercell(self):
         atoms_pos_unit_cell = np.array([atom.pos for atom in self.unit_cell.atoms])
+        atoms_mom_unit_cell = np.array([atom.moment for atom in self.unit_cell.atoms])
         natoms = atoms_pos_unit_cell.shape[0]
         atoms_pos_supercell = np.zeros((self.ncells*natoms, 3))
+        atoms_mom_supercell = np.zeros((self.ncells*natoms, 3))
         icell = 0
         # loop over unit cells in same order as in MATLAB
         for zcen in range(self.int_extent[2]):
             for ycen in range(self.int_extent[1]):
                 for xcen in range(self.int_extent[0]):
                     atoms_pos_supercell[icell*natoms:(icell+1)*natoms,:] = atoms_pos_unit_cell + np.array([xcen, ycen, zcen])
+
+                    n_uvw = np.array([xcen, ycen, zcen])
+
+                    rotated_spins = np.dot(self.spinw.determine_Rn(n_uvw), atoms_mom_unit_cell.T)
+                    atoms_mom_supercell[icell*natoms:(icell+1)*natoms,:] = rotated_spins.T
+                    
+
+
                     icell += 1
+
         is_matom = np.tile([atom.is_mag for atom in self.unit_cell.atoms], self.ncells)
         sizes = np.tile([atom.size for atom in self.unit_cell.atoms], self.ncells)
         colors = np.tile(np.array([atom.color for atom in self.unit_cell.atoms]).reshape(-1,3), (self.ncells, 1))
         # remove points beyond extent of supercell
         atoms_pos_supercell, iremove = self._remove_points_outside_extent(atoms_pos_supercell)
+        atoms_mom_supercell = np.delete(atoms_mom_supercell, iremove, axis=0)
         sizes = np.delete(sizes, iremove)
         colors = np.delete(colors, iremove, axis=0)
         # get indices of magnetic atoms outside extents
@@ -248,14 +610,15 @@ class SuperCell:
         # get atomic labels
         labels = np.tile([atom.label for atom in self.unit_cell.atoms], self.ncells)
         labels = np.delete(labels, iremove).tolist()
-        return atoms_pos_supercell, is_matom, colors, sizes, labels, iremove, iremove_mag
+        return atoms_pos_supercell, atoms_mom_supercell, is_matom, colors, sizes, labels, iremove, iremove_mag
     
     def plot_magnetic_structure(self, canvas_scene, mj, pos, colors):
         verts = np.c_[pos, pos + self.spin_scale*mj]  # natom x 6
+        # Maybe connect='strip', methof='agg' will work in some future versions and allow high quality arrows
         scene.visuals.Arrow(pos=verts.reshape(-1,3), parent=canvas_scene, connect='segments',
-            arrows=verts, arrow_size=self.arrow_head_size,
+            arrows=verts, arrow_size=self.arrow_head_size, method='gl',
             width=self.arrow_width, antialias=True, 
-            arrow_type='triangle_60',
+            arrow_type='stealth',
             color=np.repeat(colors, 2, axis=0).tolist(),
             arrow_color= colors.tolist())
     
@@ -492,7 +855,9 @@ class UnitCell:
             if self.bonds[bond_name]['DM_vec'] is not None:
                 max_norm = max(max_norm, np.linalg.norm(self.bonds[bond_name]['DM_vec']))
         return max_norm
-
+    
+    def __str__(self) -> str:
+        return '<' + '\n'.join([self.__class__.__name__] + ['\t'+str(atom) for atom in self.atoms]) + '>'
 
 class Atom:
     '''
@@ -506,7 +871,7 @@ class Atom:
     def __init__(self, index, position, is_mag=False, moment=np.zeros(3), size=0.2, gtensor_mat=None, aniso_mat=None, label='atom', color="blue"):
         self.pos = np.asarray(position)
         self.is_mag = is_mag
-        self.moment=moment
+        self.moment = moment
         self.gtensor = gtensor_mat
         self.aniso = aniso_mat
         self.size = size
@@ -535,7 +900,9 @@ class Atom:
             # scale such that max eigval is 1
             evals = evals/np.max(abs(evals))
             return evecs @ np.diag(evals) @ np.linalg.inv(evecs)
-
+        
+    def __str__(self) -> str:
+        return f'<{self.__class__.__name__} = Label: {self.label}, r_uvw: {self.pos}, mu: {self.moment}>'
 
 def get_rotation_matrix(vec2, vec1=np.array([0,0,1])):
     vec1 = vec1/np.linalg.norm(vec1)  # unit vectors
@@ -616,9 +983,8 @@ if __name__ == '__main__':
 
     view.camera.set_range()  # centers camera on middle of data and auto-scales extent
 
-    im = canvas.render(alpha=True)
-    import vispy.io
-    vispy.io.image.write_png(r'C:\Users\Stekiel\Desktop\Offline-plots\vispy-test.png', im)
+    # im = canvas.render(alpha=True)
+    # import vispy.io
+    # vispy.io.image.write_png(r'C:\Users\Stekiel\Desktop\Offline-plots\vispy-test.png', im)
 
     canvas.app.run()
-    vispy.io.image.write_png(r'C:\Users\Stekiel\Desktop\Offline-plots\vispy-test2.png', im)

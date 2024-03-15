@@ -1,0 +1,17 @@
+README.md
+setup.py
+spinwaves/__init__.py
+spinwaves/arrow-test.py
+spinwaves/data_containers.py
+spinwaves/functions.py
+spinwaves/lattice.py
+spinwaves/plotting.py
+spinwaves/plotting_pyspinw.py
+spinwaves/spinw.py
+spinwaves/unitcell.py
+spinwaves.egg-info/PKG-INFO
+spinwaves.egg-info/SOURCES.txt
+spinwaves.egg-info/dependency_links.txt
+spinwaves.egg-info/not-zip-safe
+spinwaves.egg-info/requires.txt
+spinwaves.egg-info/top_level.txt
