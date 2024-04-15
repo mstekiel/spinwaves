@@ -6,6 +6,8 @@ import matplotlib
 import warnings
 from dataclasses import dataclass
 
+import logging
+
 # Plotting
 import numpy as np
 from vispy import scene
@@ -27,10 +29,16 @@ from numpy.typing import NDArray
 
 # Internal
 from . import functions as funs
-from .lattice import Lattice
-from .unitcell import Atom, UnitCell
+# from .lattice import Lattice
+from .crystal import Crystal
+# from .plotting_vispy import SupercellPlotter
 
 import mikibox as ms
+
+# import plotting
+# from .plotting import plot_supercell, implemented_sc_plotters
+
+# from coupling import couplings
 
 # Tobi confirmed the factor of two is missing from single-ion naisotropies.
 # He also mentioned the inverted sign mistake in the phase factor somewhere
@@ -53,12 +61,12 @@ class SpinW:
 
     lattice:
         `Lattice` object
-    magnetic_atoms:
-        List of dictionaries [ {'label':'Er', 'w':(0,0,0), 'S':8},...]               
+    unit_cell:
+        Dictionary       
+    magnetic_structure:
+        [k, n, spins]
     couplings: 
         List[d, i, j, J]
-    magnetic_str:
-        [k, n, spins]
 
 
 
@@ -67,20 +75,18 @@ class SpinW:
         - Each object of the constructor should be its own well defined class, or np.array with defined fields.
             - `Atom`s in `UnitCell` object that lives independently on the lattice.
     '''
-    def __init__(self, lattice: Lattice, unit_cell: UnitCell, magnetic_structure: Dict):
+    def __init__(self, crystal: Crystal, magnetic_structure: Dict):
         '''
         lattice: Lattice
         unit_cell: UnitCell
+        magnetic_str: [k, n, spins]
         couplings: List[d, i, j, J]
-        magnetic_str: [k, n]
         '''
-        self.lattice = lattice
-        self.unit_cell = unit_cell # extend to handle bot magnetic and non-magnetic atoms
-
-        # assert len(magnetic_structure['spins']) == len(self.magnetic_atoms)  # Must define spin in the unit cell for each magnetic atom
+        self.crystal = crystal
+        self.magnetic_atoms = [atom for atom in crystal.atoms if atom.is_mag]
         self.magnetic_structure = magnetic_structure
-
         self.couplings = None
+        # self.add_couplings(couplings)
 
     def symmetry_operations(self, generators: List[str]) -> np.ndarray:
         '''
@@ -126,8 +132,9 @@ class SpinW:
         '''
         Generate couplings bettween magnetic atoms.        
 
-        couplings: List[n_uvw, atom_i, atom_j, J, symmetry]
-            Couple atom with index `atom_j` in the unit cell with index `n_uvw` with atom of index `atom_i` in
+        couplings: Dict[ label: Tuple[n_uvw, atom_i, atom_j, J, symmetry] ]
+            Define a coupling with label `label` that couples atom with index `atom_j`
+            in the unit cell with index `n_uvw` with atom of index `atom_i` in
             the original unit cell. The coupling can be symmetrized, that is equivalent atoms can be coupled,
             based on the symmetry operations in `symmetry` list.
 
@@ -142,23 +149,26 @@ class SpinW:
 
         Examples:
 
-        (1) Define easy-plane single-ion anisotropy.
-        >>> spinwaves.add_couplings([[0,0,0], 0, 0, np.diag([0,0,0.2]), ['1']])
+        Easy-plane single-ion anisotropy.
+        >>> spinwaves.add_couplings({'Kz': [0,0,0], 0, 0, np.diag([0,0,0.2]), ['1']})
+
+        Nearest neighbour in-plane coupling on hexagonal lattice:
+        >>> spinwaves.add_couplings({ 'Jx': [[1,0,0], 0, 0, -0.5*np.eye(3,3), ['6z']] })
         '''
 
         formatted_couplings = []
 
         for label,(n_uvw, atom_i, atom_j, J, sym_ops) in couplings.items():
-            assert atom_i < len(self.unit_cell.atoms)    # coupled atom not in the `atom` list
-            assert atom_j < len(self.unit_cell.atoms)    # coupled atom not in the `atom` list
+            assert atom_i < len(self.crystal.atoms)    # coupled atom not in the `atom` list
+            assert atom_j < len(self.crystal.atoms)    # coupled atom not in the `atom` list
 
-            ri_xyz = self.lattice.uvw2xyz(self.unit_cell.atoms[atom_i].r)
-            rj_xyz = self.lattice.uvw2xyz(self.unit_cell.atoms[atom_j].r)
-            d_xyz = self.lattice.uvw2xyz(n_uvw) + rj_xyz - ri_xyz
+            ri_xyz = self.crystal.uvw2xyz(self.crystal.atoms[atom_i].r)
+            rj_xyz = self.crystal.uvw2xyz(self.crystal.atoms[atom_j].r)
+            d_xyz = self.crystal.uvw2xyz(n_uvw) + rj_xyz - ri_xyz
             for sym in self.symmetry_operations(sym_ops):
                 Jsym = sym @ J @ sym.T
                 dsym_xyz = sym @ d_xyz
-                nsym_uvw = np.round(self.lattice.xyz2uvw(ri_xyz + dsym_xyz - rj_xyz))
+                nsym_uvw = np.round(self.crystal.xyz2uvw(ri_xyz + dsym_xyz - rj_xyz))
                 formatted_couplings.append([dsym_xyz, nsym_uvw, atom_i, atom_j, Jsym])
 
         self.couplings = couplings                      # [n_uvw, atom_i, atom_j, J, sym]
@@ -197,7 +207,7 @@ class SpinW:
 
         return Rp
     
-    def determine_h(self, q, silent=True) -> NDArray[np.complex128]:
+    def determine_h(self, q: Tuple, silent: bool=True) -> NDArray[np.complex128]:
         '''
         Determine the reduced Hamiltonian.
 
@@ -214,7 +224,7 @@ class SpinW:
         Jp0 = np.zeros((len(self.magnetic_atoms), len(self.magnetic_atoms), 3, 3), dtype=np.float64)
         JpofK = np.zeros((len(self.magnetic_atoms), len(self.magnetic_atoms), 3, 3), dtype=np.complex128)
         for (d_xyz, n_uvw, atom_i, atom_j, J) in self.formatted_couplings:
-            k = self.lattice.hkl2xyz(q)
+            k = self.crystal.hkl2xyz(q)
             Rn = self.determine_Rn(n_uvw)
 
             Jp0[atom_i, atom_j, :,:] += J @ Rn
@@ -227,8 +237,8 @@ class SpinW:
 
         u = np.zeros((len(self.magnetic_atoms), 3), dtype=complex)
         v = np.zeros((len(self.magnetic_atoms), 3), dtype=complex)
-        S = np.asarray([atom['S'] for atom in self.magnetic_atoms])
-        for atom_i,Sdir_i in enumerate(self.magnetic_structure['spins']):
+        S = np.asarray([atom.s for atom in self.magnetic_atoms])
+        for atom_i,Sdir_i in enumerate([atom.m for atom in self.magnetic_atoms]):
             Rp_i = self.determine_Rprime(Sdir_i)
             u[atom_i, :] = Rp_i[:,0] + 1j*Rp_i[:,1]
             v[atom_i, :] = Rp_i[:,2]
@@ -271,24 +281,80 @@ class SpinW:
 
         return h
 
-    def plot_structure(self, extent: Tuple[int,int,int], plot_mag=True, plot_bonds=True, plot_atoms=True,
-                             plot_labels=False, plot_cell=True, plot_axes=True, plot_plane=True, ion_type=None, polyhedra_args=None):
+    # Plotting should be delegated to the factory.
+    # plt_types: [3d_structure, dipsersions?, colormapped_dispersion?]
+
+    def make_supercell(self, 
+                       boundaries: Union[float, 
+                                        Tuple[float, float, float], 
+                                        Tuple[Tuple[float, float], Tuple[float, float], Tuple[float,float]]
+                                        ] = 1):
+        '''
+        PArameters
+        ----------
+        
+        boundaries:
+            Extent in all dimensions (float), or specified along each dimension (Tuple[float, float, float])
+            or a bounding box for all three dimensions.
+        '''
+
+        # Handle bbox creation
+        bbox = np.zeros((3,2))
+        if np.shape(boundaries) == ():
+            bbox[:,1] = boundaries
+        elif np.shape(boundaries) == (3,):
+            bbox[:,1] = boundaries
+        elif np.shape(boundaries) == (3,2):
+            bbox = np.array(boundaries)
+        else:
+            raise IndexError(f'Unexpected dimension of the boundary box: {np.shape(boundaries)} not in [(),(3,),(3,2)]')
+        
+        bbox = np.sort(bbox, axis=1)
+
+        # Find all atoms, coupling and else 
+
+        # TODO
+        # Update atoms magnetic moments by magn struct
+
+        # if self.do_plot_cell:
+        #     self.plot_unit_cell_box(view.scene)  # plot gridlines for unit cell boundaries
+        # if self.do_plot_mag:
+        #     self.plot_magnetic_structure(view.scene, mj, pos, colors)
+        # if self.do_plot_atoms:
+        #     self.plot_atoms(view.scene, pos, colors, sizes, labels)
+        # if self.do_plot_bonds:
+        #     self.plot_bonds(view.scene)
+        # if self.do_plot_axes:
+        #     self.plot_cartesian_axes(view.scene)
+        # if self.do_plot_plane:
+        #     self.plot_rotation_plane(view.scene, pos[is_matom], colors[is_matom])
+        # if self.do_plot_ion:
+        #     self.plot_ion_ellipsoids(view.scene)
+        # if self.polyhedra_args is not None:
+        #     self.plot_polyhedra(view.scene)
+
+        return self.crystal.atoms, self.couplings
+
+    def plot_structure(self,
+                       engine: str,
+                       boundaries: Union[float, 
+                                        Tuple[float, float, float], 
+                                        Tuple[Tuple[float, float], Tuple[float, float], Tuple[float,float]]
+                                        ] = 1, 
+                       plot_mag=True, plot_bonds=True, plot_atoms=True,
+                       plot_labels=False, plot_cell=True, plot_axes=True, 
+                       plot_plane=True, ion_type=None, polyhedra_args=None):
         '''
         Plot the structure.
         '''
-        canvas = scene.SceneCanvas(bgcolor='white', show=True)
-        view = canvas.central_widget.add_view()
-        view.camera = scene.cameras.TurntableCamera()
-        
-        pos, mj, is_matom, colors, sizes, labels, iremove, iremove_mag = self.get_atomic_properties_in_supercell()
 
-        SupercellPlotter(self, view.scene, extent,
-                         plot_mag, plot_bonds, plot_atoms, plot_labels, plot_cell, plot_axes, plot_plane, ion_type, polyhedra_args)
+        if engine not in plotting.implemented_sc_plotters:
+            raise NameError(f'Requested plotting engine `{engine}` is not implemented. Try: {plotting.implemented_sc_plotters}')
         
-        view.camera.set_range()  # centers camera on middle of data and auto-scales extent
-        canvas.app.run()
-        return canvas, view.scene
-    
+        # Crystal objects
+        sc_objects = self.make_supercell(boundaries)
+
+        return
     
     def plot_structure_old(self, extent: Tuple[int,int,int]):
 
@@ -307,7 +373,7 @@ class SpinW:
         ax.set_zlabel('Z')
 
         # Unit cell
-        a, b, c = self.lattice.A.T
+        a, b, c = self.crystal.A.T
         print(a,b,c)
         ax.plot(*np.transpose([[0,0,0], a]), 'r--')
         ax.plot(*np.transpose([[0,0,0], b]), 'g--')
@@ -326,8 +392,8 @@ class SpinW:
                 Sdir = self.magnetic_structure['spins'][atom_i]
                 w = np.array(atom['w'])
                 mu = atom['S']*np.array(Sdir)   # this will need a g
-                r_n = self.lattice.uvw2xyz(n_uvw)
-                r_atom = self.lattice.uvw2xyz(n_uvw+w)
+                r_n = self.crystal.uvw2xyz(n_uvw)
+                r_atom = self.crystal.uvw2xyz(n_uvw+w)
 
                 ax.scatter(*r_atom, **styles[atom['label']])
 
@@ -343,7 +409,7 @@ class SpinW:
 
         # Couplings
         for (r_xyz, n_uvw, atom_i, atom_j, J) in self.formatted_couplings:
-            r_start = self.lattice.uvw2xyz(self.magnetic_atoms[atom_i]['w'])
+            r_start = self.crystal.uvw2xyz(self.magnetic_atoms[atom_i]['w'])
             r_end = r_start + r_xyz
             ax.plot(*np.transpose([r_start, r_end]), color='black', alpha=0.7)
 
@@ -357,7 +423,7 @@ class SpinW:
         N = len(self.magnetic_atoms)
         for q in qPath:
             # print('q', q)
-            k = self.lattice.hkl2xyz(q)
+            k = self.crystal.hkl2xyz(q)
             # print('k', k)
             h = self.determine_h(q, silent=silent)
             # print('h', h)
@@ -431,7 +497,7 @@ class SpinW:
     
     def __repr__(self):
         rr = 'SpinW(\n'
-        rr += self.unit_cell.__repr__() + '\n'
+        rr += self.crystal.__repr__() + '\n'
         rr += 'Couplings = '
         rr += self.couplings.__repr__()
         rr += '\t})'

@@ -5,7 +5,7 @@ from typing import Union, List, Tuple
 from . import functions as funs
 
 import warnings
-warnings.filterwarnings("error")
+# warnings.filterwarnings("error")
 
 class Lattice:
     '''
@@ -75,8 +75,16 @@ class Lattice:
 
                 
         
-    def __str__(self):
-        return str(self.lattice_parameters)
+    # def __str__(self):
+    #     return str(self.lattice_parameters)
+    
+    def __repr__(self):
+        rr = f'Lattice('
+        rr += ', '.join(f'{name}={value}' for name,value in zip(['a','b','c','alpha','beta','gamma'], 
+                                                                self.lattice_parameters))
+        rr += f', orientation={self._current_orientation})'
+
+        return rr
     
     def constructA(self, lattice_parameters: list[float]) -> np.ndarray:
         '''

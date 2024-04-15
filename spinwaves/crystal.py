@@ -1,49 +1,64 @@
 # Core
 import numpy as np
-import scipy.linalg
-import matplotlib.pyplot as plt
 import warnings
-from dataclasses import dataclass, field
-
-# Plotting
-import numpy as np
-from vispy import scene
-# from vispy.color import color_array
-# from itertools import chain
-# from vispy.visuals.filters import ShadingFilter, WireframeFilter
-# from vispy.geometry import create_sphere
-# import copy
-# from scipy.spatial.transform import Rotation
-# from scipy.spatial import ConvexHull
-# from dataclasses import dataclass
+from dataclasses import dataclass
 
 # Typing
-from matplotlib.figure import Figure
-from typing import List, Tuple, Dict, Union
-from numpy.typing import NDArray
+from typing import Dict, Union
 
 # Internal
 from .data_containers import atom_data, color_data
-
+from .lattice import Lattice
 
 @dataclass
 class Atom:
     '''
     Stores informations about the atom.
 
+    Attributes
+    ----------
+        r: np.ndarray
+            Position in crystal (uvw) coordinates.
+        m: np.ndarray = np.zeros((3))
+            Magnetic moment in cartesian (xyz) coordinates.
+        s: float = 0
+            Spin number, int of half-int.
+            
+        gtensor_mat: np.ndarray = None
+            Matrix representing the magnetic g-tensor.
+        aniso_mat: np.ndarray = None
+            Matrix representing the anisotropic displacement parameters.
+
+        label: str = 'atom'
+            Label, suggested format is `ElementSymbol_x`, that allows automaitc detection of
+            `self.element_symbol` field.
+        element_symbol: str = None
+            Element symbol.
+
+        color: str = None
+            Color of the atom, used for plotting.
+        radius: float = 0
+            Radius of the atom, determined from `self.element_symbol`, used for plotting, 
+        spin_scale: float = 1
+            Scale of the magnetic moment. used for plotting.
+
+        _is_mag: bool = False
+            Helper flag set by non-zero `self.m` and `self.s` values.
+
+
     Questions:
     - what is index?
     - moment in what units?
     - position in what units?
     '''
-    r: np.ndarray
-    m: np.ndarray = np.zeros((3))
+    r: np.ndarray[float]
+    m: np.ndarray[float] = np.zeros((3))
     s: float = 0
-    is_mag: bool = False
+    _is_mag: bool = False
     index: int = -1
     label: str = 'atom'
     element_symbol: str = None
-    color: str = None
+    color: np.ndarray[int] = None
     radius: float = 0
     spin_scale: float = 1
     gtensor_mat: np.ndarray = None
@@ -55,22 +70,27 @@ class Atom:
         '''
 
         # Position
-        self.r = np.array(self.r)
+        self.r = np.array(self.r, dtype=float)
         if not self.r.shape == (3,):
             raise ValueError(f'Atomic position must be a (3,) vector now is: {self.r.shape}')
         
-        # Magnetic moment
+        # Magnetic moment and spin
         self.m = np.array(self.m)
-        if self.m.size == 0:
-            pass
-        if not self.r.shape == (3,):
-            raise ValueError(f'Atomic position must be a (3,) vector now is: {self.r.shape}')
+        if not self.m.shape == (3,):
+            raise ValueError(f'Atomic magnetic moment must be a (3,) vector now is: {self.r.shape}')
+        if not np.shape(self.s)==():
+            raise ValueError(f'Atomic spin must be a single `float`: s={self.s} shape={np.shape(self.s)}')
 
         # Is magnetic atom
-        if np.linalg.norm(self.m) > 1e-10 and (np.abs(self.s)>0):
+        if (np.linalg.norm(self.m) < 1e-10) and (self.s == 0):    # non-magnetic atom
+            self.is_mag = False
+        elif np.linalg.norm(self.m) > 1e-10 and (np.abs(self.s)>0):
             self.is_mag = True
+        else:
+            raise ValueError(f'''Must provide (3,) shape vector for magnetic moment and non-zero spin number for magnetic atom.\n\tNow: m={self.m} s={self.s}\n\t{self}''')
 
         # Element symbol as input or derived from the label 
+        # TODO what if the element is wrong?
         if not self.element_symbol:
             # token = ''.join([])
             if self.label[:2] in atom_data:
@@ -78,13 +98,14 @@ class Atom:
             elif self.label[:1] in atom_data:
                 self.element_symbol = self.label[:1]
 
-        # Color as input or derived from the element symbol
-            if self.color:
-                pass
-            elif self.element_symbol:
-                self.color = atom_data[self.element_symbol]['RGB']
-            else:
-                self.color = color_data['Black']
+        # Color as input, derived from the element symbol, or black
+        if self.color:
+            # TODO check type
+            pass
+        elif self.element_symbol:
+            self.color = atom_data[self.element_symbol]['RGB']
+        else:
+            self.color = color_data['Black']
 
         # Atom radius
         if not bool(self.radius):
@@ -93,19 +114,38 @@ class Atom:
             else:
                 self.radius = 0.3
         
-class UnitCell:
+class Crystal(Lattice):
+    '''Crystal structure class. `Atoms` on a `Lattice`.
 
+    Holds information about atoms within the unit cell and the shape of the unit cell.
+
+    Attributes
+    ----------
+    atoms: list[Atom]
+        All atoms within the unit cell. Not just one Wyckoff site, it has to be expanded by hand.
+        
+
+    For further list of attributes from `Lattice` see its docstring.
+
+    Conventions
+    -----------
+    1. Atoms are within the first unit cell, i.e. have crystal coordinates in [0;1) range.
+    '''
     def __init__(self, 
-                 atoms:  Union[Dict, List[Dict], Atom, List[Atom]], 
-                 symmetry: Union[str, int]=None, 
+                 lattice_parameters: list[float],
+                 atoms:  list[Atom], 
+                 symmetry: Union[str, int]=None,  # lets make it a field or something
                  origin: np.ndarray=np.zeros((3))):
         '''
         Parameters:
         -----------
+        atoms:
+            Names and positions of atoms.
         symmetry:
             Name or number of the space group, or None.
         '''
 
+        super().__init__(lattice_parameters=lattice_parameters, orientation=None)
 
         # Handle creating list of atoms
         if isinstance(atoms, Dict) or isinstance(atoms, Atom):
@@ -127,7 +167,7 @@ class UnitCell:
         self.SG_name = ''
 
 
-    def add_atoms(self, atoms: List[Atom], use_symmetry=False) -> List[Atom]:
+    def add_atoms(self, atoms: list[Atom], use_symmetry=False) -> list[Atom]:
         '''
         Handle types here?
         Needs to give indices to atoms and symmetrize if requested
@@ -182,11 +222,12 @@ class UnitCell:
         
 
 if __name__ == '__main__':
+    lattice = Lattice([3,3,4,90,90,120])
     atoms = [
          {'label':'Er', 'r':[0,0,0], 'm':[1,0,0], 's':1},
          {'label':'Er', 'r':[0.5,0.5,0], 'm':[-1,0,0], 's':1},
          {'label':'A', 'r':[0.5,0.5,0.5]}
         ]
-    uc = UnitCell( atoms=atoms)
-    print( uc )
-    print(uc.atoms[2].m)
+    crystal = Crystal(atoms=atoms, lattice=lattice)
+    print( crystal )
+    print(crystal.atoms[2].m)

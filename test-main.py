@@ -1,22 +1,70 @@
-import numpy as np
-import matplotlib.pyplot as plt
 
-from vispy import scene
-from vispy.color import color_array
-from itertools import chain
-from vispy.visuals.filters import ShadingFilter, WireframeFilter
-from vispy.geometry import create_sphere
-import copy
-from scipy.spatial.transform import Rotation
-from scipy.spatial import ConvexHull
-from dataclasses import dataclass
-import warnings
-
-from matplotlib.figure import Figure
-
-# from spinwaves import *
 import spinwaves
 
+
+# Watchdog listener
+# import sys
+# import time
+# import logging
+# from watchdog.observers import Observer
+# from watchdog.events import LoggingEventHandler
+
+# class ReplottingHandler(LoggingEventHandler):
+#      def on_modified(self, event):
+#         # Do stuff required when the main file is being modified
+#         pass
+     
+#      def on_any_event(self, event):
+#           print(event)
+
+# if __name__ == "__main__":
+#     logging.basicConfig(level=logging.INFO,
+#                         format='%(asctime)s - %(message)s',
+#                         datefmt='%Y-%m-%d %H:%M:%S')
+#     path = sys.argv[1] if len(sys.argv) > 1 else '.'
+#     event_handler = ReplottingHandler()
+#     observer = Observer()
+#     observer.schedule(event_handler, path, recursive=True)
+#     observer.start()
+#     try:
+#         while True:
+#             time.sleep(1)
+#             print('sleep again')
+#     except KeyboardInterrupt:
+#         observer.stop()
+#     observer.join()
+
+# watchfiles listener
+from watchfiles import watch
+import logging, traceback
+import importlib
+
+logging.getLogger('watchfiles').setLevel(logging.INFO) # handle only high priority events from watchlist
+logging.basicConfig(level=logging.DEBUG)
+
+for changes in watch(r'C:\Users\Stekiel\Documents\GitHub\spinwaves\sws_script.py'):
+    try:
+        logging.info('Reloading content.')
+        import sws_script
+        importlib.reload(sws_script)
+        from sws_script import lattice, atoms
+
+        print(lattice)
+        print(atoms)
+
+
+        logging.info('Replotting structure.')
+        uc = spinwaves.UnitCell(atoms=atoms)
+        sw = spinwaves.SpinW(lattice=lattice, atoms=uc, magnetic_structure={'k':[1/3,1/3,0], 'n':[0,0,1]})
+
+        spinwaves.SupercellPlotter(sw, extent=(2,2,2), engine='vispy',
+                    plot_mag=True, plot_bonds=False, plot_atoms=True,
+                    plot_labels=False, plot_cell=True, plot_axes=True, 
+                    plot_plane=False, ion_type=None, polyhedra_args=None)
+    
+    except Exception as e:
+        logging.error(traceback.format_exc())
+         
 
 #######################################################
 
@@ -181,13 +229,13 @@ def spinwclean() -> None:
 
     return
 
-if __name__ == '__main__':
-    # lattice = spinwaves.Lattice([3.275, 3.275, 3.785, 90,90,120])
-    # atoms = [
-    #      {'label':'Er', 'r':[0,0,0], 'm':[0,1,0], 's':1},
-    #      {'label':'B', 'r':[0.5,0.5,0.5]}
-    #     ]
-    # uc = spinwaves.UnitCell(atoms=atoms)
+def old_main():
+    lattice = spinwaves.Lattice([3.275, 3.275, 3.785, 90,90,120])
+    atoms = [
+         {'label':'Er', 'r':[0,0,0], 'm':[0,1,0], 's':1},
+         {'label':'B', 'r':[0.5,0.5,0.5]}
+        ]
+    uc = spinwaves.UnitCell(atoms=atoms)
     sw = spinwaves.SpinW(lattice=lattice, atoms=uc, magnetic_structure={'k':[1/3,1/3,0], 'n':[0,0,1]})
     # print('finish')
     # spinwclean()

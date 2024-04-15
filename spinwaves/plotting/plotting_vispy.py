@@ -1,22 +1,28 @@
 import numpy as np
-from vispy import scene
-from vispy.color import color_array
 from itertools import chain
-from vispy.visuals.filters import ShadingFilter, WireframeFilter
-from vispy.geometry import create_sphere
 import copy
-from scipy.spatial.transform import Rotation
-from scipy.spatial import ConvexHull
 from dataclasses import dataclass
 import warnings
 
-from . import functions as funs
-from .data_containers import atom_data, color_data
-from .spinw import SpinW
-from .lattice import Lattice
-import mikibox as ms
 
-from typing import Tuple, Dict, List
+from vispy import scene
+from vispy.color import color_array
+from vispy.visuals.filters import ShadingFilter, WireframeFilter
+from vispy.geometry import create_sphere
+
+from scipy.spatial.transform import Rotation
+from scipy.spatial import ConvexHull
+
+from . import functions as funs
+from ..data_containers import atom_data, color_data
+from ..lattice import Lattice
+from ..crystal import Crystal
+# from .spinw import SpinW
+
+# import mikibox as ms
+
+from typing import Tuple, Dict, List, TypeVar
+SpinW = TypeVar('SpinW')
 
 @dataclass
 class PolyhedronMesh:
@@ -31,7 +37,7 @@ class PolyhedraArgs:
         self.color = color
 
 
-class plotSupercell:
+class SupercellPlotter:
     def __init__(self, spinw: SpinW, extent=(1,1,1), plot=True, plot_mag=True, plot_bonds=True, plot_atoms=True,
                  plot_labels=False, plot_cell=True, plot_axes=True, plot_plane=True, ion_type=None, polyhedra_args=None):
         """
@@ -63,9 +69,8 @@ class plotSupercell:
         self.polyhedra_args = polyhedra_args
 
         # take main parameters from the spinw object
-        self.unit_cell = spinw.unit_cell
+        self.crystal = spinw.crystal
         self.couplings = spinw.couplings
-        self.lattice = spinw.lattice
         self.magnetic_structure = dict(k=spinw.magnetic_structure['k'],
                                        n=spinw.magnetic_structure['n'])
         
@@ -101,7 +106,7 @@ class plotSupercell:
         self.ncells = np.prod(self.int_extent)
                           
         # scale factors
-        self.abc = self.lattice.lattice_parameters[:3]
+        self.abc = self.crystal.lattice_parameters[:3]
         self.cell_scale_abc_to_xyz = min(self.abc)
         self.supercell_scale_abc_to_xyz = min(self.abc*self.extent)
 
@@ -122,10 +127,10 @@ class plotSupercell:
             self.plot()
 
     def transform_points_abc_to_xyz(self, points):
-        return self.lattice.uvw2xyz(points)
+        return self.crystal.uvw2xyz(points)
         
     def transform_points_xyz_to_abc(self, points):
-        return self.lattice.xyz2uvw(points)
+        return self.crystal.xyz2uvw(points)
     
 
 
@@ -144,6 +149,39 @@ class plotSupercell:
         canvas = scene.SceneCanvas(bgcolor='white', show=True)
         view = canvas.central_widget.add_view()
         view.camera = scene.cameras.TurntableCamera()
+
+
+        # Plotting plotly
+        # import plotly.graph_objects as go
+        # from plotly.subplots import make_subplots
+
+        # fig = make_subplots(
+        #     rows=1, cols=2,
+        #     specs=[[{"type": "scene"}, {"type": "scene"}]],
+        # )
+        # trace_detector = fig.add_trace(go.Scatter3d(x=det.xyz[:,0], 
+        #                            y=det.xyz[:,1], 
+        #                            z=det.xyz[:,2], 
+        #                            marker=go.scatter3d.Marker(size=3, color='black'), 
+        #                            opacity=0.8, 
+        #                            mode='markers'),
+        #                 row=1, col=1)
+
+        # print(trace_detector)
+
+        # trace_lattice = fig.add_trace(go.Scatter3d(x=lattice.kxyz[:,0], 
+        #                            y=lattice.kxyz[:,1], 
+        #                            z=lattice.kxyz[:,2], 
+        #                            marker=go.scatter3d.Marker(size=3, color='blue'), 
+        #                            opacity=0.8, 
+        #                            mode='markers'),
+        #                 row=1, col=2)
+
+
+        # trace_detector.data[0]['y'] = det.xyz[:,1]+99
+
+        # fig.show()
+        
         
         pos, mj, is_matom, colors, sizes, labels, iremove, iremove_mag = self.get_atomic_properties_in_supercell()
 
@@ -214,8 +252,8 @@ class plotSupercell:
         '''
         Clip all objects to be shown to the limits of the supercell.
         '''
-        atoms_pos_unit_cell = np.array([atom.r for atom in self.unit_cell.atoms])
-        atoms_mom_unit_cell = np.array([atom.m*atom.spin_scale for atom in self.unit_cell.atoms])
+        atoms_pos_unit_cell = np.array([atom.r for atom in self.crystal.atoms])
+        atoms_mom_unit_cell = np.array([atom.m*atom.spin_scale for atom in self.crystal.atoms])
         natoms = atoms_pos_unit_cell.shape[0]
         atoms_pos_supercell = np.zeros((self.ncells*natoms, 3))
         atoms_mom_supercell = np.zeros((self.ncells*natoms, 3))
@@ -233,9 +271,9 @@ class plotSupercell:
                     
                     icell += 1
 
-        is_matom = np.tile([atom.is_mag for atom in self.unit_cell.atoms], self.ncells)
-        sizes = np.tile([atom.radius for atom in self.unit_cell.atoms], self.ncells)
-        colors = np.tile(np.array([atom.color for atom in self.unit_cell.atoms]).reshape(-1,3), (self.ncells, 1))/255
+        is_matom = np.tile([atom.is_mag for atom in self.crystal.atoms], self.ncells)
+        sizes = np.tile([atom.radius for atom in self.crystal.atoms], self.ncells)
+        colors = np.tile(np.array([atom.color for atom in self.crystal.atoms]).reshape(-1,3), (self.ncells, 1))/255
 
         # remove points beyond extent of supercell
         atoms_pos_supercell, iremove = self._remove_points_outside_extent(atoms_pos_supercell)
@@ -249,7 +287,7 @@ class plotSupercell:
         atoms_pos_supercell = self.transform_points_abc_to_xyz(atoms_pos_supercell)
         # atoms_mom_supercell = self.transform_points_abc_to_xyz(atoms_mom_supercell)
         # get atomic labels
-        labels = np.tile([atom.label for atom in self.spinw.unit_cell.atoms], self.ncells)
+        labels = np.tile([atom.label for atom in self.spinw.crystal.atoms], self.ncells)
         labels = np.delete(labels, iremove).tolist()
         return atoms_pos_supercell, atoms_mom_supercell, is_matom, colors, sizes, labels, iremove, iremove_mag
     
@@ -556,17 +594,4 @@ def get_rotation_matrix(vec2, vec1=np.array([0,0,1])):
         return np.eye(3)
     
 if __name__ == '__main__':
-    lattice = Lattice([3.275, 3.275, 3.785, 90,90,120])
-    atoms = [
-         {'r':[1,2,0], 'm':[1,0,0], 's':1},
-         {'r':[1,2,0], 'm':[1,0,0]},
-         {'r':[1,2,1], 's':2},
-         {'r':[1,2,2]}
-    ]
-    uc = UnitCell( atoms=atoms )
-    sw = SpinW(lattice=lattice, unit_cell=uc, magnetic_structure={'k':[0,0,0], 'n':[0,0,0]})
-    # print('finish')
-    # spinwclean()
-
-    plotSupercell(sw, extent=(2,1,2), plot_mag=False, plot_bonds=False, plot_atoms=True,
-                 plot_labels=False, plot_cell=True, plot_axes=True, plot_plane=False, ion_type=None, polyhedra_args=None)
+    pass

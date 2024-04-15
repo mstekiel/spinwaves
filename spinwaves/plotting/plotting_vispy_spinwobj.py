@@ -1,18 +1,23 @@
 import numpy as np
-from vispy import scene
-from vispy.color import color_array
-from itertools import chain
-from vispy.visuals.filters import ShadingFilter, WireframeFilter
-from vispy.geometry import create_sphere
 import copy
-from scipy.spatial.transform import Rotation
-from scipy.spatial import ConvexHull
+from itertools import chain
 from dataclasses import dataclass
 import warnings
+
+
+from vispy import scene
+from vispy.color import color_array
+from vispy.visuals.filters import ShadingFilter, WireframeFilter
+from vispy.geometry import create_sphere
+
+from scipy.spatial.transform import Rotation
+from scipy.spatial import ConvexHull
 
 from . import functions as funs
 from .spinw import SpinW
 from .lattice import Lattice
+from .data_containers import atom_data
+
 import mikibox as ms
 
 from typing import Tuple, Dict, List
@@ -186,7 +191,7 @@ class SpinWObjectParser:
         for index,atom in enumerate(self.spinw.magnetic_atoms):
             labels.append(atom['label'])
 
-            RGB = atom_data[ spinwaves.atom_data.name==atom['label'] ][['R','G','B']].to_numpy()[0]
+            RGB = atom_data[ atom_data.name==atom['label'] ][['R','G','B']].to_numpy()[0]
             colors.append(RGB)
 
         self.unit_cell = dict(color=np.array(colors), label=np.array(labels))
@@ -429,7 +434,7 @@ class SuperCell:
                 mom = np.array([0,0,0])
             color = swobj.unit_cell['color'][atom_idx]/255
             label = swobj.unit_cell['label'][atom_idx]
-            size = spinwaves.atom_data[spinwaves.atom_data.name==label].radius.to_numpy()
+            size = atom_data[atom_data.name==label].radius.to_numpy()
             self.unit_cell.add_atom(Atom(atom_idx, swobj.atom()['r'][:,iatom], moment=mom ,is_mag=atoms_mag[iatom], size=size, color=color, label=label,
                                          gtensor_mat=g_mat, aniso_mat=aniso_mat))
             

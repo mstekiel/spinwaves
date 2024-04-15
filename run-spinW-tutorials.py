@@ -160,22 +160,19 @@ def erb2(show_struct: bool=False) -> Figure:
     print('Define structure...')
     hex = spinwaves.Lattice([3.275, 3.275, 3.785, 90, 90, 120])
     atoms = [
-        {'label':'Er', 'w':(0,0,0), 'S':8},
+        {'label':'Er', 'r':(0,0,0), 's':4, 'm':(1,0,0)},
     ]   # position in crystal coordinates
     magnetic_structure = {
         'k':(0, 0, 0),
-        'n':(0,0,1),
-        'spins':[
-            (1,0,0)
-        ]
+        'n':(0,0,1)
     }
 
-    sw_er = spinwaves.SpinW(lattice=hex, magnetic_atoms=atoms, magnetic_structure=magnetic_structure)
+    sw_er = spinwaves.SpinW(lattice=hex, atoms=atoms, magnetic_structure=magnetic_structure)
 
     print('Add couplings...')
     Jx = -0.0354
     Jxz = -0.004
-    Jz, J2z = -0.0155, -0.002
+    Jz, J2z = -0.0155, 0.01
     couplings = {
         'K':[[0,0,0], 0, 0, np.diag([0,0.002,6.7]), ['1']], # K
 
@@ -295,16 +292,16 @@ def nbcp(show_struct: bool=False) -> Figure:
     return fig
 
 if __name__ == '__main__':
-    fig = tutorial_4()
-    fig.savefig(r'C:\Users\Stekiel\Desktop\Offline-plots\spinwaves-t4.png', dpi=200)
+    # fig = tutorial_4()
+    # fig.savefig(r'C:\Users\Stekiel\Desktop\Offline-plots\spinwaves-t4.png', dpi=200)
 
-    fig = tutorial_12()
-    fig.savefig(r'C:\Users\Stekiel\Desktop\Offline-plots\spinwaves-t12.png', dpi=200)
+    # fig = tutorial_12()
+    # fig.savefig(r'C:\Users\Stekiel\Desktop\Offline-plots\spinwaves-t12.png', dpi=200)
 
-    fig = tutorial_19()
-    fig.savefig(r'C:\Users\Stekiel\Desktop\Offline-plots\spinwaves-t19.png', dpi=200)
+    # fig = tutorial_19()
+    # fig.savefig(r'C:\Users\Stekiel\Desktop\Offline-plots\spinwaves-t19.png', dpi=200)
 
-    fig = erb2(show_struct=False)
+    fig = erb2(show_struct=True)
     fig.savefig(r'C:\Users\Stekiel\Desktop\Offline-plots\spinwaves-ErB2.png', dpi=200)
 
 

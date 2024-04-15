@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Tuple
 
 # Fitting functions and other
 def gauss_bkg(x,x0,A,sigma,bkg):
@@ -68,20 +69,20 @@ def Rz(alpha: float) -> np.ndarray:
     ca = np.cos(alpha)
     return np.array([[ca,-sa,0],[sa,ca,0],[0,0,1]])
 
-def determine_Rn(self, n_uvw: Tuple[int,int,int]) -> np.ndarray:
+def determine_Rn(n_uvw: Tuple[int,int,int], k: Tuple[float,float,float], n: Tuple[float,float,float]) -> np.ndarray:
     '''
     Rn is the rotation corresponding to the modulation of the magnetic moments.
         S_nj = R_n S_0j
         S_nj : magnetic moment of j-th atom in the n-th unit cell, 
                 where the n-th unit cell is indexed by triple-int `n_uvw`.
 
-    Rn determined by the modulation vector, normal to modulation, and the unit cell coordinates.
+    Rn determined by the modulation vector `k`, normal to modulation `n`, and the unit cell coordinates `n_uvw`.
     '''
-    phi = 2*np.pi*np.dot(self.magnetic_structure['k'], n_uvw)
-    Rn = ms.rotate(self.magnetic_structure['n'], phi)
+    phi = 2*np.pi*np.dot(k, n_uvw)
+    Rn = rotate(n, phi)
     return Rn
 
-def determine_Rprime(self, S) -> np.ndarray:
+def determine_Rprime(S: Tuple[float,float,float]) -> np.ndarray:
     '''
     Rn' is the rotation that puts the magnetic moment along z axis.
         S'_nj = R'_n S''_nj
@@ -94,8 +95,8 @@ def determine_Rprime(self, S) -> np.ndarray:
     Rp = np.eye(3,3)
 
     n = np.cross([0,0,1], S)
-    phi = ms.angle([0,0,1], S)
-    Rp = ms.rotate(n, phi)
+    phi = angle([0,0,1], S)
+    Rp = rotate(n, phi)
 
     return Rp
     
