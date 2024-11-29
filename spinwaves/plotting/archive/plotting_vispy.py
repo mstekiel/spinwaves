@@ -14,7 +14,7 @@ from scipy.spatial.transform import Rotation
 from scipy.spatial import ConvexHull
 
 from . import functions as funs
-from ..data_containers import atom_data, color_data
+from ..databases.data_containers import atom_data, color_data
 from ..lattice import Lattice
 from ..crystal import Crystal
 # from .spinw import SpinW

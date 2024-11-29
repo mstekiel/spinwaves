@@ -37,7 +37,7 @@ class VispySupercellPlotter(SupercellPlotter):
         return
     
     def deploy_plotter(self):
-        self.view.camera.set_range()  # centers camera on middle of data and auto-scales extent
+        # self.view.camera.set_range()  # centers camera on middle of data and auto-scales extent
         self.canvas.app.run()
     
         return self.canvas, self.view.scene
@@ -89,7 +89,7 @@ class VispySupercellPlotter(SupercellPlotter):
         # def plot_magnetic_structure(self, canvas_scene, mj, pos, colors):
         self.spin_scale = 1
         self.arrow_width = 8
-        self.arrow_head_size = 6
+        self.arrow_head_size = 3
 
         verts = np.c_[positions, positions + self.spin_scale*directions]  # natom x 6
         # Maybe connect='strip', methof='agg' will work in some future versions and allow high quality arrows
