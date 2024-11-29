@@ -1,0 +1,531 @@
+# List of space groups implemented in th python `spglib`
+# number international_short international_full international schoenflies hall_number hall_symbol choice pointgroup_international pointgroup_schoenflies arithmetic_crystal_class_number arithmetic_crystal_class_symbol
+1    P1          P 1                  P 1                              C1^1    1    P 1             std    1      C1   1   1P     
+2    P-1         P -1                 P -1                             Ci^1    2    -P 1            std    -1     Ci   2   -1P    
+3    P2          P 1 2 1              P 2 = P 1 2 1                    C2^1    3    P 2y            b      2      C2   3   2P     
+3    P2          P 1 1 2              P 2 = P 1 1 2                    C2^1    4    P 2             c      2      C2   3   2P     
+3    P2          P 2 1 1              P 2 = P 2 1 1                    C2^1    5    P 2x            a      2      C2   3   2P     
+4    P2_1        P 1 2_1 1            P 2_1 = P 1 2_1 1                C2^2    6    P 2yb           b      2      C2   3   2P     
+4    P2_1        P 1 1 2_1            P 2_1 = P 1 1 2_1                C2^2    7    P 2c            c      2      C2   3   2P     
+4    P2_1        P 2_1 1 1            P 2_1 = P 2_1 1 1                C2^2    8    P 2xa           a      2      C2   3   2P     
+5    C2          C 1 2 1              C 2 = C 1 2 1                    C2^3    9    C 2y            b1     2      C2   4   2C     
+5    C2          A 1 2 1              C 2 = A 1 2 1                    C2^3    10   A 2y            b2     2      C2   4   2C     
+5    C2          I 1 2 1              C 2 = I 1 2 1                    C2^3    11   I 2y            b3     2      C2   4   2C     
+5    C2          A 1 1 2              C 2 = A 1 1 2                    C2^3    12   A 2             c1     2      C2   4   2C     
+5    C2          B 1 1 2              C 2 = B 1 1 2 = B 2              C2^3    13   B 2             c2     2      C2   4   2C     
+5    C2          I 1 1 2              C 2 = I 1 1 2                    C2^3    14   I 2             c3     2      C2   4   2C     
+5    C2          B 2 1 1              C 2 = B 2 1 1                    C2^3    15   B 2x            a1     2      C2   4   2C     
+5    C2          C 2 1 1              C 2 = C 2 1 1                    C2^3    16   C 2x            a2     2      C2   4   2C     
+5    C2          I 2 1 1              C 2 = I 2 1 1                    C2^3    17   I 2x            a3     2      C2   4   2C     
+6    Pm          P 1 m 1              P m = P 1 m 1                    Cs^1    18   P -2y           b      m      Cs   5   mP     
+6    Pm          P 1 1 m              P m = P 1 1 m                    Cs^1    19   P -2            c      m      Cs   5   mP     
+6    Pm          P m 1 1              P m = P m 1 1                    Cs^1    20   P -2x           a      m      Cs   5   mP     
+7    Pc          P 1 c 1              P c = P 1 c 1                    Cs^2    21   P -2yc          b1     m      Cs   5   mP     
+7    Pc          P 1 n 1              P c = P 1 n 1                    Cs^2    22   P -2yac         b2     m      Cs   5   mP     
+7    Pc          P 1 a 1              P c = P 1 a 1                    Cs^2    23   P -2ya          b3     m      Cs   5   mP     
+7    Pc          P 1 1 a              P c = P 1 1 a                    Cs^2    24   P -2a           c1     m      Cs   5   mP     
+7    Pc          P 1 1 n              P c = P 1 1 n                    Cs^2    25   P -2ab          c2     m      Cs   5   mP     
+7    Pc          P 1 1 b              P c = P 1 1 b = P b              Cs^2    26   P -2b           c3     m      Cs   5   mP     
+7    Pc          P b 1 1              P c = P b 1 1                    Cs^2    27   P -2xb          a1     m      Cs   5   mP     
+7    Pc          P n 1 1              P c = P n 1 1                    Cs^2    28   P -2xbc         a2     m      Cs   5   mP     
+7    Pc          P c 1 1              P c = P c 1 1                    Cs^2    29   P -2xc          a3     m      Cs   5   mP     
+8    Cm          C 1 m 1              C m = C 1 m 1                    Cs^3    30   C -2y           b1     m      Cs   6   mC     
+8    Cm          A 1 m 1              C m = A 1 m 1                    Cs^3    31   A -2y           b2     m      Cs   6   mC     
+8    Cm          I 1 m 1              C m = I 1 m 1                    Cs^3    32   I -2y           b3     m      Cs   6   mC     
+8    Cm          A 1 1 m              C m = A 1 1 m                    Cs^3    33   A -2            c1     m      Cs   6   mC     
+8    Cm          B 1 1 m              C m = B 1 1 m = B m              Cs^3    34   B -2            c2     m      Cs   6   mC     
+8    Cm          I 1 1 m              C m = I 1 1 m                    Cs^3    35   I -2            c3     m      Cs   6   mC     
+8    Cm          B m 1 1              C m = B m 1 1                    Cs^3    36   B -2x           a1     m      Cs   6   mC     
+8    Cm          C m 1 1              C m = C m 1 1                    Cs^3    37   C -2x           a2     m      Cs   6   mC     
+8    Cm          I m 1 1              C m = I m 1 1                    Cs^3    38   I -2x           a3     m      Cs   6   mC     
+9    Cc          C 1 c 1              C c = C 1 c 1                    Cs^4    39   C -2yc          b1     m      Cs   6   mC     
+9    Cc          A 1 n 1              C c = A 1 n 1                    Cs^4    40   A -2yab         b2     m      Cs   6   mC     
+9    Cc          I 1 a 1              C c = I 1 a 1                    Cs^4    41   I -2ya          b3     m      Cs   6   mC     
+9    Cc          A 1 a 1              C c = A 1 a 1                    Cs^4    42   A -2ya          -b1    m      Cs   6   mC     
+9    Cc          C 1 n 1              C c = C 1 n 1                    Cs^4    43   C -2yac         -b2    m      Cs   6   mC     
+9    Cc          I 1 c 1              C c = I 1 c 1                    Cs^4    44   I -2yc          -b3    m      Cs   6   mC     
+9    Cc          A 1 1 a              C c = A 1 1 a                    Cs^4    45   A -2a           c1     m      Cs   6   mC     
+9    Cc          B 1 1 n              C c = B 1 1 n                    Cs^4    46   B -2ab          c2     m      Cs   6   mC     
+9    Cc          I 1 1 b              C c = I 1 1 b                    Cs^4    47   I -2b           c3     m      Cs   6   mC     
+9    Cc          B 1 1 b              C c = B 1 1 b = B b              Cs^4    48   B -2b           -c1    m      Cs   6   mC     
+9    Cc          A 1 1 n              C c = A 1 1 n                    Cs^4    49   A -2ab          -c2    m      Cs   6   mC     
+9    Cc          I 1 1 a              C c = I 1 1 a                    Cs^4    50   I -2a           -c3    m      Cs   6   mC     
+9    Cc          B b 1 1              C c = B b 1 1                    Cs^4    51   B -2xb          a1     m      Cs   6   mC     
+9    Cc          C n 1 1              C c = C n 1 1                    Cs^4    52   C -2xac         a2     m      Cs   6   mC     
+9    Cc          I c 1 1              C c = I c 1 1                    Cs^4    53   I -2xc          a3     m      Cs   6   mC     
+9    Cc          C c 1 1              C c = C c 1 1                    Cs^4    54   C -2xc          -a1    m      Cs   6   mC     
+9    Cc          B n 1 1              C c = B n 1 1                    Cs^4    55   B -2xab         -a2    m      Cs   6   mC     
+9    Cc          I b 1 1              C c = I b 1 1                    Cs^4    56   I -2xb          -a3    m      Cs   6   mC     
+10   P2/m        P 1 2/m 1            P 2/m = P 1 2/m 1                C2h^1   57   -P 2y           b      2/m    C2h  7   2/mP   
+10   P2/m        P 1 1 2/m            P 2/m = P 1 1 2/m                C2h^1   58   -P 2            c      2/m    C2h  7   2/mP   
+10   P2/m        P 2/m 1 1            P 2/m = P 2/m 1 1                C2h^1   59   -P 2x           a      2/m    C2h  7   2/mP   
+11   P2_1/m      P 1 2_1/m 1          P 2_1/m = P 1 2_1/m 1            C2h^2   60   -P 2yb          b      2/m    C2h  7   2/mP   
+11   P2_1/m      P 1 1 2_1/m          P 2_1/m = P 1 1 2_1/m            C2h^2   61   -P 2c           c      2/m    C2h  7   2/mP   
+11   P2_1/m      P 2_1/m 1 1          P 2_1/m = P 2_1/m 1 1            C2h^2   62   -P 2xa          a      2/m    C2h  7   2/mP   
+12   C2/m        C 1 2/m 1            C 2/m = C 1 2/m 1                C2h^3   63   -C 2y           b1     2/m    C2h  8   2/mC   
+12   C2/m        A 1 2/m 1            C 2/m = A 1 2/m 1                C2h^3   64   -A 2y           b2     2/m    C2h  8   2/mC   
+12   C2/m        I 1 2/m 1            C 2/m = I 1 2/m 1                C2h^3   65   -I 2y           b3     2/m    C2h  8   2/mC   
+12   C2/m        A 1 1 2/m            C 2/m = A 1 1 2/m                C2h^3   66   -A 2            c1     2/m    C2h  8   2/mC   
+12   C2/m        B 1 1 2/m            C 2/m = B 1 1 2/m = B 2/m        C2h^3   67   -B 2            c2     2/m    C2h  8   2/mC   
+12   C2/m        I 1 1 2/m            C 2/m = I 1 1 2/m                C2h^3   68   -I 2            c3     2/m    C2h  8   2/mC   
+12   C2/m        B 2/m 1 1            C 2/m = B 2/m 1 1                C2h^3   69   -B 2x           a1     2/m    C2h  8   2/mC   
+12   C2/m        C 2/m 1 1            C 2/m = C 2/m 1 1                C2h^3   70   -C 2x           a2     2/m    C2h  8   2/mC   
+12   C2/m        I 2/m 1 1            C 2/m = I 2/m 1 1                C2h^3   71   -I 2x           a3     2/m    C2h  8   2/mC   
+13   P2/c        P 1 2/c 1            P 2/c = P 1 2/c 1                C2h^4   72   -P 2yc          b1     2/m    C2h  7   2/mP   
+13   P2/c        P 1 2/n 1            P 2/c = P 1 2/n 1                C2h^4   73   -P 2yac         b2     2/m    C2h  7   2/mP   
+13   P2/c        P 1 2/a 1            P 2/c = P 1 2/a 1                C2h^4   74   -P 2ya          b3     2/m    C2h  7   2/mP   
+13   P2/c        P 1 1 2/a            P 2/c = P 1 1 2/a                C2h^4   75   -P 2a           c1     2/m    C2h  7   2/mP   
+13   P2/c        P 1 1 2/n            P 2/c = P 1 1 2/n                C2h^4   76   -P 2ab          c2     2/m    C2h  7   2/mP   
+13   P2/c        P 1 1 2/b            P 2/c = P 1 1 2/b = P 2/b        C2h^4   77   -P 2b           c3     2/m    C2h  7   2/mP   
+13   P2/c        P 2/b 1 1            P 2/c = P 2/b 1 1                C2h^4   78   -P 2xb          a1     2/m    C2h  7   2/mP   
+13   P2/c        P 2/n 1 1            P 2/c = P 2/n 1 1                C2h^4   79   -P 2xbc         a2     2/m    C2h  7   2/mP   
+13   P2/c        P 2/c 1 1            P 2/c = P 2/c 1 1                C2h^4   80   -P 2xc          a3     2/m    C2h  7   2/mP   
+14   P2_1/c      P 1 2_1/c 1          P 2_1/c = P 1 2_1/c 1            C2h^5   81   -P 2ybc         b1     2/m    C2h  7   2/mP   
+14   P2_1/c      P 1 2_1/n 1          P 2_1/c = P 1 2_1/n 1            C2h^5   82   -P 2yn          b2     2/m    C2h  7   2/mP   
+14   P2_1/c      P 1 2_1/a 1          P 2_1/c = P 1 2_1/a 1            C2h^5   83   -P 2yab         b3     2/m    C2h  7   2/mP   
+14   P2_1/c      P 1 1 2_1/a          P 2_1/c = P 1 1 2_1/a            C2h^5   84   -P 2ac          c1     2/m    C2h  7   2/mP   
+14   P2_1/c      P 1 1 2_1/n          P 2_1/c = P 1 1 2_1/n            C2h^5   85   -P 2n           c2     2/m    C2h  7   2/mP   
+14   P2_1/c      P 1 1 2_1/b          P 2_1/c = P 1 1 2_1/b = P 2_1/b  C2h^5   86   -P 2bc          c3     2/m    C2h  7   2/mP   
+14   P2_1/c      P 2_1/b 1 1          P 2_1/c = P 2_1/b 1 1            C2h^5   87   -P 2xab         a1     2/m    C2h  7   2/mP   
+14   P2_1/c      P 2_1/n 1 1          P 2_1/c = P 2_1/n 1 1            C2h^5   88   -P 2xn          a2     2/m    C2h  7   2/mP   
+14   P2_1/c      P 2_1/c 1 1          P 2_1/c = P 2_1/c 1 1            C2h^5   89   -P 2xac         a3     2/m    C2h  7   2/mP   
+15   C2/c        C 1 2/c 1            C 2/c = C 1 2/c 1                C2h^6   90   -C 2yc          b1     2/m    C2h  8   2/mC   
+15   C2/c        A 1 2/n 1            C 2/c = A 1 2/n 1                C2h^6   91   -A 2yab         b2     2/m    C2h  8   2/mC   
+15   C2/c        I 1 2/a 1            C 2/c = I 1 2/a 1                C2h^6   92   -I 2ya          b3     2/m    C2h  8   2/mC   
+15   C2/c        A 1 2/a 1            C 2/c = A 1 2/a 1                C2h^6   93   -A 2ya          -b1    2/m    C2h  8   2/mC   
+15   C2/c        C 1 2/n 1            C 2/c = C 1 2/n 1                C2h^6   94   -C 2yac         -b2    2/m    C2h  8   2/mC   
+15   C2/c        I 1 2/c 1            C 2/c = I 1 2/c 1                C2h^6   95   -I 2yc          -b3    2/m    C2h  8   2/mC   
+15   C2/c        A 1 1 2/a            C 2/c = A 1 1 2/a                C2h^6   96   -A 2a           c1     2/m    C2h  8   2/mC   
+15   C2/c        B 1 1 2/n            C 2/c = B 1 1 2/n                C2h^6   97   -B 2ab          c2     2/m    C2h  8   2/mC   
+15   C2/c        I 1 1 2/b            C 2/c = I 1 1 2/b                C2h^6   98   -I 2b           c3     2/m    C2h  8   2/mC   
+15   C2/c        B 1 1 2/b            C 2/c = B 1 1 2/b = B 2/b        C2h^6   99   -B 2b           -c1    2/m    C2h  8   2/mC   
+15   C2/c        A 1 1 2/n            C 2/c = A 1 1 2/n                C2h^6   100  -A 2ab          -c2    2/m    C2h  8   2/mC   
+15   C2/c        I 1 1 2/a            C 2/c = I 1 1 2/a                C2h^6   101  -I 2a           -c3    2/m    C2h  8   2/mC   
+15   C2/c        B 2/b 1 1            C 2/c = B 2/b 1 1                C2h^6   102  -B 2xb          a1     2/m    C2h  8   2/mC   
+15   C2/c        C 2/n 1 1            C 2/c = C 2/n 1 1                C2h^6   103  -C 2xac         a2     2/m    C2h  8   2/mC   
+15   C2/c        I 2/c 1 1            C 2/c = I 2/c 1 1                C2h^6   104  -I 2xc          a3     2/m    C2h  8   2/mC   
+15   C2/c        C 2/c 1 1            C 2/c = C 2/c 1 1                C2h^6   105  -C 2xc          -a1    2/m    C2h  8   2/mC   
+15   C2/c        B 2/n 1 1            C 2/c = B 2/n 1 1                C2h^6   106  -B 2xab         -a2    2/m    C2h  8   2/mC   
+15   C2/c        I 2/b 1 1            C 2/c = I 2/b 1 1                C2h^6   107  -I 2xb          -a3    2/m    C2h  8   2/mC   
+16   P222        P 2 2 2              P 2 2 2                          D2^1    108  P 2 2           std    222    D2   9   222P   
+17   P222_1      P 2 2 2_1            P 2 2 2_1                        D2^2    109  P 2c 2          std    222    D2   9   222P   
+17   P2_122      P 2_1 2 2            P 2_1 2 2                        D2^2    110  P 2a 2a         cab    222    D2   9   222P   
+17   P22_12      P 2 2_1 2            P 2 2_1 2                        D2^2    111  P 2 2b          bca    222    D2   9   222P   
+18   P2_12_12    P 2_1 2_1 2          P 2_1 2_1 2                      D2^3    112  P 2 2ab         std    222    D2   9   222P   
+18   P22_12_1    P 2 2_1 2_1          P 2 2_1 2_1                      D2^3    113  P 2bc 2         cab    222    D2   9   222P   
+18   P2_122_1    P 2_1 2 2_1          P 2_1 2 2_1                      D2^3    114  P 2ac 2ac       bca    222    D2   9   222P   
+19   P2_12_12_1  P 2_1 2_1 2_1        P 2_1 2_1 2_1                    D2^4    115  P 2ac 2ab       std    222    D2   9   222P   
+20   C222_1      C 2 2 2_1            C 2 2 2_1                        D2^5    116  C 2c 2          std    222    D2   10  222C   
+20   A2_122      A 2_1 2 2            A 2_1 2 2                        D2^5    117  A 2a 2a         cab    222    D2   10  222C   
+20   B22_12      B 2 2_1 2            B 2 2_1 2                        D2^5    118  B 2 2b          bca    222    D2   10  222C   
+21   C222        C 2 2 2              C 2 2 2                          D2^6    119  C 2 2           std    222    D2   10  222C   
+21   A222        A 2 2 2              A 2 2 2                          D2^6    120  A 2 2           cab    222    D2   10  222C   
+21   B222        B 2 2 2              B 2 2 2                          D2^6    121  B 2 2           bca    222    D2   10  222C   
+22   F222        F 2 2 2              F 2 2 2                          D2^7    122  F 2 2           std    222    D2   11  222F   
+23   I222        I 2 2 2              I 2 2 2                          D2^8    123  I 2 2           std    222    D2   12  222I   
+24   I2_12_12_1  I 2_1 2_1 2_1        I 2_1 2_1 2_1                    D2^9    124  I 2b 2c         std    222    D2   12  222I   
+25   Pmm2        P m m 2              P m m 2                          C2v^1   125  P 2 -2          std    mm2    C2v  13  mm2P   
+25   P2mm        P 2 m m              P 2 m m                          C2v^1   126  P -2 2          cab    mm2    C2v  13  mm2P   
+25   Pm2m        P m 2 m              P m 2 m                          C2v^1   127  P -2 -2         bca    mm2    C2v  13  mm2P   
+26   Pmc2_1      P m c 2_1            P m c 2_1                        C2v^2   128  P 2c -2         std    mm2    C2v  13  mm2P   
+26   Pcm2_1      P c m 2_1            P c m 2_1                        C2v^2   129  P 2c -2c        ba-c   mm2    C2v  13  mm2P   
+26   P2_1ma      P 2_1 m a            P 2_1 m a                        C2v^2   130  P -2a 2a        cab    mm2    C2v  13  mm2P   
+26   P2_1am      P 2_1 a m            P 2_1 a m                        C2v^2   131  P -2 2a         -cba   mm2    C2v  13  mm2P   
+26   Pb2_1m      P b 2_1 m            P b 2_1 m                        C2v^2   132  P -2 -2b        bca    mm2    C2v  13  mm2P   
+26   Pm2_1b      P m 2_1 b            P m 2_1 b                        C2v^2   133  P -2b -2        a-cb   mm2    C2v  13  mm2P   
+27   Pcc2        P c c 2              P c c 2                          C2v^3   134  P 2 -2c         std    mm2    C2v  13  mm2P   
+27   P2aa        P 2 a a              P 2 a a                          C2v^3   135  P -2a 2         cab    mm2    C2v  13  mm2P   
+27   Pb2b        P b 2 b              P b 2 b                          C2v^3   136  P -2b -2b       bca    mm2    C2v  13  mm2P   
+28   Pma2        P m a 2              P m a 2                          C2v^4   137  P 2 -2a         std    mm2    C2v  13  mm2P   
+28   Pbm2        P b m 2              P b m 2                          C2v^4   138  P 2 -2b         ba-c   mm2    C2v  13  mm2P   
+28   P2mb        P 2 m b              P 2 m b                          C2v^4   139  P -2b 2         cab    mm2    C2v  13  mm2P   
+28   P2cm        P 2 c m              P 2 c m                          C2v^4   140  P -2c 2         -cba   mm2    C2v  13  mm2P   
+28   Pc2m        P c 2 m              P c 2 m                          C2v^4   141  P -2c -2c       bca    mm2    C2v  13  mm2P   
+28   Pm2a        P m 2 a              P m 2 a                          C2v^4   142  P -2a -2a       a-cb   mm2    C2v  13  mm2P   
+29   Pca2_1      P c a 2_1            P c a 2_1                        C2v^5   143  P 2c -2ac       std    mm2    C2v  13  mm2P   
+29   Pbc2_1      P b c 2_1            P b c 2_1                        C2v^5   144  P 2c -2b        ba-c   mm2    C2v  13  mm2P   
+29   P2_1ab      P 2_1 a b            P 2_1 a b                        C2v^5   145  P -2b 2a        cab    mm2    C2v  13  mm2P   
+29   P2_1ca      P 2_1 c a            P 2_1 c a                        C2v^5   146  P -2ac 2a       -cba   mm2    C2v  13  mm2P   
+29   Pc2_1b      P c 2_1 b            P c 2_1 b                        C2v^5   147  P -2bc -2c      bca    mm2    C2v  13  mm2P   
+29   Pb2_1a      P b 2_1 a            P b 2_1 a                        C2v^5   148  P -2a -2ab      a-cb   mm2    C2v  13  mm2P   
+30   Pnc2        P n c 2              P n c 2                          C2v^6   149  P 2 -2bc        std    mm2    C2v  13  mm2P   
+30   Pcn2        P c n 2              P c n 2                          C2v^6   150  P 2 -2ac        ba-c   mm2    C2v  13  mm2P   
+30   P2na        P 2 n a              P 2 n a                          C2v^6   151  P -2ac 2        cab    mm2    C2v  13  mm2P   
+30   P2an        P 2 a n              P 2 a n                          C2v^6   152  P -2ab 2        -cba   mm2    C2v  13  mm2P   
+30   Pb2n        P b 2 n              P b 2 n                          C2v^6   153  P -2ab -2ab     bca    mm2    C2v  13  mm2P   
+30   Pn2b        P n 2 b              P n 2 b                          C2v^6   154  P -2bc -2bc     a-cb   mm2    C2v  13  mm2P   
+31   Pmn2_1      P m n 2_1            P m n 2_1                        C2v^7   155  P 2ac -2        std    mm2    C2v  13  mm2P   
+31   Pnm2_1      P n m 2_1            P n m 2_1                        C2v^7   156  P 2bc -2bc      ba-c   mm2    C2v  13  mm2P   
+31   P2_1mn      P 2_1 m n            P 2_1 m n                        C2v^7   157  P -2ab 2ab      cab    mm2    C2v  13  mm2P   
+31   P2_1nm      P 2_1 n m            P 2_1 n m                        C2v^7   158  P -2 2ac        -cba   mm2    C2v  13  mm2P   
+31   Pn2_1m      P n 2_1 m            P n 2_1 m                        C2v^7   159  P -2 -2bc       bca    mm2    C2v  13  mm2P   
+31   Pm2_1n      P m 2_1 n            P m 2_1 n                        C2v^7   160  P -2ab -2       a-cb   mm2    C2v  13  mm2P   
+32   Pba2        P b a 2              P b a 2                          C2v^8   161  P 2 -2ab        std    mm2    C2v  13  mm2P   
+32   P2cb        P 2 c b              P 2 c b                          C2v^8   162  P -2bc 2        cab    mm2    C2v  13  mm2P   
+32   Pc2a        P c 2 a              P c 2 a                          C2v^8   163  P -2ac -2ac     bca    mm2    C2v  13  mm2P   
+33   Pna2_1      P n a 2_1            P n a 2_1                        C2v^9   164  P 2c -2n        std    mm2    C2v  13  mm2P   
+33   Pbn2_1      P b n 2_1            P b n 2_1                        C2v^9   165  P 2c -2ab       ba-c   mm2    C2v  13  mm2P   
+33   P2_1nb      P 2_1 n b            P 2_1 n b                        C2v^9   166  P -2bc 2a       cab    mm2    C2v  13  mm2P   
+33   P2_1cn      P 2_1 c n            P 2_1 c n                        C2v^9   167  P -2n 2a        -cba   mm2    C2v  13  mm2P   
+33   Pc2_1n      P c 2_1 n            P c 2_1 n                        C2v^9   168  P -2n -2ac      bca    mm2    C2v  13  mm2P   
+33   Pn2_1a      P n 2_1 a            P n 2_1 a                        C2v^9   169  P -2ac -2n      a-cb   mm2    C2v  13  mm2P   
+34   Pnn2        P n n 2              P n n 2                          C2v^10  170  P 2 -2n         std    mm2    C2v  13  mm2P   
+34   P2nn        P 2 n n              P 2 n n                          C2v^10  171  P -2n 2         cab    mm2    C2v  13  mm2P   
+34   Pn2n        P n 2 n              P n 2 n                          C2v^10  172  P -2n -2n       bca    mm2    C2v  13  mm2P   
+35   Cmm2        C m m 2              C m m 2                          C2v^11  173  C 2 -2          std    mm2    C2v  14  mm2C   
+35   A2mm        A 2 m m              A 2 m m                          C2v^11  174  A -2 2          cab    mm2    C2v  14  mm2C   
+35   Bm2m        B m 2 m              B m 2 m                          C2v^11  175  B -2 -2         bca    mm2    C2v  14  mm2C   
+36   Cmc2_1      C m c 2_1            C m c 2_1                        C2v^12  176  C 2c -2         std    mm2    C2v  14  mm2C   
+36   Ccm2_1      C c m 2_1            C c m 2_1                        C2v^12  177  C 2c -2c        ba-c   mm2    C2v  14  mm2C   
+36   A2_1ma      A 2_1 m a            A 2_1 m a                        C2v^12  178  A -2a 2a        cab    mm2    C2v  14  mm2C   
+36   A2_1am      A 2_1 a m            A 2_1 a m                        C2v^12  179  A -2 2a         -cba   mm2    C2v  14  mm2C   
+36   Bb2_1m      B b 2_1 m            B b 2_1 m                        C2v^12  180  B -2 -2b        bca    mm2    C2v  14  mm2C   
+36   Bm2_1b      B m 2_1 b            B m 2_1 b                        C2v^12  181  B -2b -2        a-cb   mm2    C2v  14  mm2C   
+37   Ccc2        C c c 2              C c c 2                          C2v^13  182  C 2 -2c         std    mm2    C2v  14  mm2C   
+37   A2aa        A 2 a a              A 2 a a                          C2v^13  183  A -2a 2         cab    mm2    C2v  14  mm2C   
+37   Bb2b        B b 2 b              B b 2 b                          C2v^13  184  B -2b -2b       bca    mm2    C2v  14  mm2C   
+38   Amm2        A m m 2              A m m 2                          C2v^14  185  A 2 -2          std    mm2    C2v  15  2mmC   
+38   Bmm2        B m m 2              B m m 2                          C2v^14  186  B 2 -2          ba-c   mm2    C2v  15  2mmC   
+38   B2mm        B 2 m m              B 2 m m                          C2v^14  187  B -2 2          cab    mm2    C2v  15  2mmC   
+38   C2mm        C 2 m m              C 2 m m                          C2v^14  188  C -2 2          -cba   mm2    C2v  15  2mmC   
+38   Cm2m        C m 2 m              C m 2 m                          C2v^14  189  C -2 -2         bca    mm2    C2v  15  2mmC   
+38   Am2m        A m 2 m              A m 2 m                          C2v^14  190  A -2 -2         a-cb   mm2    C2v  15  2mmC   
+39   Aem2        A e m 2              A e m 2                          C2v^15  191  A 2 -2b         std    mm2    C2v  15  2mmC   
+39   Bme2        B m e 2              B m e 2                          C2v^15  192  B 2 -2a         ba-c   mm2    C2v  15  2mmC   
+39   B2em        B 2 e m              B 2 e m                          C2v^15  193  B -2a 2         cab    mm2    C2v  15  2mmC   
+39   C2me        C 2 m e              C 2 m e                          C2v^15  194  C -2a 2         -cba   mm2    C2v  15  2mmC   
+39   Cm2e        C m 2 e              C m 2 e                          C2v^15  195  C -2a -2a       bca    mm2    C2v  15  2mmC   
+39   Ae2m        A e 2 m              A e 2 m                          C2v^15  196  A -2b -2b       a-cb   mm2    C2v  15  2mmC   
+40   Ama2        A m a 2              A m a 2                          C2v^16  197  A 2 -2a         std    mm2    C2v  15  2mmC   
+40   Bbm2        B b m 2              B b m 2                          C2v^16  198  B 2 -2b         ba-c   mm2    C2v  15  2mmC   
+40   B2mb        B 2 m b              B 2 m b                          C2v^16  199  B -2b 2         cab    mm2    C2v  15  2mmC   
+40   C2cm        C 2 c m              C 2 c m                          C2v^16  200  C -2c 2         -cba   mm2    C2v  15  2mmC   
+40   Cc2m        C c 2 m              C c 2 m                          C2v^16  201  C -2c -2c       bca    mm2    C2v  15  2mmC   
+40   Am2a        A m 2 a              A m 2 a                          C2v^16  202  A -2a -2a       a-cb   mm2    C2v  15  2mmC   
+41   Aea2        A e a 2              A e a 2                          C2v^17  203  A 2 -2ab        std    mm2    C2v  15  2mmC   
+41   Bbe2        B b e 2              B b e 2                          C2v^17  204  B 2 -2ab        ba-c   mm2    C2v  15  2mmC   
+41   B2eb        B 2 e b              B 2 e b                          C2v^17  205  B -2ab 2        cab    mm2    C2v  15  2mmC   
+41   C2ce        C 2 c e              C 2 c e                          C2v^17  206  C -2ac 2        -cba   mm2    C2v  15  2mmC   
+41   Cc2e        C c 2 e              C c 2 e                          C2v^17  207  C -2ac -2ac     bca    mm2    C2v  15  2mmC   
+41   Ae2a        A e 2 a              A e 2 a                          C2v^17  208  A -2ab -2ab     a-cb   mm2    C2v  15  2mmC   
+42   Fmm2        F m m 2              F m m 2                          C2v^18  209  F 2 -2          std    mm2    C2v  16  mm2F   
+42   F2mm        F 2 m m              F 2 m m                          C2v^18  210  F -2 2          cab    mm2    C2v  16  mm2F   
+42   Fm2m        F m 2 m              F m 2 m                          C2v^18  211  F -2 -2         bca    mm2    C2v  16  mm2F   
+43   Fdd2        F d d 2              F d d 2                          C2v^19  212  F 2 -2d         std    mm2    C2v  16  mm2F   
+43   F2dd        F 2 d d              F 2 d d                          C2v^19  213  F -2d 2         cab    mm2    C2v  16  mm2F   
+43   Fd2d        F d 2 d              F d 2 d                          C2v^19  214  F -2d -2d       bca    mm2    C2v  16  mm2F   
+44   Imm2        I m m 2              I m m 2                          C2v^20  215  I 2 -2          std    mm2    C2v  17  mm2I   
+44   I2mm        I 2 m m              I 2 m m                          C2v^20  216  I -2 2          cab    mm2    C2v  17  mm2I   
+44   Im2m        I m 2 m              I m 2 m                          C2v^20  217  I -2 -2         bca    mm2    C2v  17  mm2I   
+45   Iba2        I b a 2              I b a 2                          C2v^21  218  I 2 -2c         std    mm2    C2v  17  mm2I   
+45   I2cb        I 2 c b              I 2 c b                          C2v^21  219  I -2a 2         cab    mm2    C2v  17  mm2I   
+45   Ic2a        I c 2 a              I c 2 a                          C2v^21  220  I -2b -2b       bca    mm2    C2v  17  mm2I   
+46   Ima2        I m a 2              I m a 2                          C2v^22  221  I 2 -2a         std    mm2    C2v  17  mm2I   
+46   Ibm2        I b m 2              I b m 2                          C2v^22  222  I 2 -2b         ba-c   mm2    C2v  17  mm2I   
+46   I2mb        I 2 m b              I 2 m b                          C2v^22  223  I -2b 2         cab    mm2    C2v  17  mm2I   
+46   I2cm        I 2 c m              I 2 c m                          C2v^22  224  I -2c 2         -cba   mm2    C2v  17  mm2I   
+46   Ic2m        I c 2 m              I c 2 m                          C2v^22  225  I -2c -2c       bca    mm2    C2v  17  mm2I   
+46   Im2a        I m 2 a              I m 2 a                          C2v^22  226  I -2a -2a       a-cb   mm2    C2v  17  mm2I   
+47   Pmmm        P 2/m 2/m 2/m        P m m m                          D2h^1   227  -P 2 2          std    mmm    D2h  18  mmmP   
+48   Pnnn        P 2/n 2/n 2/n        P n n n                          D2h^2   228  P 2 2 -1n       1      mmm    D2h  18  mmmP   
+48   Pnnn        P 2/n 2/n 2/n        P n n n                          D2h^2   229  -P 2ab 2bc      2      mmm    D2h  18  mmmP   
+49   Pccm        P 2/c 2/c 2/m        P c c m                          D2h^3   230  -P 2 2c         std    mmm    D2h  18  mmmP   
+49   Pmaa        P 2/m 2/a 2/a        P m a a                          D2h^3   231  -P 2a 2         cab    mmm    D2h  18  mmmP   
+49   Pbmb        P 2/b 2/m 2/b        P b m b                          D2h^3   232  -P 2b 2b        bca    mmm    D2h  18  mmmP   
+50   Pban        P 2/b 2/a 2/n        P b a n                          D2h^4   233  P 2 2 -1ab      1      mmm    D2h  18  mmmP   
+50   Pban        P 2/b 2/a 2/n        P b a n                          D2h^4   234  -P 2ab 2b       2      mmm    D2h  18  mmmP   
+50   Pncb        P 2/n 2/c 2/b        P n c b                          D2h^4   235  P 2 2 -1bc      1cab   mmm    D2h  18  mmmP   
+50   Pncb        P 2/n 2/c 2/b        P n c b                          D2h^4   236  -P 2b 2bc       2cab   mmm    D2h  18  mmmP   
+50   Pcna        P 2/c 2/n 2/a        P c n a                          D2h^4   237  P 2 2 -1ac      1bca   mmm    D2h  18  mmmP   
+50   Pcna        P 2/c 2/n 2/a        P c n a                          D2h^4   238  -P 2a 2c        2bca   mmm    D2h  18  mmmP   
+51   Pmma        P 2_1/m 2/m 2/a      P m m a                          D2h^5   239  -P 2a 2a        std    mmm    D2h  18  mmmP   
+51   Pmmb        P 2/m 2_1/m 2/b      P m m b                          D2h^5   240  -P 2b 2         ba-c   mmm    D2h  18  mmmP   
+51   Pbmm        P 2/b 2_1/m 2/m      P b m m                          D2h^5   241  -P 2 2b         cab    mmm    D2h  18  mmmP   
+51   Pcmm        P 2/c 2/m 2_1/m      P c m m                          D2h^5   242  -P 2c 2c        -cba   mmm    D2h  18  mmmP   
+51   Pmcm        P 2/m 2/c 2_1/m      P m c m                          D2h^5   243  -P 2c 2         bca    mmm    D2h  18  mmmP   
+51   Pmam        P 2_1/m 2/a 2/m      P m a m                          D2h^5   244  -P 2 2a         a-cb   mmm    D2h  18  mmmP   
+52   Pnna        P 2/n 2_1/n 2/a      P n n a                          D2h^6   245  -P 2a 2bc       std    mmm    D2h  18  mmmP   
+52   Pnnb        P 2_1/n 2/n 2/b      P n n b                          D2h^6   246  -P 2b 2n        ba-c   mmm    D2h  18  mmmP   
+52   Pbnn        P 2/b 2/n 2_1/n      P b n n                          D2h^6   247  -P 2n 2b        cab    mmm    D2h  18  mmmP   
+52   Pcnn        P 2/c 2_1/n 2/n      P c n n                          D2h^6   248  -P 2ab 2c       -cba   mmm    D2h  18  mmmP   
+52   Pncn        P 2_1/n 2/c 2/n      P n c n                          D2h^6   249  -P 2ab 2n       bca    mmm    D2h  18  mmmP   
+52   Pnan        P 2/n 2/a 2_1/n      P n a n                          D2h^6   250  -P 2n 2bc       a-cb   mmm    D2h  18  mmmP   
+53   Pmna        P 2/m 2/n 2_1/a      P m n a                          D2h^7   251  -P 2ac 2        std    mmm    D2h  18  mmmP   
+53   Pnmb        P 2/n 2/m 2_1/b      P n m b                          D2h^7   252  -P 2bc 2bc      ba-c   mmm    D2h  18  mmmP   
+53   Pbmn        P 2_1/b 2/m 2/n      P b m n                          D2h^7   253  -P 2ab 2ab      cab    mmm    D2h  18  mmmP   
+53   Pcnm        P 2_1/c 2/n 2/m      P c n m                          D2h^7   254  -P 2 2ac        -cba   mmm    D2h  18  mmmP   
+53   Pncm        P 2/n 2_1/c 2/m      P n c m                          D2h^7   255  -P 2 2bc        bca    mmm    D2h  18  mmmP   
+53   Pman        P 2/m 2_1/a 2/n      P m a n                          D2h^7   256  -P 2ab 2        a-cb   mmm    D2h  18  mmmP   
+54   Pcca        P 2_1/c 2/c 2/a      P c c a                          D2h^8   257  -P 2a 2ac       std    mmm    D2h  18  mmmP   
+54   Pccb        P 2/c 2_1/c 2/b      P c c b                          D2h^8   258  -P 2b 2c        ba-c   mmm    D2h  18  mmmP   
+54   Pbaa        P 2/b 2_1/a 2/a      P b a a                          D2h^8   259  -P 2a 2b        cab    mmm    D2h  18  mmmP   
+54   Pcaa        P 2/c 2/a 2_1/a      P c a a                          D2h^8   260  -P 2ac 2c       -cba   mmm    D2h  18  mmmP   
+54   Pbcb        P 2/b 2/c 2_1/b      P b c b                          D2h^8   261  -P 2bc 2b       bca    mmm    D2h  18  mmmP   
+54   Pbab        P 2_1/b 2/a 2/b      P b a b                          D2h^8   262  -P 2b 2ab       a-cb   mmm    D2h  18  mmmP   
+55   Pbam        P 2_1/b 2_1/a 2/m    P b a m                          D2h^9   263  -P 2 2ab        std    mmm    D2h  18  mmmP   
+55   Pmcb        P 2/m 2_1/c 2_1/b    P m c b                          D2h^9   264  -P 2bc 2        cab    mmm    D2h  18  mmmP   
+55   Pcma        P 2_1/c 2/m 2_1/a    P c m a                          D2h^9   265  -P 2ac 2ac      bca    mmm    D2h  18  mmmP   
+56   Pccn        P 2_1/c 2_1/c 2/n    P c c n                          D2h^10  266  -P 2ab 2ac      std    mmm    D2h  18  mmmP   
+56   Pnaa        P 2/n 2_1/a 2_1/a    P n a a                          D2h^10  267  -P 2ac 2bc      cab    mmm    D2h  18  mmmP   
+56   Pbnb        P 2_1/b 2/n 2_1/b    P b n b                          D2h^10  268  -P 2bc 2ab      bca    mmm    D2h  18  mmmP   
+57   Pbcm        P 2/b 2_1/c 2_1/m    P b c m                          D2h^11  269  -P 2c 2b        std    mmm    D2h  18  mmmP   
+57   Pcam        P 2_1/c 2/a 2_1/m    P c a m                          D2h^11  270  -P 2c 2ac       ba-c   mmm    D2h  18  mmmP   
+57   Pmca        P 2_1/m 2/c 2_1/a    P m c a                          D2h^11  271  -P 2ac 2a       cab    mmm    D2h  18  mmmP   
+57   Pmab        P 2_1/m 2_1/a 2/b    P m a b                          D2h^11  272  -P 2b 2a        -cba   mmm    D2h  18  mmmP   
+57   Pbma        P 2_1/b 2_1/m 2/a    P b m a                          D2h^11  273  -P 2a 2ab       bca    mmm    D2h  18  mmmP   
+57   Pcmb        P 2/c 2_1/m 2_1/b    P c m b                          D2h^11  274  -P 2bc 2c       a-cb   mmm    D2h  18  mmmP   
+58   Pnnm        P 2_1/n 2_1/n 2/m    P n n m                          D2h^12  275  -P 2 2n         std    mmm    D2h  18  mmmP   
+58   Pmnn        P 2/m 2_1/n 2_1/n    P m n n                          D2h^12  276  -P 2n 2         cab    mmm    D2h  18  mmmP   
+58   Pnmn        P 2_1/n 2/m 2_1/n    P n m n                          D2h^12  277  -P 2n 2n        bca    mmm    D2h  18  mmmP   
+59   Pmmn        P 2_1/m 2_1/m 2/n    P m m n                          D2h^13  278  P 2 2ab -1ab    1      mmm    D2h  18  mmmP   
+59   Pmmn        P 2_1/m 2_1/m 2/n    P m m n                          D2h^13  279  -P 2ab 2a       2      mmm    D2h  18  mmmP   
+59   Pnmm        P 2/n 2_1/m 2_1/m    P n m m                          D2h^13  280  P 2bc 2 -1bc    1cab   mmm    D2h  18  mmmP   
+59   Pnmm        P 2/n 2_1/m 2_1/m    P n m m                          D2h^13  281  -P 2c 2bc       2cab   mmm    D2h  18  mmmP   
+59   Pmnm        P 2_1/m 2/n 2_1/m    P m n m                          D2h^13  282  P 2ac 2ac -1ac  1bca   mmm    D2h  18  mmmP   
+59   Pmnm        P 2_1/m 2/n 2_1/m    P m n m                          D2h^13  283  -P 2c 2a        2bca   mmm    D2h  18  mmmP   
+60   Pbcn        P 2_1/b 2/c 2_1/n    P b c n                          D2h^14  284  -P 2n 2ab       std    mmm    D2h  18  mmmP   
+60   Pcan        P 2/c 2_1/a 2_1/n    P c a n                          D2h^14  285  -P 2n 2c        ba-c   mmm    D2h  18  mmmP   
+60   Pnca        P 2_1/n 2_1/c 2/a    P n c a                          D2h^14  286  -P 2a 2n        cab    mmm    D2h  18  mmmP   
+60   Pnab        P 2_1/n 2/a 2_1/b    P n a b                          D2h^14  287  -P 2bc 2n       -cba   mmm    D2h  18  mmmP   
+60   Pbna        P 2/b 2_1/n 2_1/a    P b n a                          D2h^14  288  -P 2ac 2b       bca    mmm    D2h  18  mmmP   
+60   Pcnb        P 2_1/c 2_1/n 2/b    P c n b                          D2h^14  289  -P 2b 2ac       a-cb   mmm    D2h  18  mmmP   
+61   Pbca        P 2_1/b 2_1/c 2_1/a  P b c a                          D2h^15  290  -P 2ac 2ab      std    mmm    D2h  18  mmmP   
+61   Pcab        P 2_1/c 2_1/a 2_1/b  P c a b                          D2h^15  291  -P 2bc 2ac      ba-c   mmm    D2h  18  mmmP   
+62   Pnma        P 2_1/n 2_1/m 2_1/a  P n m a                          D2h^16  292  -P 2ac 2n       std    mmm    D2h  18  mmmP   
+62   Pmnb        P 2_1/m 2_1/n 2_1/b  P m n b                          D2h^16  293  -P 2bc 2a       ba-c   mmm    D2h  18  mmmP   
+62   Pbnm        P 2_1/b 2_1/n 2_1/m  P b n m                          D2h^16  294  -P 2c 2ab       cab    mmm    D2h  18  mmmP   
+62   Pcmn        P 2_1/c 2_1/m 2_1/n  P c m n                          D2h^16  295  -P 2n 2ac       -cba   mmm    D2h  18  mmmP   
+62   Pmcn        P 2_1/m 2_1/c 2_1/n  P m c n                          D2h^16  296  -P 2n 2a        bca    mmm    D2h  18  mmmP   
+62   Pnam        P 2_1/n 2_1/a 2_1/m  P n a m                          D2h^16  297  -P 2c 2n        a-cb   mmm    D2h  18  mmmP   
+63   Cmcm        C 2/m 2/c 2_1/m      C m c m                          D2h^17  298  -C 2c 2         std    mmm    D2h  19  mmmC   
+63   Ccmm        C 2/c 2/m 2_1/m      C c m m                          D2h^17  299  -C 2c 2c        ba-c   mmm    D2h  19  mmmC   
+63   Amma        A 2_1/m 2/m 2/a      A m m a                          D2h^17  300  -A 2a 2a        cab    mmm    D2h  19  mmmC   
+63   Amam        A 2_1/m 2/a 2/m      A m a m                          D2h^17  301  -A 2 2a         -cba   mmm    D2h  19  mmmC   
+63   Bbmm        B 2/b 2_1/m 2/m      B b m m                          D2h^17  302  -B 2 2b         bca    mmm    D2h  19  mmmC   
+63   Bmmb        B 2/m 2_1/m 2/b      B m m b                          D2h^17  303  -B 2b 2         a-cb   mmm    D2h  19  mmmC   
+64   Cmce        C 2/m 2/c 2_1/e      C m c e                          D2h^18  304  -C 2ac 2        std    mmm    D2h  19  mmmC   
+64   Ccme        C 2/c 2/m 2_1/e      C c m e                          D2h^18  305  -C 2ac 2ac      ba-c   mmm    D2h  19  mmmC   
+64   Aema        A 2_1/e 2/m 2/a      A e m a                          D2h^18  306  -A 2ab 2ab      cab    mmm    D2h  19  mmmC   
+64   Aeam        A 2_1/e 2/a 2/m      A e a m                          D2h^18  307  -A 2 2ab        -cba   mmm    D2h  19  mmmC   
+64   Bbem        B 2/b 2_1/e 2/m      B b e m                          D2h^18  308  -B 2 2ab        bca    mmm    D2h  19  mmmC   
+64   Bmeb        B 2/m 2_1/e 2/b      B m e b                          D2h^18  309  -B 2ab 2        a-cb   mmm    D2h  19  mmmC   
+65   Cmmm        C 2/m 2/m 2/m        C m m m                          D2h^19  310  -C 2 2          std    mmm    D2h  19  mmmC   
+65   Ammm        A 2/m 2/m 2/m        A m m m                          D2h^19  311  -A 2 2          cab    mmm    D2h  19  mmmC   
+65   Bmmm        B 2/m 2/m 2/m        B m m m                          D2h^19  312  -B 2 2          bca    mmm    D2h  19  mmmC   
+66   Cccm        C 2/c 2/c 2/m        C c c m                          D2h^20  313  -C 2 2c         std    mmm    D2h  19  mmmC   
+66   Amaa        A 2/m 2/a 2/a        A m a a                          D2h^20  314  -A 2a 2         cab    mmm    D2h  19  mmmC   
+66   Bbmb        B 2/b 2/m 2/b        B b m b                          D2h^20  315  -B 2b 2b        bca    mmm    D2h  19  mmmC   
+67   Cmme        C 2/m 2/m 2/e        C m m e                          D2h^21  316  -C 2a 2         std    mmm    D2h  19  mmmC   
+67   Cmme        C 2/m 2/m 2/e        C m m e                          D2h^21  317  -C 2a 2a        ba-c   mmm    D2h  19  mmmC   
+67   Aemm        A 2/e 2/m 2/m        A e m m                          D2h^21  318  -A 2b 2b        cab    mmm    D2h  19  mmmC   
+67   Aemm        A 2/e 2/m 2/m        A e m m                          D2h^21  319  -A 2 2b         -cba   mmm    D2h  19  mmmC   
+67   Bmem        B 2/m 2/e 2/m        B m e m                          D2h^21  320  -B 2 2a         bca    mmm    D2h  19  mmmC   
+67   Bmem        B 2/m 2/e 2/m        B m e m                          D2h^21  321  -B 2a 2         a-cb   mmm    D2h  19  mmmC   
+68   Ccce        C 2/c 2/c 2/e        C c c e                          D2h^22  322  C 2 2 -1ac      1      mmm    D2h  19  mmmC   
+68   Ccce        C 2/c 2/c 2/e        C c c e                          D2h^22  323  -C 2a 2ac       2      mmm    D2h  19  mmmC   
+68   Ccce        C 2/c 2/c 2/e        C c c e                          D2h^22  324  C 2 2 -1ac      1ba-c  mmm    D2h  19  mmmC   
+68   Ccce        C 2/c 2/c 2/e        C c c e                          D2h^22  325  -C 2a 2c        2ba-c  mmm    D2h  19  mmmC   
+68   Aeaa        A 2/e 2/a 2/a        A e a a                          D2h^22  326  A 2 2 -1ab      1cab   mmm    D2h  19  mmmC   
+68   Aeaa        A 2/e 2/a 2/a        A e a a                          D2h^22  327  -A 2a 2b        2cab   mmm    D2h  19  mmmC   
+68   Aeaa        A 2/e 2/a 2/a        A e a a                          D2h^22  328  A 2 2 -1ab      1-cba  mmm    D2h  19  mmmC   
+68   Aeaa        A 2/e 2/a 2/a        A e a a                          D2h^22  329  -A 2ab 2b       2-cba  mmm    D2h  19  mmmC   
+68   Bbeb        B 2/b 2/e 2/b        B b e b                          D2h^22  330  B 2 2 -1ab      1bca   mmm    D2h  19  mmmC   
+68   Bbcb        B 2/b 2/e 2/b        B b c b                          D2h^22  331  -B 2ab 2b       2bca   mmm    D2h  19  mmmC   
+68   Bbeb        B 2/b 2/e 2/b        B b e b                          D2h^22  332  B 2 2 -1ab      1a-cb  mmm    D2h  19  mmmC   
+68   Bbeb        B 2/b 2/e 2/b        B b e b                          D2h^22  333  -B 2b 2ab       2a-cb  mmm    D2h  19  mmmC   
+69   Fmmm        F 2/m 2/m 2/m        F m m m                          D2h^23  334  -F 2 2          std    mmm    D2h  20  mmmF   
+70   Fddd        F 2/d 2/d 2/d        F d d d                          D2h^24  335  F 2 2 -1d       1      mmm    D2h  20  mmmF   
+70   Fddd        F 2/d 2/d 2/d        F d d d                          D2h^24  336  -F 2uv 2vw      2      mmm    D2h  20  mmmF   
+71   Immm        I 2/m 2/m 2/m        I m m m                          D2h^25  337  -I 2 2          std    mmm    D2h  21  mmmI   
+72   Ibam        I 2/b 2/a 2/m        I b a m                          D2h^26  338  -I 2 2c         std    mmm    D2h  21  mmmI   
+72   Imcb        I 2/m 2/c 2/b        I m c b                          D2h^26  339  -I 2a 2         cab    mmm    D2h  21  mmmI   
+72   Icma        I 2/c 2/m 2/a        I c m a                          D2h^26  340  -I 2b 2b        bca    mmm    D2h  21  mmmI   
+73   Ibca        I 2/b 2/c 2/a        I b c a                          D2h^27  341  -I 2b 2c        std    mmm    D2h  21  mmmI   
+73   Icab        I 2/c 2/a 2/b        I c a b                          D2h^27  342  -I 2a 2b        ba-c   mmm    D2h  21  mmmI   
+74   Imma        I 2/m 2/m 2/a        I m m a                          D2h^28  343  -I 2b 2         std    mmm    D2h  21  mmmI   
+74   Immb        I 2/m 2/m 2/b        I m m b                          D2h^28  344  -I 2a 2a        ba-c   mmm    D2h  21  mmmI   
+74   Ibmm        I 2/b 2/m 2/m        I b m m                          D2h^28  345  -I 2c 2c        cab    mmm    D2h  21  mmmI   
+74   Icmm        I 2/c 2/m 2/m        I c m m                          D2h^28  346  -I 2 2b         -cba   mmm    D2h  21  mmmI   
+74   Imcm        I 2/m 2/c 2/m        I m c m                          D2h^28  347  -I 2 2a         bca    mmm    D2h  21  mmmI   
+74   Imam        I 2/m 2/a 2/m        I m a m                          D2h^28  348  -I 2c 2         a-cb   mmm    D2h  21  mmmI   
+75   P4          P 4                  P 4                              C4^1    349  P 4             std    4      C4   22  4P     
+76   P4_1        P 4_1                P 4_1                            C4^2    350  P 4w            std    4      C4   22  4P     
+77   P4_2        P 4_2                P 4_2                            C4^3    351  P 4c            std    4      C4   22  4P     
+78   P4_3        P 4_3                P 4_3                            C4^4    352  P 4cw           std    4      C4   22  4P     
+79   I4          I 4                  I 4                              C4^5    353  I 4             std    4      C4   23  4I     
+80   I4_1        I 4_1                I 4_1                            C4^6    354  I 4bw           std    4      C4   23  4I     
+81   P-4         P -4                 P -4                             S4^1    355  P -4            std    -4     S4   24  -4P    
+82   I-4         I -4                 I -4                             S4^2    356  I -4            std    -4     S4   25  -4I    
+83   P4/m        P 4/m                P 4/m                            C4h^1   357  -P 4            std    4/m    C4h  26  4/mP   
+84   P4_2/m      P 4_2/m              P 4_2/m                          C4h^2   358  -P 4c           std    4/m    C4h  26  4/mP   
+85   P4/n        P 4/n                P 4/n                            C4h^3   359  P 4ab -1ab      1      4/m    C4h  26  4/mP   
+85   P4/n        P 4/n                P 4/n                            C4h^3   360  -P 4a           2      4/m    C4h  26  4/mP   
+86   P4_2/n      P 4_2/n              P 4_2/n                          C4h^4   361  P 4n -1n        1      4/m    C4h  26  4/mP   
+86   P4_2/n      P 4_2/n              P 4_2/n                          C4h^4   362  -P 4bc          2      4/m    C4h  26  4/mP   
+87   I4/m        I 4/m                I 4/m                            C4h^5   363  -I 4            std    4/m    C4h  27  4/mI   
+88   I4_1/a      I 4_1/a              I 4_1/a                          C4h^6   364  I 4bw -1bw      1      4/m    C4h  27  4/mI   
+88   I4_1/a      I 4_1/a              I 4_1/a                          C4h^6   365  -I 4ad          2      4/m    C4h  27  4/mI   
+89   P422        P 4 2 2              P 4 2 2                          D4^1    366  P 4 2           std    422    D4   28  422P   
+90   P42_12      P 4 2_1 2            P 4 2_1 2                        D4^2    367  P 4ab 2ab       std    422    D4   28  422P   
+91   P4_122      P 4_1 2 2            P 4_1 2 2                        D4^3    368  P 4w 2c         std    422    D4   28  422P   
+92   P4_12_12    P 4_1 2_1 2          P 4_1 2_1 2                      D4^4    369  P 4abw 2nw      std    422    D4   28  422P   
+93   P4_222      P 4_2 2 2            P 4_2 2 2                        D4^5    370  P 4c 2          std    422    D4   28  422P   
+94   P4_22_12    P 4_2 2_1 2          P 4_2 2_1 2                      D4^6    371  P 4n 2n         std    422    D4   28  422P   
+95   P4_322      P 4_3 2 2            P 4_3 2 2                        D4^7    372  P 4cw 2c        std    422    D4   28  422P   
+96   P4_32_12    P 4_3 2_1 2          P 4_3 2_1 2                      D4^8    373  P 4nw 2abw      std    422    D4   28  422P   
+97   I422        I 4 2 2              I 4 2 2                          D4^9    374  I 4 2           std    422    D4   29  422I   
+98   I4_122      I 4_1 2 2            I 4_1 2 2                        D4^10   375  I 4bw 2bw       std    422    D4   29  422I   
+99   P4mm        P 4 m m              P 4 m m                          C4v^1   376  P 4 -2          std    4mm    C4v  30  4mmP   
+100  P4bm        P 4 b m              P 4 b m                          C4v^2   377  P 4 -2ab        std    4mm    C4v  30  4mmP   
+101  P4_2cm      P 4_2 c m            P 4_2 c m                        C4v^3   378  P 4c -2c        std    4mm    C4v  30  4mmP   
+102  P4_2nm      P 4_2 n m            P 4_2 n m                        C4v^4   379  P 4n -2n        std    4mm    C4v  30  4mmP   
+103  P4cc        P 4 c c              P 4 c c                          C4v^5   380  P 4 -2c         std    4mm    C4v  30  4mmP   
+104  P4nc        P 4 n c              P 4 n c                          C4v^6   381  P 4 -2n         std    4mm    C4v  30  4mmP   
+105  P4_2mc      P 4_2 m c            P 4_2 m c                        C4v^7   382  P 4c -2         std    4mm    C4v  30  4mmP   
+106  P4_2bc      P 4_2 b c            P 4_2 b c                        C4v^8   383  P 4c -2ab       std    4mm    C4v  30  4mmP   
+107  I4mm        I 4 m m              I 4 m m                          C4v^9   384  I 4 -2          std    4mm    C4v  31  4mmI   
+108  I4cm        I 4 c m              I 4 c m                          C4v^10  385  I 4 -2c         std    4mm    C4v  31  4mmI   
+109  I4_1md      I 4_1 m d            I 4_1 m d                        C4v^11  386  I 4bw -2        std    4mm    C4v  31  4mmI   
+110  I4_1cd      I 4_1 c d            I 4_1 c d                        C4v^12  387  I 4bw -2c       std    4mm    C4v  31  4mmI   
+111  P-42m       P -4 2 m             P -4 2 m                         D2d^1   388  P -4 2          std    -42m   D2d  32  -42mP  
+112  P-42c       P -4 2 c             P -4 2 c                         D2d^2   389  P -4 2c         std    -42m   D2d  32  -42mP  
+113  P-42_1m     P -4 2_1 m           P -4 2_1 m                       D2d^3   390  P -4 2ab        std    -42m   D2d  32  -42mP  
+114  P-42_1c     P -4 2_1 c           P -4 2_1 c                       D2d^4   391  P -4 2n         std    -42m   D2d  32  -42mP  
+115  P-4m2       P -4 m 2             P -4 m 2                         D2d^5   392  P -4 -2         std    -42m   D2d  33  -4m2P  
+116  P-4c2       P -4 c 2             P -4 c 2                         D2d^6   393  P -4 -2c        std    -42m   D2d  33  -4m2P  
+117  P-4b2       P -4 b 2             P -4 b 2                         D2d^7   394  P -4 -2ab       std    -42m   D2d  33  -4m2P  
+118  P-4n2       P -4 n 2             P -4 n 2                         D2d^8   395  P -4 -2n        std    -42m   D2d  33  -4m2P  
+119  I-4m2       I -4 m 2             I -4 m 2                         D2d^9   396  I -4 -2         std    -42m   D2d  34  -4m2I  
+120  I-4c2       I -4 c 2             I -4 c 2                         D2d^10  397  I -4 -2c        std    -42m   D2d  34  -4m2I  
+121  I-42m       I -4 2 m             I -4 2 m                         D2d^11  398  I -4 2          std    -42m   D2d  35  -42mI  
+122  I-42d       I -4 2 d             I -4 2 d                         D2d^12  399  I -4 2bw        std    -42m   D2d  35  -42mI  
+123  P4/mmm      P 4/m 2/m 2/m        P 4/m m m                        D4h^1   400  -P 4 2          std    4/mmm  D4h  36  4/mmmP 
+124  P4/mcc      P 4/m 2/c 2/c        P 4/m c c                        D4h^2   401  -P 4 2c         std    4/mmm  D4h  36  4/mmmP 
+125  P4/nbm      P 4/n 2/b 2/m        P 4/n b m                        D4h^3   402  P 4 2 -1ab      1      4/mmm  D4h  36  4/mmmP 
+125  P4/nbm      P 4/n 2/b 2/m        P 4/n b m                        D4h^3   403  -P 4a 2b        2      4/mmm  D4h  36  4/mmmP 
+126  P4/nnc      P 4/n 2/n 2/c        P 4/n n c                        D4h^4   404  P 4 2 -1n       1      4/mmm  D4h  36  4/mmmP 
+126  P4/nnc      P 4/n 2/n 2/c        P 4/n n c                        D4h^4   405  -P 4a 2bc       2      4/mmm  D4h  36  4/mmmP 
+127  P4/mbm      P 4/m 2_1/b m        P 4/m b m                        D4h^5   406  -P 4 2ab        std    4/mmm  D4h  36  4/mmmP 
+128  P4/mnc      P 4/m 2_1/n c        P 4/m n c                        D4h^6   407  -P 4 2n         std    4/mmm  D4h  36  4/mmmP 
+129  P4/nmm      P 4/n 2_1/m m        P 4/n m m                        D4h^7   408  P 4ab 2ab -1ab  1      4/mmm  D4h  36  4/mmmP 
+129  P4/nmm      P 4/n 2_1/m m        P 4/n m m                        D4h^7   409  -P 4a 2a        2      4/mmm  D4h  36  4/mmmP 
+130  P4/ncc      P 4/n 2_1/c c        P 4/n c c                        D4h^8   410  P 4ab 2n -1ab   1      4/mmm  D4h  36  4/mmmP 
+130  P4/ncc      P 4/n 2_1/c c        P 4/n c c                        D4h^8   411  -P 4a 2ac       2      4/mmm  D4h  36  4/mmmP 
+131  P4_2/mmc    P 4_2/m 2/m 2/c      P 4_2/m m c                      D4h^9   412  -P 4c 2         std    4/mmm  D4h  36  4/mmmP 
+132  P4_2/mcm    P 4_2/m 2/c 2/m      P 4_2/m c m                      D4h^10  413  -P 4c 2c        std    4/mmm  D4h  36  4/mmmP 
+133  P4_2/nbc    P 4_2/n 2/b 2/c      P 4_2/n b c                      D4h^11  414  P 4n 2c -1n     1      4/mmm  D4h  36  4/mmmP 
+133  P4_2/nbc    P 4_2/n 2/b 2/c      P 4_2/n b c                      D4h^11  415  -P 4ac 2b       2      4/mmm  D4h  36  4/mmmP 
+134  P4_2/nnm    P 4_2/n 2/n 2/m      P 4_2/n n m                      D4h^12  416  P 4n 2 -1n      1      4/mmm  D4h  36  4/mmmP 
+134  P4_2/nnm    P 4_2/n 2/n 2/m      P 4_2/n n m                      D4h^12  417  -P 4ac 2bc      2      4/mmm  D4h  36  4/mmmP 
+135  P4_2/mbc    P 4_2/m 2_1/b 2/c    P 4_2/m b c                      D4h^13  418  -P 4c 2ab       std    4/mmm  D4h  36  4/mmmP 
+136  P4_2/mnm    P 4_2/m 2_1/n 2/m    P 4_2/m n m                      D4h^14  419  -P 4n 2n        std    4/mmm  D4h  36  4/mmmP 
+137  P4_2/nmc    P 4_2/n 2_1/m 2/c    P 4_2/n m c                      D4h^15  420  P 4n 2n -1n     1      4/mmm  D4h  36  4/mmmP 
+137  P4_2/nmc    P 4_2/n 2_1/m 2/c    P 4_2/n m c                      D4h^15  421  -P 4ac 2a       2      4/mmm  D4h  36  4/mmmP 
+138  P4_2/ncm    P 4_2/n 2_1/c 2/m    P 4_2/n c m                      D4h^16  422  P 4n 2ab -1n    1      4/mmm  D4h  36  4/mmmP 
+138  P4_2/ncm    P 4_2/n 2_1/c 2/m    P 4_2/n c m                      D4h^16  423  -P 4ac 2ac      2      4/mmm  D4h  36  4/mmmP 
+139  I4/mmm      I 4/m 2/m 2/m        I 4/m m m                        D4h^17  424  -I 4 2          std    4/mmm  D4h  37  4/mmmI 
+140  I4/mcm      I 4/m 2/c 2/m        I 4/m c m                        D4h^18  425  -I 4 2c         std    4/mmm  D4h  37  4/mmmI 
+141  I4_1/amd    I 4_1/a 2/m 2/d      I 4_1/a m d                      D4h^19  426  I 4bw 2bw -1bw  1      4/mmm  D4h  37  4/mmmI 
+141  I4_1/amd    I 4_1/a 2/m 2/d      I 4_1/a m d                      D4h^19  427  -I 4bd 2        2      4/mmm  D4h  37  4/mmmI 
+142  I4_1/acd    I 4_1/a 2/c 2/d      I 4_1/a c d                      D4h^20  428  I 4bw 2aw -1bw  1      4/mmm  D4h  37  4/mmmI 
+142  I4_1/acd    I 4_1/a 2/c 2/d      I 4_1/a c d                      D4h^20  429  -I 4bd 2c       2      4/mmm  D4h  37  4/mmmI 
+143  P3          P 3                  P 3                              C3^1    430  P 3             std    3      C3   38  3P     
+144  P3_1        P 3_1                P 3_1                            C3^2    431  P 31            std    3      C3   38  3P     
+145  P3_2        P 3_2                P 3_2                            C3^3    432  P 32            std    3      C3   38  3P     
+146  R3          R 3                  R 3                              C3^4    433  R 3             H      3      C3   39  3R     
+146  R3          R 3                  R 3                              C3^4    434  P 3*            R      3      C3   39  3R     
+147  P-3         P -3                 P -3                             C3i^1   435  -P 3            std    -3     C3i  40  -3P    
+148  R-3         R -3                 R -3                             C3i^2   436  -R 3            H      -3     C3i  41  -3R    
+148  R-3         R -3                 R -3                             C3i^2   437  -P 3*           R      -3     C3i  41  -3R    
+149  P312        P 3 1 2              P 3 1 2                          D3^1    438  P 3 2           std    32     D3   42  312P   
+150  P321        P 3 2 1              P 3 2 1                          D3^2    439  P 3 2"          std    32     D3   43  321P   
+151  P3_112      P 3_1 1 2            P 3_1 1 2                        D3^3    440  P 31 2 (0 0 4)  std    32     D3   42  312P   
+152  P3_121      P 3_1 2 1            P 3_1 2 1                        D3^4    441  P 31 2"         std    32     D3   43  321P   
+153  P3_212      P 3_2 1 2            P 3_2 1 2                        D3^5    442  P 32 2 (0 0 2)  std    32     D3   42  312P   
+154  P3_221      P 3_2 2 1            P 3_2 2 1                        D3^6    443  P 32 2"         std    32     D3   43  321P   
+155  R32         R 3 2                R 3 2                            D3^7    444  R 3 2"          H      32     D3   44  32R    
+155  R32         R 3 2                R 3 2                            D3^7    445  P 3* 2          R      32     D3   44  32R    
+156  P3m1        P 3 m 1              P 3 m 1                          C3v^1   446  P 3 -2"         std    3m     C3v  45  3m1P   
+157  P31m        P 3 1 m              P 3 1 m                          C3v^2   447  P 3 -2          std    3m     C3v  46  31mP   
+158  P3c1        P 3 c 1              P 3 c 1                          C3v^3   448  P 3 -2"c        std    3m     C3v  45  3m1P   
+159  P31c        P 3 1 c              P 3 1 c                          C3v^4   449  P 3 -2c         std    3m     C3v  46  31mP   
+160  R3m         R 3 m                R 3 m                            C3v^5   450  R 3 -2"         H      3m     C3v  47  3mR    
+160  R3m         R 3 m                R 3 m                            C3v^5   451  P 3* -2         R      3m     C3v  47  3mR    
+161  R3c         R 3 c                R 3 c                            C3v^6   452  R 3 -2"c        H      3m     C3v  47  3mR    
+161  R3c         R 3 c                R 3 c                            C3v^6   453  P 3* -2n        R      3m     C3v  47  3mR    
+162  P-31m       P -3 1 2/m           P -3 1 m                         D3d^1   454  -P 3 2          std    -3m    D3d  48  -31mP  
+163  P-31c       P -3 1 2/c           P -3 1 c                         D3d^2   455  -P 3 2c         std    -3m    D3d  48  -31mP  
+164  P-3m1       P -3 2/m 1           P -3 m 1                         D3d^3   456  -P 3 2"         std    -3m    D3d  49  -3m1P  
+165  P-3c1       P -3 2/c 1           P -3 c 1                         D3d^4   457  -P 3 2"c        std    -3m    D3d  49  -3m1P  
+166  R-3m        R -3 2/m             R -3 m                           D3d^5   458  -R 3 2"         H      -3m    D3d  50  -3mR   
+166  R-3m        R -3 2/m             R -3 m                           D3d^5   459  -P 3* 2         R      -3m    D3d  50  -3mR   
+167  R-3c        R -3 2/c             R -3 c                           D3d^6   460  -R 3 2"c        H      -3m    D3d  50  -3mR   
+167  R-3c        R -3 2/c             R -3 c                           D3d^6   461  -P 3* 2n        R      -3m    D3d  50  -3mR   
+168  P6          P 6                  P 6                              C6^1    462  P 6             std    6      C6   51  6P     
+169  P6_1        P 6_1                P 6_1                            C6^2    463  P 61            std    6      C6   51  6P     
+170  P6_5        P 6_5                P 6_5                            C6^3    464  P 65            std    6      C6   51  6P     
+171  P6_2        P 6_2                P 6_2                            C6^4    465  P 62            std    6      C6   51  6P     
+172  P6_4        P 6_4                P 6_4                            C6^5    466  P 64            std    6      C6   51  6P     
+173  P6_3        P 6_3                P 6_3                            C6^6    467  P 6c            std    6      C6   51  6P     
+174  P-6         P -6                 P -6                             C3h^1   468  P -6            std    -6     C3h  52  -6P    
+175  P6/m        P 6/m                P 6/m                            C6h^1   469  -P 6            std    6/m    C6h  53  6/mP   
+176  P6_3/m      P 6_3/m              P 6_3/m                          C6h^2   470  -P 6c           std    6/m    C6h  53  6/mP   
+177  P622        P 6 2 2              P 6 2 2                          D6^1    471  P 6 2           std    622    D6   54  622P   
+178  P6_122      P 6_1 2 2            P 6_1 2 2                        D6^2    472  P 61 2 (0 0 5)  std    622    D6   54  622P   
+179  P6_522      P 6_5 2 2            P 6_5 2 2                        D6^3    473  P 65 2 (0 0 1)  std    622    D6   54  622P   
+180  P6_222      P 6_2 2 2            P 6_2 2 2                        D6^4    474  P 62 2 (0 0 4)  std    622    D6   54  622P   
+181  P6_422      P 6_4 2 2            P 6_4 2 2                        D6^5    475  P 64 2 (0 0 2)  std    622    D6   54  622P   
+182  P6_322      P 6_3 2 2            P 6_3 2 2                        D6^6    476  P 6c 2c         std    622    D6   54  622P   
+183  P6mm        P 6 m m              P 6 m m                          C6v^1   477  P 6 -2          std    6mm    C6v  55  6mmP   
+184  P6cc        P 6 c c              P 6 c c                          C6v^2   478  P 6 -2c         std    6mm    C6v  55  6mmP   
+185  P6_3cm      P 6_3 c m            P 6_3 c m                        C6v^3   479  P 6c -2         std    6mm    C6v  55  6mmP   
+186  P6_3mc      P 6_3 m c            P 6_3 m c                        C6v^4   480  P 6c -2c        std    6mm    C6v  55  6mmP   
+187  P-6m2       P -6 m 2             P -6 m 2                         D3h^1   481  P -6 2          std    -6m2   D3h  57  -6m2P  
+188  P-6c2       P -6 c 2             P -6 c 2                         D3h^2   482  P -6c 2         std    -6m2   D3h  57  -6m2P  
+189  P-62m       P -6 2 m             P -6 2 m                         D3h^3   483  P -6 -2         std    -6m2   D3h  56  -62mP  
+190  P-62c       P -6 2 c             P -6 2 c                         D3h^4   484  P -6c -2c       std    -6m2   D3h  56  -62mP  
+191  P6/mmm      P 6/m 2/m 2/m        P 6/m m m                        D6h^1   485  -P 6 2          std    6/mmm  D6h  58  6/mmmP 
+192  P6/mcc      P 6/m 2/c 2/c        P 6/m c c                        D6h^2   486  -P 6 2c         std    6/mmm  D6h  58  6/mmmP 
+193  P6_3/mcm    P 6_3/m 2/c 2/m      P 6_3/m c m                      D6h^3   487  -P 6c 2         std    6/mmm  D6h  58  6/mmmP 
+194  P6_3/mmc    P 6_3/m 2/m 2/c      P 6_3/m m c                      D6h^4   488  -P 6c 2c        std    6/mmm  D6h  58  6/mmmP 
+195  P23         P 2 3                P 2 3                            T^1     489  P 2 2 3         std    23     T    59  23P    
+196  F23         F 2 3                F 2 3                            T^2     490  F 2 2 3         std    23     T    60  23F    
+197  I23         I 2 3                I 2 3                            T^3     491  I 2 2 3         std    23     T    61  23I    
+198  P2_13       P 2_1 3              P 2_1 3                          T^4     492  P 2ac 2ab 3     std    23     T    59  23P    
+199  I2_13       I 2_1 3              I 2_1 3                          T^5     493  I 2b 2c 3       std    23     T    61  23I    
+200  Pm-3        P 2/m -3             P m -3                           Th^1    494  -P 2 2 3        std    m-3    Th   62  m-3P   
+201  Pn-3        P 2/n -3             P n -3                           Th^2    495  P 2 2 3 -1n     1      m-3    Th   62  m-3P   
+201  Pn-3        P 2/n -3             P n -3                           Th^2    496  -P 2ab 2bc 3    2      m-3    Th   62  m-3P   
+202  Fm-3        F 2/m -3             F m -3                           Th^3    497  -F 2 2 3        std    m-3    Th   63  m-3F   
+203  Fd-3        F 2/d -3             F d -3                           Th^4    498  F 2 2 3 -1d     1      m-3    Th   63  m-3F   
+203  Fd-3        F 2/d -3             F d -3                           Th^4    499  -F 2uv 2vw 3    2      m-3    Th   63  m-3F   
+204  Im-3        I 2/m -3             I m -3                           Th^5    500  -I 2 2 3        std    m-3    Th   64  m-3I   
+205  Pa-3        P 2_1/a -3           P a -3                           Th^6    501  -P 2ac 2ab 3    std    m-3    Th   62  m-3P   
+206  Ia-3        I 2_1/a -3           I a -3                           Th^7    502  -I 2b 2c 3      std    m-3    Th   64  m-3I   
+207  P432        P 4 3 2              P 4 3 2                          O^1     503  P 4 2 3         std    432    O    65  432P   
+208  P4_232      P 4_2 3 2            P 4_2 3 2                        O^2     504  P 4n 2 3        std    432    O    65  432P   
+209  F432        F 4 3 2              F 4 3 2                          O^3     505  F 4 2 3         std    432    O    66  432F   
+210  F4_132      F 4_1 3 2            F 4_1 3 2                        O^4     506  F 4d 2 3        std    432    O    66  432F   
+211  I432        I 4 3 2              I 4 3 2                          O^5     507  I 4 2 3         std    432    O    67  432I   
+212  P4_332      P 4_3 3 2            P 4_3 3 2                        O^6     508  P 4acd 2ab 3    std    432    O    65  432P   
+213  P4_132      P 4_1 3 2            P 4_1 3 2                        O^7     509  P 4bd 2ab 3     std    432    O    65  432P   
+214  I4_132      I 4_1 3 2            I 4_1 3 2                        O^8     510  I 4bd 2c 3      std    432    O    67  432I   
+215  P-43m       P -4 3 m             P -4 3 m                         Td^1    511  P -4 2 3        std    -43m   Td   68  -43mP  
+216  F-43m       F -4 3 m             F -4 3 m                         Td^2    512  F -4 2 3        std    -43m   Td   69  -43mF  
+217  I-43m       I -4 3 m             I -4 3 m                         Td^3    513  I -4 2 3        std    -43m   Td   70  -43mI  
+218  P-43n       P -4 3 n             P -4 3 n                         Td^4    514  P -4n 2 3       std    -43m   Td   68  -43mP  
+219  F-43c       F -4 3 c             F -4 3 c                         Td^5    515  F -4a 2 3       std    -43m   Td   69  -43mF  
+220  I-43d       I -4 3 d             I -4 3 d                         Td^6    516  I -4bd 2c 3     std    -43m   Td   70  -43mI  
+221  Pm-3m       P 4/m -3 2/m         P m -3 m                         Oh^1    517  -P 4 2 3        std    m-3m   Oh   71  m-3mP  
+222  Pn-3n       P 4/n -3 2/n         P n -3 n                         Oh^2    518  P 4 2 3 -1n     1      m-3m   Oh   71  m-3mP  
+222  Pn-3n       P 4/n -3 2/n         P n -3 n                         Oh^2    519  -P 4a 2bc 3     2      m-3m   Oh   71  m-3mP  
+223  Pm-3n       P 4_2/m -3 2/n       P m -3 n                         Oh^3    520  -P 4n 2 3       std    m-3m   Oh   71  m-3mP  
+224  Pn-3m       P 4_2/n -3 2/m       P n -3 m                         Oh^4    521  P 4n 2 3 -1n    1      m-3m   Oh   71  m-3mP  
+224  Pn-3m       P 4_2/n -3 2/m       P n -3 m                         Oh^4    522  -P 4bc 2bc 3    2      m-3m   Oh   71  m-3mP  
+225  Fm-3m       F 4/m -3 2/m         F m -3 m                         Oh^5    523  -F 4 2 3        std    m-3m   Oh   72  m-3mF  
+226  Fm-3c       F 4/m -3 2/c         F m -3 c                         Oh^6    524  -F 4a 2 3       std    m-3m   Oh   72  m-3mF  
+227  Fd-3m       F 4_1/d -3 2/m       F d -3 m                         Oh^7    525  F 4d 2 3 -1d    1      m-3m   Oh   72  m-3mF  
+227  Fd-3m       F 4_1/d -3 2/m       F d -3 m                         Oh^7    526  -F 4vw 2vw 3    2      m-3m   Oh   72  m-3mF  
+228  Fd-3c       F 4_1/d -3 2/c       F d -3 c                         Oh^8    527  F 4d 2 3 -1ad   1      m-3m   Oh   72  m-3mF  
+228  Fd-3c       F 4_1/d -3 2/c       F d -3 c                         Oh^8    528  -F 4ud 2vw 3    2      m-3m   Oh   72  m-3mF  
+229  Im-3m       I 4/m -3 2/m         I m -3 m                         Oh^9    529  -I 4 2 3        std    m-3m   Oh   73  m-3mI  

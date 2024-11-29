@@ -1,9 +1,13 @@
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
 
 from matplotlib.figure import Figure
 
-import spinwaves
+# import spinwaves
+from spinwaves import Atom, Crystal, SpinW, Coupling
+from spinwaves.plotting import plot_structure
+from spinwaves.functions import DMI
 
 #######################################################
 def tutorial_4() -> Figure:
@@ -11,7 +15,7 @@ def tutorial_4() -> Figure:
     # The energies and details of the shape are not the same as in the example.
     # Is this the bond counting, or some prefectors implementation?
     print('Define structure...')
-    hex = spinwaves.Lattice([3,3,6, 90, 90, 90])
+    hex = Lattice([3,3,6, 90, 90, 90])
     atoms = [
         {'label':'Cr', 'w':(0,0,0), 'S':1},
     ]   # position in crystal coordinates
@@ -113,21 +117,19 @@ def tutorial_12(show_struct: bool=False) -> Figure:
 def tutorial_19(show_struct: bool=False) -> Figure:
     # PERFECT DISPERSIONS MATCH
     print('Define structure...')
-    hex = spinwaves.Lattice([3,8,4, 90, 90, 90])
+
+
     atoms = [
-        {'label':'Cu', 'w':(0,0,0), 'S':0.5},
-        {'label':'Fe', 'w':(0,0.5,0), 'S':2},
-    ]   # position in crystal coordinates
+        Atom(label='Cu', r=(0,0,0), m=(0,1,0), s=0.5),
+        Atom(label='Fe', r=(0,0.5,0), m=(0,1,0), s=2),
+    ]
+    cf = Crystal(lattice_parameters=[3,8,4, 90, 90, 90], atoms=atoms)
     magnetic_structure = {
         'k':(0.5, 0, 0),
-        'n':(0,0,1),
-        'spins':[
-            (0,1,0),
-            (0,1,0)
-        ]
+        'n':(0,0,1)
     }
 
-    sw = spinwaves.SpinW(lattice=hex, magnetic_atoms=atoms, magnetic_structure=magnetic_structure)
+    sw = SpinW(crystal=cf, magnetic_modulation=magnetic_structure)
 
     print('Add couplings...')
     Jcc, Jff, Jcf = 1, 1, -0.1
@@ -145,7 +147,7 @@ def tutorial_19(show_struct: bool=False) -> Figure:
     if show_struct:
         sw.plot_structure(extent=(1,1,1))
 
-    qPath = sw.lattice.make_qPath(main_qs=[[0,0,0], [1,0,0]], Nqs=[501])
+    qPath = sw.crystal.make_qPath(main_qs=[[0,0,0], [1,0,0], [0,1,0]], Nqs=[501,101])
     
     print('Calculate excitations...')
     sw.calculate_excitations(qPath=qPath, silent=True)
@@ -219,7 +221,7 @@ def erb2(show_struct: bool=False) -> Figure:
 def nbcp(show_struct: bool=False) -> Figure:
     print('Define structure...')
     a, c = 5.3285, 7.0081
-    hex = spinwaves.Lattice([3*a, 3*a, c, 90, 90, 120])
+    hex = Lattice([3*a, 3*a, c, 90, 90, 120])
     atoms = [
         {'label':'Co1', 'w':(0,0,0), 'S':1/2},
         {'label':'Co1', 'w':(1/3,0,0), 'S':1/2},
@@ -237,8 +239,8 @@ def nbcp(show_struct: bool=False) -> Figure:
         'k':(0, 0, 0),
         'n':(0,0,1),
         'spins':[
-            (0,0,-1)
-            (0,0,)
+            (0,0,-1),
+            (0,0,1),
             (0,0,-1)
         ]
     }
@@ -291,6 +293,72 @@ def nbcp(show_struct: bool=False) -> Figure:
 
     return fig
 
+#######################################################
+def ceaual(show_struct: bool=False) -> Figure:
+    # PERFECT DISPERSIONS MATCH
+    print('Define structure...')
+
+    atoms = [
+        Atom(label='Ce_1', r=(0,0,0), m=(1,0,0), s=2.5),
+        Atom(label='Ce_2', r=(0.5,0.5,0.5), m=(0,1,0), s=2.5),
+    ]
+    cf = Crystal(lattice_parameters=[4.3,4.3,10.65, 90, 90, 90], 
+                 atoms=atoms)
+    magnetic_structure = {
+        'k':(0, 0, 0.5),
+        'n':(0,0,1)
+    }
+
+    # Negative couplings are FM, positive are AF
+    K = 0
+    Ja, Jd, Jc = 0.15, -0.05, -0.05
+    # Ja, Jd, Jc = -0.1, -0.1, -0.1
+    couplings = [
+        Coupling(label='K', n_uvw=[0,0,0], id1=0, id2=0, J=K*np.diag([0.1,0,1]), symmetry=['1']),
+        Coupling(label='Ja1', n_uvw=[1,0,0], id1=0, id2=0, J=Ja*np.eye(3,3), symmetry=['4z']),
+        Coupling(label='Ja2', n_uvw=[1,0,0], id1=1, id2=1, J=Ja*np.eye(3,3), symmetry=['4z']),
+        Coupling(label='Jd1', n_uvw=[0,0,0], id1=0, id2=1, J=Jd*np.eye(3,3), symmetry=['4z','-1']),
+        Coupling(label='Jd2', n_uvw=[0,0,0], id1=1, id2=0, J=Jd*np.eye(3,3), symmetry=['4z','-1']),
+        Coupling(label='Jc1', n_uvw=[0,0,1], id1=0, id2=0, J=Jc*np.eye(3,3), symmetry=['-1']),
+        Coupling(label='Jc2', n_uvw=[0,0,1], id1=1, id2=1, J=Jc*np.eye(3,3), symmetry=['-1']),
+    ]
+
+    print('Create SW system...')
+    sw = SpinW(crystal=cf, 
+               couplings=couplings,
+               magnetic_modulation=magnetic_structure)
+
+
+    if show_struct:
+        plot_opts = dict(boundaries=(2,2,3))
+        plot_structure(sw, engine='vispy', plot_options=plot_opts)
+
+    print('Calculate ground state energy')
+    qz = np.linspace([0,0,-1], [0,0,1], 51)
+    qx = np.linspace([-1,0,0], [1,0,0], 51)
+    E0z = [sw.calculate_ground_state(q) for q in qz]
+    E0x = [sw.calculate_ground_state(q) for q in qx]
+
+    qPath = sw.crystal.make_qPath(main_qs=[[0,0,0.5], [0,0,2], [1,0,1], [1,0,-1]], Nqs=[51,51,51])
+    # qPath = sw.crystal.make_qPath(main_qs=[[0,0,0.5], [0,0,2], [1,0,1], [1,0,-1]], Nqs=[5,5,5])
+    # qPath = sw.crystal.make_qPath(main_qs=[[1,0,1], [1,0,-1]], Nqs=[51])
+    
+    print('Calculate excitations...')
+    sw.calculate_excitations(qPath=qPath, silent=True)
+
+    fig, axs = plt.subplots(figsize=(6,8), nrows=2, tight_layout=True)
+    sw.plot_dispersion(fig=fig)
+
+    axs[1].set_ylabel('E')
+    axs[1].set_xlabel('k')
+    axs[1].scatter(qz[:,2], E0z, label='kz')
+    axs[1].scatter(qx[:,0], E0x, label='kx')
+    axs[1].legend()
+
+    return fig
+
+
+
 if __name__ == '__main__':
     # fig = tutorial_4()
     # fig.savefig(r'C:\Users\Stekiel\Desktop\Offline-plots\spinwaves-t4.png', dpi=200)
@@ -301,7 +369,8 @@ if __name__ == '__main__':
     # fig = tutorial_19()
     # fig.savefig(r'C:\Users\Stekiel\Desktop\Offline-plots\spinwaves-t19.png', dpi=200)
 
-    fig = erb2(show_struct=True)
-    fig.savefig(r'C:\Users\Stekiel\Desktop\Offline-plots\spinwaves-ErB2.png', dpi=200)
+    # fig = erb2(show_struct=True)
+    # fig.savefig(r'C:\Users\Stekiel\Desktop\Offline-plots\spinwaves-ErB2.png', dpi=200)
 
-
+    # fig = ceaual(show_struct=True)
+    # fig.savefig(r'C:\Users\Stekiel\Desktop\Offline-plots\spinwaves-CeAuAl3.png', dpi=200)

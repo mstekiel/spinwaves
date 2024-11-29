@@ -9,8 +9,10 @@
 #                                                                                  
 # The source for the form factor data are:                                         
 #  [1] A.-J. Dianoux and G. Lander, Neutron Data Booklet (2003).                   
-#  [2] K. Kobayashi, T. Nagao, and M. Ito, Acta Crystallogr. A. 67, 473 (2011).    
-#                                                                                  
+#  [2] K. Kobayashi, T. Nagao, and M. Ito, Acta Crystallogr. A. 67, 473 (2011). 
+#
+# Further reading  
+#  - https://www.ill.eu/sites/ccsl/ffacts/ffactnode2.html                                                                  
 label        spin   charge     atom       a(1)       b(1)       a(2)       b(2)       a(3)       b(3)       a(4)       b(4)          c
 one           0.0        0      one   0.000000   0.000000   0.000000   0.000000   0.000000   0.000000   0.000000   0.000000   1.000000
 zero          0.0        0     zero   0.000000   0.000000   0.000000   0.000000   0.000000   0.000000   0.000000   0.000000   0.000000

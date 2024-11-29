@@ -1,7 +1,15 @@
-from typing import Tuple, Union
+'''Plotting functionalisites of the `spinwaves` package'''
 
-from ..spinw import SpinW
+# DEV
+# The imports are slow. They should be done only if the plotter is requested
+
 from .supercell_plotter_vispy import VispySupercellPlotter
+from .supercell_plotter_mpl import MPLSupercellPlotter
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ..spinw import SpinW
+    
 
 # class SupercellPlotter: ...
 # class MPLSupercellPlotter(SupercellPlotter): ...
@@ -10,13 +18,13 @@ from .supercell_plotter_vispy import VispySupercellPlotter
 
 supercell_plotters = {
         'vispy': VispySupercellPlotter,
-        # 'mpl': MPLSupercellPlotter,
-        # 'plotly': PlotlySupercellPlotter
+        'mpl': MPLSupercellPlotter,
+        # 'plotly': 'PlotlySupercellPlotter'
     }
 
 implemented_sc_plotters = supercell_plotters.keys()
 
-def plot_structure( sws: SpinW,
+def plot_structure( sws: 'SpinW',
                     engine: str='vispy', 
                     plot_options: dict={}) -> None:
     '''Render the 3D crystal structure and couplings

@@ -1,196 +1,191 @@
 # Core
 import numpy as np
 import warnings
-from dataclasses import dataclass
 
 # Typing
-from typing import Dict, Union
+from typing import TYPE_CHECKING, Union
+
+if TYPE_CHECKING:
+    from .atom import Atom
+    from .magnetic_symmetry import MSG
+    from .spinw import Coupling
 
 # Internal
-from .data_containers import atom_data, color_data
+
 from .lattice import Lattice
-
-@dataclass
-class Atom:
-    '''
-    Stores informations about the atom.
-
-    Attributes
-    ----------
-        r: np.ndarray
-            Position in crystal (uvw) coordinates.
-        m: np.ndarray = np.zeros((3))
-            Magnetic moment in cartesian (xyz) coordinates.
-        s: float = 0
-            Spin number, int of half-int.
-            
-        gtensor_mat: np.ndarray = None
-            Matrix representing the magnetic g-tensor.
-        aniso_mat: np.ndarray = None
-            Matrix representing the anisotropic displacement parameters.
-
-        label: str = 'atom'
-            Label, suggested format is `ElementSymbol_x`, that allows automaitc detection of
-            `self.element_symbol` field.
-        element_symbol: str = None
-            Element symbol.
-
-        color: str = None
-            Color of the atom, used for plotting.
-        radius: float = 0
-            Radius of the atom, determined from `self.element_symbol`, used for plotting, 
-        spin_scale: float = 1
-            Scale of the magnetic moment. used for plotting.
-
-        _is_mag: bool = False
-            Helper flag set by non-zero `self.m` and `self.s` values.
-
-
-    Questions:
-    - what is index?
-    - moment in what units?
-    - position in what units?
-    '''
-    r: np.ndarray[float]
-    m: np.ndarray[float] = np.zeros((3))
-    s: float = 0
-    _is_mag: bool = False
-    index: int = -1
-    label: str = 'atom'
-    element_symbol: str = None
-    color: np.ndarray[int] = None
-    radius: float = 0
-    spin_scale: float = 1
-    gtensor_mat: np.ndarray = None
-    aniso_mat: np.ndarray = None
-
-    def __post_init__(self):
-        '''
-        Assert field formats, and fill the correlated fields
-        '''
-
-        # Position
-        self.r = np.array(self.r, dtype=float)
-        if not self.r.shape == (3,):
-            raise ValueError(f'Atomic position must be a (3,) vector now is: {self.r.shape}')
-        
-        # Magnetic moment and spin
-        self.m = np.array(self.m)
-        if not self.m.shape == (3,):
-            raise ValueError(f'Atomic magnetic moment must be a (3,) vector now is: {self.r.shape}')
-        if not np.shape(self.s)==():
-            raise ValueError(f'Atomic spin must be a single `float`: s={self.s} shape={np.shape(self.s)}')
-
-        # Is magnetic atom
-        if (np.linalg.norm(self.m) < 1e-10) and (self.s == 0):    # non-magnetic atom
-            self.is_mag = False
-        elif np.linalg.norm(self.m) > 1e-10 and (np.abs(self.s)>0):
-            self.is_mag = True
-        else:
-            raise ValueError(f'''Must provide (3,) shape vector for magnetic moment and non-zero spin number for magnetic atom.\n\tNow: m={self.m} s={self.s}\n\t{self}''')
-
-        # Element symbol as input or derived from the label 
-        # TODO what if the element is wrong?
-        if not self.element_symbol:
-            # token = ''.join([])
-            if self.label[:2] in atom_data:
-                self.element_symbol = self.label[:2]
-            elif self.label[:1] in atom_data:
-                self.element_symbol = self.label[:1]
-
-        # Color as input, derived from the element symbol, or black
-        if self.color:
-            # TODO check type
-            pass
-        elif self.element_symbol:
-            self.color = atom_data[self.element_symbol]['RGB']
-        else:
-            self.color = color_data['Black']
-
-        # Atom radius
-        if not bool(self.radius):
-            if self.element_symbol:
-                self.radius = atom_data[self.element_symbol]['radius']
-            else:
-                self.radius = 0.3
         
 class Crystal(Lattice):
-    '''Crystal structure class. `Atoms` on a `Lattice`.
-
-    Holds information about atoms within the unit cell and the shape of the unit cell.
+    '''Crystal structure class. `Atoms` on a `Lattice` with `SpaceGroup`.
 
     Attributes
     ----------
-    atoms: list[Atom]
-        All atoms within the unit cell. Not just one Wyckoff site, it has to be expanded by hand.
-        
+    atoms_unique: list[Atoms]
+        List of unique atoms generating the crystal structure.
+    atoms_magnetic: list[Atoms]
+        List of all magnetic atoms in the unit cell.
+    atoms_all: list[Atoms]
+        List of all atoms in the unit cell.
 
     For further list of attributes from `Lattice` see its docstring.
 
     Conventions
     -----------
     1. Atoms are within the first unit cell, i.e. have crystal coordinates in [0;1) range.
+    2. Atoms are sorted, such that magnetic atoms are first, then the non-magnetic atoms follow.
+       This is crucial for th eproper indexation of the matrices required by LSW calculations.
+
+    Notes
+    -----
+    I am strongly worried about the stability of the generator. Meaning every time the atoms are 
+    generated from symmetry, I need to be sure their order is always the same. Otherwise, 
+    generation of coupling will change.
+    Solutions: 
+        1. [X] Sort atoms by coordinates (x,y,z) tuple sorting. This is stable AF, but not pretty.
+        2. [ ] Ensure sorting of symmetry generators is stable. Pretty, but hard. How about sorting by their strings?
     '''
+    _atoms_unique: tuple['Atom']
+    _atoms_magnetic: tuple['Atom']
+    _atoms_all: tuple['Atom']
+    _MSG: 'MSG'
+
     def __init__(self, 
                  lattice_parameters: list[float],
-                 atoms:  list[Atom], 
-                 symmetry: Union[str, int]=None,  # lets make it a field or something
-                 origin: np.ndarray=np.zeros((3))):
-        '''
+                 MSG: 'MSG',
+                 atoms:  list['Atom']):
+        '''Construct the `Crystal` class representing the crystal (lattice and atoms)
+        and its symmetry (agnetic space group).
+
+        All atoms in the unit cell will be generated from the `atoms` parameter
+        according to the symmetry of the crystal.
+
         Parameters:
         -----------
-        atoms:
-            Names and positions of atoms.
-        symmetry:
-            Name or number of the space group, or None.
+        lattice_parameters: [a,b,c, alpha,beta,gamma]
+            Lattice lengths in angstroem, lattice angles in degrees.
+        MSG: `MSG`
+            Magnetic space group of the crystal.
+        atoms: list[`Atoms`]
+            List of unique atoms in the crystal.
         '''
+        # Lattice
+        super().__init__(lattice_parameters, orientation=None)
 
-        super().__init__(lattice_parameters=lattice_parameters, orientation=None)
+        # MSG
+        self._MSG = MSG
 
-        # Handle creating list of atoms
-        if isinstance(atoms, Dict) or isinstance(atoms, Atom):
-            atoms = [atoms]
-        elif isinstance(atoms, list):
-            pass
-        else:
-            raise ValueError(f'Unrecognised format for `Atom`: {type(atoms)}')
+        # Should I ensure the provided list of atoms contains unique atoms? YES
+        # Constructor should also check if provided magnetic moment respects the symmetry
+        self._atoms_unique = tuple(sorted(atoms))
+
+        ### atoms_all
+        atoms_all = []
+        for atom in self._atoms_unique:
+            for _, g, id in zip(*MSG.get_orbit(atom.r, return_generators=True, return_indices=True)):
+                atom_new = g.transform_atom(atom, to_UC=True)
+                atoms_all.append(atom_new)
+
+        atoms_all = sorted(atoms_all)
+        for id, atom in enumerate(atoms_all):
+            atom.label += f'_{id}'
+
+        self._atoms_all = tuple(atoms_all)
+
+        ### atoms_magnetic
+        self._atoms_magnetic = tuple(atom for atom in self.atoms_all if atom.is_mag)
+        for id, atom in enumerate(self._atoms_magnetic):
+            atom._sw_id = id
+
+    ################################################################################
+    # Properties
+
+    @property
+    def atoms_unique(self) -> tuple['Atom']:
+        '''List of unique atoms generating the crystal structure.'''
+        return self._atoms_unique
+    
+    @property
+    def atoms_magnetic(self) -> tuple['Atom']:
+        '''List of all magnetic atoms in the unit cell.'''
+        return self._atoms_magnetic
+    
+    @property
+    def atoms_all(self) -> tuple['Atom']:
+        '''List of all atoms in the unit cell.'''
+        return self._atoms_all
+    
+    @property
+    def MSG(self) -> 'MSG':
+        '''Magnetic Space Group of the crystal'''
+        return self._MSG
+    
+    ################################################################################
+    # Functionalities
+
+    def get_atom_sw_id(self, position: np.ndarray) -> int:
+        '''Find the index of the potential magnetic atom at `position`.
+        The integer part of the position, i.e. allocation to specific unit cell, is ignored.
         
-        if isinstance(atoms[0], Dict):
-            formatted_atoms = [Atom(**atom) for atom in atoms]
-        else:
-            formatted_atoms = atoms
+        Parameters
+        ----------
+        position: array_like
+            Position of atom in the unit cell in crystal coordinates.
 
-        self.atoms = self.add_atoms(atoms=formatted_atoms, use_symmetry=bool(symmetry))
-
-        self.atoms_unique = []
-        self.symmetry = -1
-        self.SG_name = ''
-
-
-    def add_atoms(self, atoms: list[Atom], use_symmetry=False) -> list[Atom]:
+        Raises
+        ------
+        LookupError
+            If there is no atom, or more than one atom found at the `position`
         '''
-        Handle types here?
-        Needs to give indices to atoms and symmetrize if requested
-        '''
-        out_atoms = []
-        for idx, atom in enumerate(atoms):
-            atom.index = idx
-            out_atoms.append(atom)
-
-        return out_atoms
-
-    # def add_single_atom(self, atom: Union[Atom, Dict]):
-    #     if isinstance(atom, Atom):
-    #         self.atoms.append(atom)
-    #     elif isinstance(atom, Dict)
-    #         self.atoms.append(Atom(atom))
-    #     else:
-    #         raise ValueError(f'Unrecognised format of an atom: {type(atom)}')
+        position = np.array(position, dtype=self.atoms_magnetic[0].r.dtype)
+        candidates = [atom._sw_id for atom in self.atoms_magnetic
+                      if np.allclose(position % 1, atom.r)]
         
-    #     return
+        if not len(candidates) == 1:
+            raise LookupError(f'No atom around {position!r} within the accuracy')
+
+        return candidates[0]
+
+    def is_respectful_DMI(self, coupling: 'Coupling', return_symmetrized: bool=False) -> Union[bool, tuple[bool,np.ndarray]]:
+        '''Check if the DMI vector of the coupling respects the symmetry of the crystal.
+        
+        coupling: `Coupling`
+            `Coupling` class representing the coupling.
+        return_symmetrized: bool, optional
+            If `True`, also returnthe symmetrized DMI vector, whose coefficients
+            respect the crystal symmetry.
+
+        Returns
+        -------
+        is_respectful_DMI: bool
+            Does the DMI vector respect the crystal symmetry?
+        DMI_symmetrized: ndarray, optional
+            Symmetrized DMI vector.
+
+        Notes
+        -----
+        This gives different results from the symmetrization by all symmetry elements.
+        Talk with Piotr.
+        '''
+
+        bond_midpoint = (self.atoms_magnetic[coupling.id1].r + 
+                         self.atoms_magnetic[coupling.id2].r + coupling.n_uvw) / 2
+        DMI_point_group = self.MSG.get_point_symmetry(bond_midpoint)
+        DMI_results = [g.matrix @ coupling.DMI_vector for g in DMI_point_group]
+        print('DMI pg', DMI_point_group)
+        print('DMI_res', DMI_results)
+        DMI_symmetrized = np.average(DMI_results, axis=0)
+
+        # Return values management
+        ret = (np.allclose( coupling.DMI_vector, DMI_symmetrized), )
+        if return_symmetrized:
+            ret += (DMI_symmetrized, )
+
+        if len(ret) == 1:
+            ret = ret[0]
+
+        return ret
 
 
-    def represent_tensor(self, atom: Atom, tensor='aniso'):
+    def represent_tensor(self, atom: 'Atom', tensor='aniso'):
         '''
         Former: get_transform
         Transform a tensor into ??? for `aniso` it would take inverse matrix, for `gtensor` does nothing?
@@ -213,21 +208,10 @@ class Crystal(Lattice):
             return evecs @ np.diag(evals) @ np.linalg.inv(evecs)
         
     def __repr__(self):
-        rr = f'UnitCell(SG_name={self.SG_name},\n'
+        rr = f'Crystal(,\n'
         rr += f'  atoms=['
-        for atom in self.atoms:
+        for atom in self.atoms_all:
             rr += '\n\t' + atom.__repr__()
 
         return rr + '\n\t])'
         
-
-if __name__ == '__main__':
-    lattice = Lattice([3,3,4,90,90,120])
-    atoms = [
-         {'label':'Er', 'r':[0,0,0], 'm':[1,0,0], 's':1},
-         {'label':'Er', 'r':[0.5,0.5,0], 'm':[-1,0,0], 's':1},
-         {'label':'A', 'r':[0.5,0.5,0.5]}
-        ]
-    crystal = Crystal(atoms=atoms, lattice=lattice)
-    print( crystal )
-    print(crystal.atoms[2].m)

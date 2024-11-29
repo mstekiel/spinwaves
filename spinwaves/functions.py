@@ -1,5 +1,19 @@
 import numpy as np
-from typing import Tuple
+from typing import Sequence, Tuple
+
+# Exchange interaction matrices
+def DMI(v: tuple[float,float,float]) -> np.ndarray:
+    '''
+    Antisymmetric exchange interaction = Dzialoshinskii-Moriya interaction matrix.
+
+    Defined by the DM vector D = [dx, dy, dz] as:
+    D = [[  0,  dz,-dy],
+         [-dz,   0, dx],
+         [ dy, -dx,  0] ]
+    '''
+    dx, dy, dz = v
+
+    return np.array([ [  0,  dz,-dy], [-dz,   0, dx], [dy, -dx,  0] ], dtype=float)
 
 # Fitting functions and other
 def gauss_bkg(x,x0,A,sigma,bkg):
@@ -9,6 +23,7 @@ def gauss_bkg(x,x0,A,sigma,bkg):
     :math:`f(x) = A exp(-(x-x_0)^2/(2 \\sigma^2)) + bkg`
     
     To convert to intensity :math:`I = \\sqrt{2 \\pi} A \\sigma`
+    
     To convert to FWHM :math:`FWHM = 2\\sqrt{2 \\ln 2} \\sigma \\approx 2.355 \\sigma`
     '''
     return A*np.exp(-(x-x0)**2/(2*sigma**2)) + bkg
@@ -69,45 +84,65 @@ def Rz(alpha: float) -> np.ndarray:
     ca = np.cos(alpha)
     return np.array([[ca,-sa,0],[sa,ca,0],[0,0,1]])
 
-def determine_Rn(n_uvw: Tuple[int,int,int], k: Tuple[float,float,float], n: Tuple[float,float,float]) -> np.ndarray:
-    '''
-    Rn is the rotation corresponding to the modulation of the magnetic moments.
-        S_nj = R_n S_0j
-        S_nj : magnetic moment of j-th atom in the n-th unit cell, 
-                where the n-th unit cell is indexed by triple-int `n_uvw`.
+def rot_Rn(n_uvw: Tuple[int,int,int], 
+           modulation_vector: Tuple[float,float,float], 
+           global_rotation_axis: Tuple[float,float,float]) -> np.ndarray:
+    '''Rotation matrix corresponding to modulation of magnetic moments in a crystal.
 
-    Rn determined by the modulation vector `k`, normal to modulation `n`, and the unit cell coordinates `n_uvw`.
+    Rn rotates the magnetic moment in the unit cell `n_uvw`, according to the phase
+    of the `modulation_vector` around the `global_rotation_axis`.
+
+    Symbolically:
+
+    S_nj = R_n S_0j
+
+    S_nj is magnetic moment of j-th atom in the n-th unit cell, where the n-th unit cell is indexed by triple-int `n_uvw`.
+
+    Notes
+    -----
+    As for eq. (6) of [SpinW]
     '''
-    phi = 2*np.pi*np.dot(k, n_uvw)
-    Rn = rotate(n, phi)
+    phi = 2*np.pi*np.dot(modulation_vector, n_uvw)
+    Rn = rotate(global_rotation_axis, phi)
     return Rn
 
-def determine_Rprime(S: Tuple[float,float,float]) -> np.ndarray:
-    '''
+def rot_Rprime(v: Tuple[float,float,float]) -> np.ndarray:
+    '''Rotation matrix that rotates vector `v` to be along the `z` axis
+
+    Notes
+    -----
+    As for eq. (7) [SpinW]
     Rn' is the rotation that puts the magnetic moment along z axis.
         S'_nj = R'_n S''_nj
         S'_nj=S_0j : magnetic moment of j-th atom in the 0-th unit cell, independent on unit cell
         S''_nj : spin oriented along the ferromagnetic axis
-
-    Rn is a function of modulation vector and normal to modulation.
     '''
+    _, theta, phi = cartesian2spherical(v)
+    return Rz(phi) @ Ry(-theta) @ Rz(-phi) 
 
-    Rp = np.eye(3,3)
+def rot_Rodrigues_complex(n: tuple[float,float,float]):
+    """Return Rodrigues matrices of rotation R1, R2 according to complex formulation:
 
-    n = np.cross([0,0,1], S)
-    phi = angle([0,0,1], S)
-    Rp = rotate(n, phi)
+    R(phi) = e^(i*phi)*R1 + e^(-i*phi)*R1.conj + R2
 
-    return Rp
-    
+    as in (39) [SpinW]
+    """
+    R2 = np.outer(n, n)
+    R1 = (np.eye(3,3) - 1j*DMI(n).T - R2) / 2.0
 
+    return R1, R2
 
 # Vectors
-def cartesian2spherical(xyz):
+def cartesian2spherical(xyz) -> list[float, float, float]:
     '''
     Return the spherical [r, theta, phi] coordinates of the cartesian vector [x,y,z]
+
+    Conventions
+    -----------
     r > 0
+
     theta in (0 : pi)
+
     phi in (-pi : pi)
     '''
     xy = xyz[0]**2 + xyz[1]**2
