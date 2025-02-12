@@ -254,8 +254,8 @@ class SpinW:
         couplings_all = []
         # [1]
         for cpl in couplings:
-            atom1 = self.crystal.atoms_magnetic[cpl.id1]
-            atom2 = self.crystal.atoms_magnetic[cpl.id2]
+            atom1 = self.magnetic_atoms[cpl.id1]
+            atom2 = self.magnetic_atoms[cpl.id2]
 
             # Check that coupled atoms are both magnetic
             if not (atom1.is_mag and atom2.is_mag):
@@ -558,6 +558,7 @@ class SpinW:
     
     ##############################################################
     def calculate_excitations(self, qPath: np.ndarray, silent=True) -> np.ndarray[float]:
+        '''Calulate dispersion relations along `qPath`.'''
         Es = []
         for q_hkl in qPath:
             E = self.determine_ES(q_hkl, includeS=False)
@@ -569,6 +570,8 @@ class SpinW:
         return self.excitations
     
     def calculate_spectrum(self, qPath: np.ndarray, silent=True) -> np.ndarray[float]:
+        '''Calulcate energy and spectral weight of excitations along `qPath`.'''
+
         Es, Ss, Is = [], [], []
         for q_hkl in qPath:
             E, S = self.determine_ES(q_hkl, includeS=True)
@@ -578,6 +581,7 @@ class SpinW:
             # Intensity should have also kf/ki f^2(Q) exp(-W)
             # I = [np.trace(Si.real) for Si in S]
             # TODO check perpendicular projection operator
+            # I = np.trace(funs_sw.perp_matrix(q_hkl) @ np.array([Si.real for Si in S]), axis1=-2, axis2=-1)
             I = [np.trace(funs_sw.perp_matrix(q_hkl) @ Si.real) for Si in S]
             Is.append(I)
 
@@ -589,16 +593,29 @@ class SpinW:
         return self.excitations
 
     
-    def plot_dispersion(self, ax: 'plt.Axes', xaxis: str=None, plot_type: str='dispersion', plot_kwargs: dict={}) -> 'plt.Axes':
+    def plot_dispersion(self, ax: 'plt.Axes', xaxis: np.ndarray=None, 
+                        plot_type: str='dispersion', plot_kwargs: dict={}) -> 'plt.Axes':
         '''
         Plot dispersions
+
+        Parameters:
+        ax: pyplot.Axes
+            Axes on which to make the plot
+        xaxis: numpy.ndarray, optional
+            Array of x values for the plot.
+        plot_type: str, optional
+            Plot type from ['dispersion', 'dispersion_scaled', 'spectral_weight'].
+        plot_kwargs: dict
+            Additional kwargs passed to the plotting functions.
         '''
 
         # Nice property of this array is that for any change in direction it will keep the same value
         Qinc = np.concatenate(([0], np.linalg.norm( self.qPath[:-1] - self.qPath[1:], axis=1)))
 
-        Qs = np.cumsum(Qinc)
-        x_arg = Qs
+        if xaxis is not None:
+            x_arg = xaxis
+        else:
+            x_arg = np.cumsum(Qinc)
 
         ax.set_xlabel('Q ((h,k,l))')
         ax.set_ylabel('E (meV)')
@@ -620,8 +637,10 @@ class SpinW:
 
         ### Plot type
         if plot_type == 'dispersion':
-            Es = self.excitations
-            ax.scatter(x_arg, Es, **plot_kwargs)    # 0 branch
+            Es, Is = self.excitations
+            x = x_arg.repeat(2*len(self.magnetic_atoms))
+
+            ax.scatter(x, Es, **plot_kwargs)    # 0 branch
         elif plot_type == 'dispersion_scaled':
             Es, Is = self.excitations
             Is -= Is.min()
@@ -643,12 +662,12 @@ class SpinW:
             def yvals(xvals, Es, Is):
                 y = np.zeros(len(xvals))
                 for x0, A in zip(Es, Is):
-                    sigma = 1 + 0.03*x0
+                    sigma = 1 + 0.03*x0     # Imitates energy resolution
                     y += funs_sw.gauss_bkg(xvals, x0=x0, A=A/sigma, sigma=sigma, bkg=0)
 
                 return y
 
-            Erange = np.linspace(0, 100, 100)
+            Erange = np.linspace(0, 100, 1000)
             Es, Is = self.excitations
             for E, I in zip(Es, Is):
                 Egrid.append(yvals(Erange, E, I))
