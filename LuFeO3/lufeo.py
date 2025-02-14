@@ -1,4 +1,3 @@
-import logging
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -210,59 +209,6 @@ def load_system(parameters: Parameters, show_struct: bool=False, silent=True) ->
     
     return sw
 
-def plot_dispersions(sw_params) -> Figure:
-    Npath = 2001
-    sw = load_system(sw_params, show_struct=False)
-
-    mosaic = [ ['0k1', '0k1_in'], ['01l', '01l_in'] ]
-    layout = dict(width_ratios=[2,1])
-    fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(8,6), tight_layout=True, gridspec_kw=layout)
-
-
-    print('Calculate excitations `0k1`...')
-    qPath = sw.crystal.make_qPath(main_qs=[[0, 0.5, 1], [0,2,1]], Nqs=[Npath])
-    # qPath = sw.crystal.make_qPath(main_qs=[[0,0,0.5], [0,0,2], [1,0,1], [1,0,-1]], Nqs=[5,5,5])
-    # qPath = sw.crystal.make_qPath(main_qs=[[1,0,1], [1,0,-1]], Nqs=[51])
-    
-    omega1 = sw.calculate_excitations(qPath=qPath, silent=True)
-    sw.plot_dispersion(ax=axs['0k1'], xaxis='k', plot_kwargs=dict(color='gray', alpha=0.5))
-    sw.plot_dispersion(ax=axs['0k1_in'], xaxis='k', plot_kwargs=dict(color='gray', alpha=0.5))
-
-    print('Calculate excitations `01l`...')
-    qPath = sw.crystal.make_qPath(main_qs=[[0,1,0.5], [0,1,2]], Nqs=[Npath])
-    # qPath = sw.crystal.make_qPath(main_qs=[[0,0,0.5], [0,0,2], [1,0,1], [1,0,-1]], Nqs=[5,5,5])
-    # qPath = sw.crystal.make_qPath(main_qs=[[1,0,1], [1,0,-1]], Nqs=[51])
-    
-    omega2 = sw.calculate_excitations(qPath=qPath, silent=True)
-    sw.plot_dispersion(ax=axs['01l'], xaxis='l', plot_kwargs=dict(color='gray', alpha=0.5))
-    sw.plot_dispersion(ax=axs['01l_in'], xaxis='l', plot_kwargs=dict(color='gray', alpha=0.5))
-
-    # Plot experimental results
-    marker_style = dict(fmt='s', markersize=5, capsize=4, markeredgecolor='black')
-    axs['0k1'].errorbar(data_0K1[:,1], data_0K1[:,6], yerr=data_0K1[:,7], color='red', **marker_style)
-    axs['0k1_in'].errorbar(data_0K1[:,1], data_0K1[:,6], yerr=data_0K1[:,7], color='red', **marker_style)
-    axs['01l'].errorbar(data_01L[:,2], data_01L[:,6], yerr=data_01L[:,7], color='orange', **marker_style)
-    axs['01l_in'].errorbar(data_01L[:,2], data_01L[:,6], yerr=data_01L[:,7], color='orange', **marker_style)
-
-    for ax_name, ax in axs.items():
-        if ax_name.endswith('_in'):
-            ax.set_xlim(0.92, 1.08)
-            ax.set_ylim(0, 20)
-        else:
-            ax.set_ylim(0, 1.05*np.max(np.concatenate((omega1, omega2))))
-
-    # print('Calculate ground state energy')
-    # qz = np.linspace([0,0,-1], [0,0,1], 51)
-    # qx = np.linspace([-1,0,0], [1,0,0], 51)
-    # E0z = [sw.calculate_ground_state(q) for q in qz]
-    # E0x = [sw.calculate_ground_state(q) for q in qx]
-    # axs[1].set_ylabel('E')
-    # axs[1].set_xlabel('k')
-    # axs[1].scatter(qz[:,2], E0z, label='kz')
-    # axs[1].scatter(qx[:,0], E0x, label='kx')
-    # axs[1].legend()
-
-    return fig
 def plot_spectrum(sw_params, plot_type='dispersion') -> Figure:
     Npath = 151
     sw = load_system(sw_params, show_struct=False)
@@ -455,7 +401,12 @@ def minimize_lfo_gs(p0: Parameters):
     return fit_result
 
 def load_lfo_parameters(model_name: str) -> Parameters:
+    '''Define various parameter sets for LuFeO3 models.
+    '''
+
     models = dict()
+
+
     # Simple J1-J2 model no more
     # Unstable, as it scales J1 an J2 up
     lfo_params = Parameters()
@@ -546,9 +497,9 @@ def load_lfo_parameters(model_name: str) -> Parameters:
 
     lfo_params.add(name='J1c',  value=5.1, vary=True)   # J1
     lfo_params.add(name='J1ab',  value=4.15, vary=True)  # J2
-    lfo_params.add(name='J2b', value=-0.2, vary=True)   # J5
-    # lfo_params.add(name='J2a', value=0.224, vary=True)    # J3
-    lfo_params.add(name='J2a', value=-0.2, expr='J2b')    # J3
+    lfo_params.add(name='J2a', value=-0.2, vary=True)   # J5
+    # lfo_params.add(name='J2b', value=0.224, vary=True)    # J3
+    lfo_params.add(name='J2b', value=-0.2, expr='J2a')    # J3
     lfo_params.add(name='J2d', value=0.03, vary=True) # J4
 
     lfo_params.add(name='Dab_x',  value=0.13*0.554, vary=False)
@@ -580,22 +531,3 @@ if __name__ == '__main__':
     fig.savefig(PATH+'\spinwaves-LuFeO3-Sqw.png', dpi=400)
     fig = plot_spectrum(lfo_params, plot_type='dispersion')
     fig.savefig(PATH+'\spinwaves-LuFeO3-Eq.png', dpi=400)
-
-
-
-    ### TESTS
-
-    # fig = plot_debug_disp(lfo_params)
-
-    # def calc_exc(Q):
-    #     print(f"Q = {Q}")
-    #     print(sw.calculate_spectrum(qPath=[Q], silent=True))
-
-    # calc_exc([0,1,1])
-    # calc_exc([0,1,0])
-    # calc_exc([0.49,1,0])
-    # calc_exc([0.5,1,0])
-    # calc_exc([0.51,1,0])
-
-    # fig.savefig(rf'C:\Users\Stekiel\Desktop\Offline-plots\spinwaves-LuFeO3.pdf')
-
