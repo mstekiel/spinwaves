@@ -1,3 +1,4 @@
+from attr import dataclass
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -46,80 +47,6 @@ DB_01L = """0     1     1.230000   2.0000   50.0000  1.0000  30.000000   1.1889 
             0     1     2.000000   0.0000   80.0000  1.0000  64.980000   5.0000         0         0         0"""
 #            0     1     0.650000   2.0000   50.0000  1.0000  37.000000   1.6000         0         0         0
 data_01L = np.array([line.strip().split() for line in DB_01L.split('\n')], dtype=float)
-
-
-# DB from TAIPAN 05.02.2025
-#               QH	QK	       QL	ENlim1	ENlim2	 I1	    EN1	        sigma1	       I2    EN2	sigma2
-DB_H0N = '''0.615	0.000000	1	0.0000	90.0000	1.0000	55.000000	0.000000	0	0	0
-            0.65933	0.000000	1	0.0000	90.0000	1.0000	50.000000	0.000000	0	0	0
-            0.728	0.000000	1	0.0000	90.0000	1.0000	45.000000	0.000000	0	0	0
-            0.76	0.000000	1	0.0000	90.0000	1.0000	40.000000	0.000000	0	0	0
-            0.8	    0.000000	1	0.0000	90.0000	1.0000	35.000000	0.000000	0	0	0
-            0.85234	0.000000	1	0.0000	90.0000	1.0000	30.000000	0.000000	0	0	0
-            0.88	0.000000	1	0.0000	90.0000	1.0000	25.000000	0.000000	0	0	0
-            0.915	0.000000	1	0.0000	90.0000	1.0000	20.000000	0.000000	0	0	0
-            0.938	0.000000	1	0.0000	90.0000	1.0000	15.000000	0.000000	0	0	0
-            0.96844	0.000000	1	0.0000	90.0000	1.0000	10.000000	0.000000	0	0	0
-            1.00383	0.000000	1	0.0000	90.0000	1.0000	5.000000	0.000000	0	0	0
-            1.41221	0.000000	1	0.0000	90.0000	1.0000	55.000000	0.000000	0	0	0
-            1.33037	0.000000	1	0.0000	90.0000	1.0000	50.000000	0.000000	0	0	0
-            1.272	0.000000	1	0.0000	90.0000	1.0000	45.000000	0.000000	0	0	0
-            1.24	0.000000	1	0.0000	90.0000	1.0000	40.000000	0.000000	0	0	0
-            1.2	    0.000000	1	0.0000	90.0000	1.0000	35.000000	0.000000	0	0	0
-            1.15689	0.000000	1	0.0000	90.0000	1.0000	30.000000	0.000000	0	0	0
-            1.12	0.000000	1	0.0000	90.0000	1.0000	25.000000	0.000000	0	0	0
-            1.085	0.000000	1	0.0000	90.0000	1.0000	20.000000	0.000000	0	0	0
-            1.065	0.000000	1	0.0000	90.0000	1.0000	15.000000	0.000000	0	0	0
-            1.03334	0.000000	1	0.0000	90.0000	1.0000	10.000000	0.000000	0	0	0'''
-
-# data_H0N = np.array([line.strip().split() for line in MS_H0N.split('\n')], dtype=float)
-data_H0N = np.array([line.strip().split() for line in DB_H0N.split('\n')], dtype=float)
-
-
-# DB from TAIPAN 06.02.2025
-# WARNING: Ql in DB_10l[-3] was replaced from 4.23 to 5.77 to fit into the q-region
-#               QH	QK	        QL	ENlim1	ENlim2	I1	EN1	        sigma1	       I2	EN2	sigma2
-DB_10L = '''   1	0.000000	5.79306	0.0000	90.0000	1.0000	55.000000	0.017880	0	0	0
-                1	0.000000	4.58169	0.0000	90.0000	1.0000	40.000000	0.002150	0	0	0
-                1	0.000000	2.67717	0.0000	90.0000	1.0000	35.000000	0.006380	0	0	0
-                1	0.000000	2.74424	0.0000	90.0000	1.0000	30.000000	0.005700	0	0	0
-                1	0.000000	0.88146	0.0000	90.0000	1.0000	15.000000	0.001860	0	0	0
-                1	0.000000	0.91448	0.0000	90.0000	1.0000	10.000000	0.002040	0	0	0
-                1	0.000000	0.97977	0.0000	90.0000	1.0000	5.000000	0.000890	0	0	0
-                1	0.000000	1.03129	0.0000	90.0000	1.0000	10.000000	0.002100	0	0	0
-                1	0.000000	1.07061	0.0000	90.0000	1.0000	15.000000	0.001920	0	0	0
-                1	0.000000	3.21266	0.0000	90.0000	1.0000	30.000000	0.005290	0	0	0
-                1	0.000000	3.24319	0.0000	90.0000	1.0000	35.000000	0.006060	0	0	0
-                1	0.000000	3.31945	0.0000	90.0000	1.0000	37.500000	0.004360	0	0	0
-                1	0.000000	5.45749	0.0000	90.0000	1.0000	40.000000	0.001950	0	0	0
-                1	0.000000	3.46981	0.0000	90.0000	1.0000	45.000000	0.004930	0	0	0
-                1	0.000000	3.54244	0.0000	90.0000	1.0000	50.000000	0.005140	0	0	0
-                1	0.000000	5.77	0.0000	90.0000	1.0000	55.000000	0.000000	0	0	0
-                1	0.000000	2.8622	0.0000	90.0000	1.0000	20.000000	0.004641	0	0	0
-                1	0.000000	3.1028	0.0000	90.0000	1.0000	20.000000	0.004391	0	0	0'''
-data_10L = np.array([line.strip().split() for line in DB_10L.split('\n')], dtype=float)
-
-
-# DB from TAIPAN 06.02.2025
-#                   QH	QK	        QL	ENlim1	ENlim2	I1	EN1	        sigma1	       I2	EN2	sigma2
-DB_H0mH = '''   1.23593	0.000000	2.76407	0.0000	90.0000	1.0000	45.000000	0.003240	0	0	0
-                1.2041	0.000000	2.7959	0.0000	90.0000	1.0000	40.000000	0.003150	0	0	0
-                1.1655	0.000000	2.8345	0.0000	90.0000	1.0000	35.000000	0.003620	0	0	0
-                1.13899	0.000000	2.86101	0.0000	90.0000	1.0000	30.000000	0.003370	0	0	0
-                1.0992	0.000000	2.9008	0.0000	90.0000	1.0000	25.000000	0.004030	0	0	0
-                1.07123	0.000000	2.92877	0.0000	90.0000	1.0000	20.000000	0.004800	0	0	0
-                1.05215	0.000000	0.94785	0.0000	90.0000	1.0000	15.000000	0.001440	0	0	0
-                1.03819	0.000000	0.96181	0.0000	90.0000	1.0000	10.000000	0.001090	0	0	0
-                1.00835	0.000000	0.99165	0.0000	90.0000	1.0000	5.000000	0.000460	0	0	0
-                0.97726	0.000000	1.02274	0.0000	90.0000	1.0000	10.000000	0.001060	0	0	0
-                0.95925	0.000000	1.04075	0.0000	90.0000	1.0000	15.000000	0.001460	0	0	0
-                0.93126	0.000000	3.06874	0.0000	90.0000	1.0000	20.000000	0.004490	0	0	0
-                0.9	    0.000000	3.1 	0.0000	90.0000	1.0000	25.000000	0.000000	0	0	0
-                0.872	0.000000	3.128	0.0000	90.0000	1.0000	30.000000	0.000000	0	0	0
-                0.842	0.000000	3.158	0.0000	90.0000	1.0000	35.000000	0.000000	0	0	0
-                0.8203	0.000000	3.1797	0.0000	90.0000	1.0000	40.000000	0.003050	0	0	0
-                0.78013	0.000000	3.21987	0.0000	90.0000	1.0000	45.000000	0.002810	0	0	0'''
-data_H0mH = np.array([line.strip().split() for line in DB_H0mH.split('\n')], dtype=float)
 
 
 #######################################################
@@ -209,13 +136,112 @@ def load_system(parameters: Parameters, show_struct: bool=False, silent=True) ->
     
     return sw
 
-def plot_spectrum(sw_params, plot_type='dispersion') -> Figure:
+
+@dataclass
+class DataEntry:
+    QH: float
+    QK: float
+    QL: float
+    E: float
+    E_err: float
+    I: float
+    path_desc: str
+
+    @property
+    def Q(self) -> tuple[float,float,float]:
+        '''Momentum transfer vector in rlu.'''
+        return (self.QH, self.QK, self.QL)
+    
+    @property
+    def qred(self) -> float:
+        '''Return the Q wavevector reduced to the (101) BZ'''
+        return (self.QH%2, self.QK%2, self.QL%2)
+
+
+class Data:
+    '''Class containing all loaded datasets.
+    Q
+    q'''
+    entries: list[DataEntry]
+
+    def __init__(self):
+        self.entries = list()
+
+    def __new__(cls):
+        return super(Data, cls).__new__(cls)
+
+    def append_file(self, filename: str, path_desc: str):
+        '''Load data from file in column format.
+        #QH	QK	QL	ENlim1	ENlim2	I1	EN1	 sigma1	I2	EN2	sigma2'''
+        data = np.loadtxt(filename, comments='#')
+
+        for row in data:
+            QH, QK, QL, ENlim1, ENlim2, I1, EN1, sigma1, I2, EN2, sigma2 = row
+            self.entries.append(DataEntry(QH=QH, QK=QK, QL=QL, E=EN1, E_err=sigma1, I=I1, path_desc=path_desc))
+
+    def get_Qpath(self, path_desc: str) -> 'Data':
+        '''Get list of measures momentum and energy transfers on the path.'''
+        import copy
+
+        NewData = copy.deepcopy(self)
+        NewData.entries = [de for de in self.entries if de.path_desc==path_desc]
+        return NewData
+    
+    @property
+    def QHred(self) -> list[float]:
+        return [e.qred[0] for e in self.entries]
+    
+    @property
+    def QLred(self) -> list[float]:
+        return [e.qred[2] for e in self.entries]
+    
+    @property
+    def QL(self) -> list[float]:
+        return [e.Q[2] for e in self.entries]
+    
+    @property
+    def E(self) -> list[float]:
+        return [e.E for e in self.entries]
+    
+    @property
+    def E_err(self) -> list[float]:
+        return [e.E_err for e in self.entries]
+    
+            
+
+    def __repr__(self):
+        return '\n'.join(['<Data']+[e.__repr__() for e in self.entries[:10]]+['>'])
+        
+def load_data() -> Data:
+    '''Load data from files.'''
+
+    PATH_DATA = rf'C:\Users\Stekiel\Documents\GitHub\spinwaves\LuFeO3\data'
+
+    DATA = Data()
+
+    DATA.append_file(f'{PATH_DATA}\HmHScan_LuFeO3_Taipan_R.txt', path_desc='H0mH')
+    DATA.append_file(f'{PATH_DATA}\HScan_LuFeO3_Taipan_R.txt', path_desc='H0N')
+    DATA.append_file(f'{PATH_DATA}\LScan_LuFeO3_Taipan_R.txt', path_desc='10L')
+    # DATA.append_file(f'{PATH_DATA}\AG-CF Crazy Scan Q points.txt', path_desc='AG-CF')
+    DATA.append_file(f'{PATH_DATA}\AG-CF-5p5.txt', path_desc='AG-CF-5p5')
+    DATA.append_file(f'{PATH_DATA}\AG-CF-4p5.txt', path_desc='AG-CF-4p5')
+
+    return DATA
+
+def plot_spectrum(sw_params, DATA: Data, plot_type: str='dispersion') -> Figure:
     Npath = 151
     sw = load_system(sw_params, show_struct=False)
 
-    mosaic = [ ['0k1', '0k1_in'], ['01l', '01l_in'], ['10l', '10l_in'] ,['h0l', 'h0l_in'] , ['h0mh', 'h0mh_in']]
+    mosaic = [ ['0k1', '0k1_in'], 
+              ['01l', '01l_in'], 
+              ['10l', '10l_in'] ,
+              ['h0l', 'h0l_in'] , 
+              ['h0mh', 'h0mh_in'], 
+              ['AG-CF-5p5', 'AG-CF-5p5_in'],
+              ['AG-CF-4p5', 'AG-CF-4p5_in']
+              ]
     layout = dict(width_ratios=[2,1])
-    fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(7,12), tight_layout=True, gridspec_kw=layout)
+    fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(7,14), tight_layout=True, gridspec_kw=layout)
 
 
     print('Calculate spectrum `0k1`...')
@@ -234,7 +260,7 @@ def plot_spectrum(sw_params, plot_type='dispersion') -> Figure:
 
     print('Calculate spectrum `10l`...')
     axs['10l'].set_title("(1 0 L) TAIPAN")
-    qPath = sw.crystal.make_qPath(main_qs=[[1,0,0.5], [1,0,2]], Nqs=[Npath])
+    qPath = sw.crystal.make_qPath(main_qs=[[1,0,0], [1,0,2]], Nqs=[Npath])
     omega3, _ = sw.calculate_spectrum(qPath=qPath, silent=True)
     sw.plot_dispersion(ax=axs['10l'],    xaxis=qPath[:,2], plot_type=plot_type, plot_kwargs=dict(color='gray', alpha=0.5))
     sw.plot_dispersion(ax=axs['10l_in'], xaxis=qPath[:,2], plot_type=plot_type, plot_kwargs=dict(color='gray', alpha=0.5))
@@ -254,6 +280,20 @@ def plot_spectrum(sw_params, plot_type='dispersion') -> Figure:
     sw.plot_dispersion(ax=axs['h0mh_in'], xaxis=qPath[:,0], plot_type=plot_type, plot_kwargs=dict(color='gray', alpha=0.5))
   
 
+    print('Calculate spectrum `AG-CF-5p5`...')
+    axs['AG-CF-5p5'].set_title(f"(H 0 5.5-H) TAIPAN")
+    qPath = sw.crystal.make_qPath(main_qs=[[0,0,5.5], [2,0,3.5]], Nqs=[Npath])
+    omega4, _ = sw.calculate_spectrum(qPath=qPath, silent=True)
+    sw.plot_dispersion(ax=axs['AG-CF-5p5'],    xaxis=qPath[:,2], plot_type=plot_type, plot_kwargs=dict(color='gray', alpha=0.5))
+    sw.plot_dispersion(ax=axs['AG-CF-5p5_in'], xaxis=qPath[:,2], plot_type=plot_type, plot_kwargs=dict(color='gray', alpha=0.5))
+
+    print('Calculate spectrum `AG-CF-4p5`...')
+    axs['AG-CF-4p5'].set_title(f"(H 0 4.5-H) TAIPAN")
+    qPath = sw.crystal.make_qPath(main_qs=[[0,0,4.5], [2,0,2.5]], Nqs=[Npath])
+    omega4, _ = sw.calculate_spectrum(qPath=qPath, silent=True)
+    sw.plot_dispersion(ax=axs['AG-CF-4p5'],    xaxis=qPath[:,2], plot_type=plot_type, plot_kwargs=dict(color='gray', alpha=0.5))
+    sw.plot_dispersion(ax=axs['AG-CF-4p5_in'], xaxis=qPath[:,2], plot_type=plot_type, plot_kwargs=dict(color='gray', alpha=0.5))
+
 
 
     # Plot experimental results
@@ -265,14 +305,26 @@ def plot_spectrum(sw_params, plot_type='dispersion') -> Figure:
     axs['01l'].errorbar(data_01L[:,2], data_01L[:,6], yerr=data_01L[:,7], color='green', **marker_style)
     axs['01l_in'].errorbar(data_01L[:,2], data_01L[:,6], yerr=data_01L[:,7], color='green', **marker_style)
 
-    axs['10l'].errorbar(data_10L[:,2]%2, data_10L[:,6], yerr=data_10L[:,7], color='purple', **marker_style)
-    axs['10l_in'].errorbar(data_10L[:,2]%2, data_10L[:,6], yerr=data_10L[:,7], color='purple', **marker_style)
+    data_10L = DATA.get_Qpath('10L')
+    axs['10l'].errorbar(data_10L.QLred, data_10L.E, yerr=data_10L.E_err, color='purple', **marker_style)
+    axs['10l_in'].errorbar(data_10L.QLred, data_10L.E, yerr=data_10L.E_err, color='purple', **marker_style)
 
-    axs['h0l'].errorbar(data_H0N[:,0], data_H0N[:,6], yerr=data_H0N[:,7], color='yellow', **marker_style)
-    axs['h0l_in'].errorbar(data_H0N[:,0], data_H0N[:,6], yerr=data_H0N[:,7], color='yellow', **marker_style)
+    data_H0N = DATA.get_Qpath('H0N')
+    axs['h0l'].errorbar(data_H0N.QHred, data_H0N.E, yerr=data_H0N.E_err, color='magenta', **marker_style)
+    axs['h0l_in'].errorbar(data_H0N.QHred, data_H0N.E, yerr=data_H0N.E_err, color='magenta', **marker_style)
 
-    axs['h0mh'].errorbar(data_H0mH[:,0], data_H0mH[:,6], xerr=data_H0mH[:,7], color='pink', **marker_style)
-    axs['h0mh_in'].errorbar(data_H0mH[:,0], data_H0mH[:,6], xerr=data_H0mH[:,7], color='pink', **marker_style)
+    data_H0mH = DATA.get_Qpath('H0mH')
+    axs['h0mh'].errorbar(data_H0mH.QHred, data_H0mH.E, xerr=data_H0mH.E_err, color='pink', **marker_style)
+    axs['h0mh_in'].errorbar(data_H0mH.QHred, data_H0mH.E, xerr=data_H0mH.E_err, color='pink', **marker_style)
+
+    data_crazy = DATA.get_Qpath('AG-CF-5p5')
+    axs['AG-CF-5p5'].errorbar(data_crazy.QL, data_crazy.E, xerr=data_crazy.E_err, color='cyan', **marker_style)
+    axs['AG-CF-5p5_in'].errorbar(data_crazy.QL, data_crazy.E, xerr=data_crazy.E_err, color='cyan', **marker_style)
+
+    data_crazy = DATA.get_Qpath('AG-CF-4p5')
+    axs['AG-CF-4p5'].errorbar(data_crazy.QL, data_crazy.E, xerr=data_crazy.E_err, color='cyan', **marker_style)
+    axs['AG-CF-4p5_in'].errorbar(data_crazy.QL, data_crazy.E, xerr=data_crazy.E_err, color='cyan', **marker_style)
+
 
     for ax_name, ax in axs.items():
         if ax_name.endswith('_in'):
@@ -282,10 +334,14 @@ def plot_spectrum(sw_params, plot_type='dispersion') -> Figure:
             ax.set_ylim(0, 1.05*np.max(np.concatenate((omega1, omega2, omega3, omega4))))
             # pass
 
+    axs['AG-CF-5p5'].set_ylim(40, 75)
+    axs['AG-CF-4p5'].set_ylim(40, 75)
 
     return fig
 
-def lfo_residuals(parameters: Parameters):
+    
+def lfo_residuals(parameters: Parameters, DATA: Data):
+# def lfo_residuals(parameters: Parameters):
     """Calculate the residuals between the model and data of LuFeO3.
     
     Returns
@@ -298,6 +354,9 @@ def lfo_residuals(parameters: Parameters):
     lfo_sw = load_system(parameters)
 
     def get_residual(q, E_exp, E_err):
+        '''Calculate the residual for a single data point.
+        
+        The main problem here is to define which point from the model corresponds to the data point.'''
         E_theo, I_theo = lfo_sw.calculate_spectrum([q])
 
         weights = np.nan_to_num(I_theo, nan=1e+30)*np.power(E_exp-E_theo, -6)
@@ -308,47 +367,14 @@ def lfo_residuals(parameters: Parameters):
 
         return np.sum(weights*(E_exp-E_theo))
     
-    for dataline in data_0K1:
-        q = [0, dataline[1], 1]
-        E_exp = dataline[6]
-        E_err = dataline[7]
+    for ee in DATA.entries:
+        q = ee.Q
+        E_exp = ee.E
+        E_err = ee.E_err
 
         residuals.append( get_residual(q, E_exp, E_err) )
         weights.append(1/E_err)
-
-    for dataline in data_01L:
-        q = [0, 1, dataline[2]]
-        E_exp = dataline[6]
-        E_err = dataline[7]
-
-        residuals.append( get_residual(q, E_exp, E_err) )
-        weights.append(1/E_err)
-
-    for dataline in data_10L:
-        q = [1, 0, dataline[2]]
-        E_exp = dataline[6]
-        E_err = dataline[7]
-
-        residuals.append( get_residual(q, E_exp, E_err) )
-        weights.append(1/E_err)
-
-    for dataline in data_H0N:
-        q = [dataline[0], 0, 1]
-        E_exp = dataline[6]
-        E_err = dataline[7]
-
-        residuals.append( get_residual(q, E_exp, E_err) )
-        weights.append(1/E_err)
-
-    for dataline in data_H0mH:
-        q = [dataline[0], 0, 2-dataline[0]]
-        E_exp = dataline[6]
-        E_err = dataline[7]
-
-        residuals.append( get_residual(q, E_exp, E_err) )
-        weights.append(1/E_err)
-
-
+    
 
     residuals = np.array(residuals, dtype=float)
     weights = np.array(weights, dtype=float)
@@ -362,7 +388,7 @@ def lfo_residuals(parameters: Parameters):
 
     return residuals
 
-def fit_lfo(p0: Parameters):
+def fit_lfo(p0: Parameters, DATA: Data):
     """Run the fitting procedure with starting parameters `p0`.
     Print the result.
     
@@ -371,7 +397,7 @@ def fit_lfo(p0: Parameters):
     Fitted parameters
     """
     print('Fitting LuFeO3 data')
-    fit_result = lmfit.minimize(lfo_residuals, p0, method='leastsq')
+    fit_result = lmfit.minimize(lfo_residuals, p0, method='leastsq', kws={'DATA': DATA})
 
     print(fit_report(fit_result))
     return fit_result
@@ -410,16 +436,25 @@ def load_lfo_parameters(model_name: str) -> Parameters:
     # Simple J1-J2 model no more
     # Unstable, as it scales J1 an J2 up
     lfo_params = Parameters()
-    lfo_params.add(name='Ka',  value=-0.013, vary=True)
+    lfo_params.add(name='Ka',  value=-0.08, vary=True)
     lfo_params.add(name='Kc',  value=0, vary=False)
-    lfo_params.add(name='D1',  value=0.0, vary=False)
-    lfo_params.add(name='D2',  value=0.0, vary=False)
-    lfo_params.add(name='J1',  value=5.66, vary=True)
-    lfo_params.add(name='J2',  value=0.21, vary=True)
+
+    lfo_params.add(name='J1',  value=5.7, vary=True)
+    lfo_params.add(name='J2',  value=0.51, vary=True)
     lfo_params.add(name='J1ab',  expr="J1")
     lfo_params.add(name='J1c',  expr="J1")
-    lfo_params.add(name='J2ab', expr="J2")
+    lfo_params.add(name='J2a', expr="J2")
+    lfo_params.add(name='J2b', expr="J2")
     lfo_params.add(name='J2d',  expr="J2")
+
+    lfo_params.add(name='Dab_x',  value=0.13*0.554, vary=False)
+    lfo_params.add(name='Dab_y',  value=0.13*0.553, vary=False)
+    lfo_params.add(name='Dab_z',  value=0.13*0.623, vary=False)
+    lfo_params.add(name='Dc_x',  value=0.158*0.191, vary=False)
+    lfo_params.add(name='Dc_y',  value=0.158*0.982, vary=False)
+    lfo_params.add(name='Dc_z',  value=0, vary=False)
+    lfo_params.add(name='Fz',  value=0.08*0, vary=False)
+
     models['J12'] = lfo_params
 
     # J1 J2 all split
@@ -516,18 +551,21 @@ def load_lfo_parameters(model_name: str) -> Parameters:
 
 if __name__ == '__main__':
     PATH = fr'C:\Users\Stekiel\Documents\GitHub\spinwaves\LuFeO3'
+
+    DATA = load_data()
+    print(DATA)
+
     # Define main parameters
     fit = True
 
-    lfo_params = load_lfo_parameters('TAIPAN')
+    lfo_params = load_lfo_parameters('J12')
     sw = load_system(lfo_params, show_struct=False, silent=False)
 
-
     if fit:
-        fit_result = fit_lfo(p0 = lfo_params)
+        fit_result = fit_lfo(p0=lfo_params, DATA=DATA)
         lfo_params = fit_result.params
 
-    fig = plot_spectrum(lfo_params, plot_type='spectral_weight')
-    fig.savefig(PATH+'\spinwaves-LuFeO3-Sqw.png', dpi=400)
-    fig = plot_spectrum(lfo_params, plot_type='dispersion')
+    fig = plot_spectrum(lfo_params, DATA, plot_type='dispersion')
     fig.savefig(PATH+'\spinwaves-LuFeO3-Eq.png', dpi=400)
+    fig = plot_spectrum(lfo_params, DATA, plot_type='spectral_weight')
+    fig.savefig(PATH+'\spinwaves-LuFeO3-Sqw.png', dpi=400)
