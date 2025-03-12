@@ -2,3 +2,5 @@
 __pycache__/
 *.py[cod]
 debug*.py
+
+FeV2O4/*

@@ -196,6 +196,14 @@ class Data:
         return [e.qred[2] for e in self.entries]
     
     @property
+    def QH(self) -> list[float]:
+        return [e.Q[0] for e in self.entries]
+    
+    @property
+    def QK(self) -> list[float]:
+        return [e.Q[1] for e in self.entries]
+    
+    @property
     def QL(self) -> list[float]:
         return [e.Q[2] for e in self.entries]
     
@@ -258,9 +266,11 @@ def plot_spectrum(sw_params, DATA: Data, plot_type: str='dispersion') -> Figure:
     sw.plot_dispersion(ax=axs['01l'],    xaxis=qPath[:,2], plot_type=plot_type, plot_kwargs=dict(color='gray', alpha=0.5))
     sw.plot_dispersion(ax=axs['01l_in'], xaxis=qPath[:,2], plot_type=plot_type, plot_kwargs=dict(color='gray', alpha=0.5))
 
+
+
     print('Calculate spectrum `10l`...')
     axs['10l'].set_title("(1 0 L) TAIPAN")
-    qPath = sw.crystal.make_qPath(main_qs=[[1,0,0], [1,0,2]], Nqs=[Npath])
+    qPath = sw.crystal.make_qPath(main_qs=[[1,0,0], [1,0,6]], Nqs=[Npath])
     omega3, _ = sw.calculate_spectrum(qPath=qPath, silent=True)
     sw.plot_dispersion(ax=axs['10l'],    xaxis=qPath[:,2], plot_type=plot_type, plot_kwargs=dict(color='gray', alpha=0.5))
     sw.plot_dispersion(ax=axs['10l_in'], xaxis=qPath[:,2], plot_type=plot_type, plot_kwargs=dict(color='gray', alpha=0.5))
@@ -306,16 +316,16 @@ def plot_spectrum(sw_params, DATA: Data, plot_type: str='dispersion') -> Figure:
     axs['01l_in'].errorbar(data_01L[:,2], data_01L[:,6], yerr=data_01L[:,7], color='green', **marker_style)
 
     data_10L = DATA.get_Qpath('10L')
-    axs['10l'].errorbar(data_10L.QLred, data_10L.E, yerr=data_10L.E_err, color='purple', **marker_style)
-    axs['10l_in'].errorbar(data_10L.QLred, data_10L.E, yerr=data_10L.E_err, color='purple', **marker_style)
+    axs['10l'].errorbar(data_10L.QL, data_10L.E, yerr=data_10L.E_err, color='purple', **marker_style)
+    axs['10l_in'].errorbar(data_10L.QL, data_10L.E, yerr=data_10L.E_err, color='purple', **marker_style)
 
     data_H0N = DATA.get_Qpath('H0N')
-    axs['h0l'].errorbar(data_H0N.QHred, data_H0N.E, yerr=data_H0N.E_err, color='magenta', **marker_style)
-    axs['h0l_in'].errorbar(data_H0N.QHred, data_H0N.E, yerr=data_H0N.E_err, color='magenta', **marker_style)
+    axs['h0l'].errorbar(data_H0N.QH, data_H0N.E, yerr=data_H0N.E_err, color='magenta', **marker_style)
+    axs['h0l_in'].errorbar(data_H0N.QH, data_H0N.E, yerr=data_H0N.E_err, color='magenta', **marker_style)
 
     data_H0mH = DATA.get_Qpath('H0mH')
-    axs['h0mh'].errorbar(data_H0mH.QHred, data_H0mH.E, xerr=data_H0mH.E_err, color='pink', **marker_style)
-    axs['h0mh_in'].errorbar(data_H0mH.QHred, data_H0mH.E, xerr=data_H0mH.E_err, color='pink', **marker_style)
+    axs['h0mh'].errorbar(data_H0mH.QH, data_H0mH.E, xerr=data_H0mH.E_err, color='pink', **marker_style)
+    axs['h0mh_in'].errorbar(data_H0mH.QH, data_H0mH.E, xerr=data_H0mH.E_err, color='pink', **marker_style)
 
     data_crazy = DATA.get_Qpath('AG-CF-5p5')
     axs['AG-CF-5p5'].errorbar(data_crazy.QL, data_crazy.E, xerr=data_crazy.E_err, color='cyan', **marker_style)
@@ -398,8 +408,8 @@ def fit_lfo(p0: Parameters, DATA: Data):
     """
     print('Fitting LuFeO3 data')
     fit_result = lmfit.minimize(lfo_residuals, p0, method='leastsq', kws={'DATA': DATA})
-
     print(fit_report(fit_result))
+
     return fit_result
 
 def minimize_lfo_gs(p0: Parameters):
@@ -436,7 +446,7 @@ def load_lfo_parameters(model_name: str) -> Parameters:
     # Simple J1-J2 model no more
     # Unstable, as it scales J1 an J2 up
     lfo_params = Parameters()
-    lfo_params.add(name='Ka',  value=-0.08, vary=True)
+    lfo_params.add(name='Ka',  value=-0.28, vary=True)
     lfo_params.add(name='Kc',  value=0, vary=False)
 
     lfo_params.add(name='J1',  value=5.7, vary=True)
@@ -453,7 +463,7 @@ def load_lfo_parameters(model_name: str) -> Parameters:
     lfo_params.add(name='Dc_x',  value=0.158*0.191, vary=False)
     lfo_params.add(name='Dc_y',  value=0.158*0.982, vary=False)
     lfo_params.add(name='Dc_z',  value=0, vary=False)
-    lfo_params.add(name='Fz',  value=0.08*0, vary=False)
+    lfo_params.add(name='Fz',  value=0, vary=True)
 
     models['J12'] = lfo_params
 
@@ -556,7 +566,7 @@ if __name__ == '__main__':
     print(DATA)
 
     # Define main parameters
-    fit = True
+    fit = False
 
     lfo_params = load_lfo_parameters('J12')
     sw = load_system(lfo_params, show_struct=False, silent=False)
@@ -565,7 +575,9 @@ if __name__ == '__main__':
         fit_result = fit_lfo(p0=lfo_params, DATA=DATA)
         lfo_params = fit_result.params
 
+
     fig = plot_spectrum(lfo_params, DATA, plot_type='dispersion')
     fig.savefig(PATH+'\spinwaves-LuFeO3-Eq.png', dpi=400)
     fig = plot_spectrum(lfo_params, DATA, plot_type='spectral_weight')
     fig.savefig(PATH+'\spinwaves-LuFeO3-Sqw.png', dpi=400)
+
