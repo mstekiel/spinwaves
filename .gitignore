@@ -2,3 +2,6 @@
 __pycache__/
 *.py[cod]
 debug*.py
+
+# Some examples should be hidden
+LufeO3/FIT

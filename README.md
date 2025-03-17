@@ -1,12 +1,14 @@
 # spinwaves - SpinW implmentation in python
 
+## Bugs
 
+ - [ ] There is some warning in `database` module that causes a lot of empty lines printout when warning levels are higher.
 
 TODO
 For list of modules and their descriptions see documentation at: 
 https://mstekiel.github.io/mikibox/build/html/index.html
 
-Installation
+## Installation
 1. Create an empty virtual environment with the python version specified in `setup.py: python-version`
 2. Install `mikibox` locally with `python setup.py develop` or `pip install -e .`. The `develop`/`-e` option allows to modify the source files and adapt to current needs. If you want to install extra packages for full development utilities do `pip install -e .[dev]`.
 
@@ -24,5 +26,5 @@ Installation FAQ:
 - numpy==1.23.1 requires python>3.10 I believe. It didnt want to work with python==3.8
 - matplotlib==3.6 is not in conda repository as of 19.10.2022, but 3.5.2 is and works well.
 
-General notes:
+## General notes
 - I tried to follow the structure of https://github.com/pypa/sampleproject for the development of this project. Following descriptions from https://python-packaging-tutorial.readthedocs.io/en/latest/setup_py.html

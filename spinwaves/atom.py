@@ -24,7 +24,7 @@ class Atom:
         r: np.ndarray
             Position in crystal (uvw) coordinates.
         m: np.ndarray = np.zeros((3))
-            Magnetic moment in cartesian (xyz) coordinates.
+            Direction of the magnetic moment in cartesian (xyz) coordinates.
         s: float = 0
             Spin number, int of half-int.
             
@@ -89,13 +89,14 @@ class Atom:
             raise ValueError(f'Atomic position must be a (3,) vector now is: {len(self.r)}')
         
         # Magnetic moment and spin
-        self.m = np.array(m)
+        self.m = np.array(m, dtype=float)
         self.s = s
         if not self.m.shape == (3,):
             raise ValueError(f'Atomic magnetic moment must be a (3,) vector now is: {self.r.shape}')
         # if not np.shape(s)==1:
         #     raise ValueError(f'Atomic spin must be a single `float`: s={self.s} shape={np.shape(self.s)}')
-
+        # Normalize magnetic moment, just in case
+        self.m /= np.linalg.norm(self.m)
 
         # Label
         self.label = label

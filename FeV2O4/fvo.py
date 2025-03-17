@@ -81,12 +81,12 @@ def load_system_cubic(parameters: Parameters, show_struct: bool=False, silent=Tr
     
     return sw
 
+# This work pretty well, but has no benchmark in literature
 def load_system_orthorhombic(parameters: Parameters, show_struct: bool=False, silent=True) -> SpinW:
-
     # Origin choice 2
     mV = 0.5
-    atoms = [Atom(label='Fe', r=(1/8, 1/8, 1/8),   m=(0,0,2), s=2), # 8a
-             Atom(label='V',  r=(1/2, 1/2, 1/2),   m=(mV,mV,mV), s=1),   # 16d 
+    atoms = [Atom(label='Fe', r=(1/8, 1/8, 1/8),   m=(0,0,-1), s=2), # 8a
+             Atom(label='V',  r=(1/2, 1/2, 1/2),   m=(0,0,1), s=0.5),   # 16d 
              ]
     Fddd = MSG.from_xyz_strings(generators=[
         'x, y+1/2,z+1/2, +1', # t(0 1/2 1/2)
@@ -109,8 +109,8 @@ def load_system_orthorhombic(parameters: Parameters, show_struct: bool=False, si
 
     ### Extract the model parameters
     # Negative couplings are FM, positive are AF
-    Da = parameters['Da'].value*2
-    Db = parameters['Db'].value*2
+    Da = parameters['Da'].value
+    Db = parameters['Db'].value
 
     Jab = parameters['Jab'].value
     Jbb  = parameters['Jbb'].value
@@ -121,7 +121,7 @@ def load_system_orthorhombic(parameters: Parameters, show_struct: bool=False, si
     # Wrap up the couplings in one list
     # Single-ion anisotropies
     couplings += [Coupling(label=f'D_Fe', n_uvw=[0,0,0], id1=4, id2=4, J=np.diag([0, 0, Da]))]
-    couplings += [Coupling(label=f'D_V' , n_uvw=[0,0,0], id1=0, id2=0, J=np.diag([Db,Db,Db]))]
+    couplings += [Coupling(label=f'D_V' , n_uvw=[0,0,0], id1=0, id2=0, J=np.diag([0,0,Db]))]
 
     ### Coupling have to by symmetrized to the pseudo Fd-3m space group, except V-V
     # Fe-V coupling
@@ -131,9 +131,9 @@ def load_system_orthorhombic(parameters: Parameters, show_struct: bool=False, si
 
     # V-V couplings in V4 tetrahedron. It is not clear which one is JpBB and which JBB
     couplings += [Coupling(label=f'Jpbb', n_uvw=[0,0,0], id1=12, id2=13, J=Jpbb*np.eye(3,3))]
-    couplings += [Coupling(label=f'Jpbb', n_uvw=[0,0,0], id1=13, id2=19, J=Jpbb*np.eye(3,3))]
+    couplings += [Coupling(label=f'Jbb', n_uvw=[0,0,0], id1=13, id2=19, J=Jbb*np.eye(3,3))]
 
-    couplings += [Coupling(label=f'Jbb',n_uvw=[0,0,0], id1=12, id2=19, J=Jbb*np.eye(3,3))]
+    couplings += [Coupling(label=f'Jpbb',n_uvw=[0,0,0], id1=12, id2=19, J=Jpbb*np.eye(3,3))]
 
     if not silent:
         for cpl in couplings:
@@ -154,9 +154,81 @@ def load_system_orthorhombic(parameters: Parameters, show_struct: bool=False, si
     
     return sw
 
-def plot_spectrum(sw_params, plot_type: str='dispersion') -> Figure:
-    Npath = 31
-    sw = load_system_orthorhombic(sw_params, show_struct=False)
+# This is not working
+def load_system_tetragonal(parameters: Parameters, show_struct: bool=False, silent=True) -> SpinW:
+    # Origin choice 2
+    mV = 0.5
+    atoms = [Atom(label='Fe', r=(1/8, 1/8, 1/8),   m=(0,0,1), s=4), # 8a
+             Atom(label='V',  r=(1/2, 1/2, 1/2),   m=(-1,-1,-1), s=1),   # 16d 
+             ]
+    Fddd = MSG.from_xyz_strings(generators=[
+        'x, y+1/2,z+1/2, +1', # t(0 1/2 1/2)
+        'x+1/2, y,z+1/2, +1', # t(1/2 0 1/2)
+        '-x+3/4, -y+3/4, z, +1',    # 2_001_d
+        '-x+3/4, y, -z+3/4, -1',    # 2_010_d prime to get two in - two out arrangement
+        '-x, -y, -z , +1', # -1
+        ])
+
+    cs = Crystal(lattice_parameters=[8.5,8.5,8.5, 90, 90, 90], 
+                 atoms=atoms, MSG=Fddd)
+    
+    print(cs)
+
+    magnetic_modulation = {
+        'k':(0, 0, 0),
+        'n':(0,0,1)
+    }
+
+
+    ### Extract the model parameters
+    # Negative couplings are FM, positive are AF
+    Da = parameters['Da'].value
+    Db = parameters['Db'].value
+
+    Jab = parameters['Jab'].value
+    Jbb  = parameters['Jbb'].value
+    Jpbb = parameters['Jpbb'].value
+
+    couplings = []
+    
+    # Wrap up the couplings in one list
+    # Single-ion anisotropies
+    couplings += [Coupling(label=f'D_Fe', n_uvw=[0,0,0], id1=4, id2=4, J=np.diag([0, 0, Da]))]
+    couplings += [Coupling(label=f'D_V' , n_uvw=[0,0,0], id1=0, id2=0, J=np.diag([Db,Db,Db]))]
+
+    ### Coupling have to by symmetrized to the pseudo Fd-3m space group, except V-V
+    # Fe-V coupling
+    couplings += [Coupling(label=f'Jab', n_uvw=[0,0,0], id1=4, id2=0, J=Jab*np.eye(3,3))]
+    couplings += [Coupling(label=f'Jab', n_uvw=[0,0,0], id1=4, id2=2, J=Jab*np.eye(3,3))]
+    couplings += [Coupling(label=f'Jab', n_uvw=[0,0,0], id1=4, id2=12, J=Jab*np.eye(3,3))]
+
+    # V-V couplings in V4 tetrahedron. It is not clear which one is JpBB and which JBB
+    couplings += [Coupling(label=f'Jpbb', n_uvw=[0,0,0], id1=12, id2=13, J=Jpbb*np.eye(3,3))]
+    couplings += [Coupling(label=f'Jbb', n_uvw=[0,0,0], id1=13, id2=19, J=Jbb*np.eye(3,3))]
+
+    couplings += [Coupling(label=f'Jpbb',n_uvw=[0,0,0], id1=12, id2=19, J=Jpbb*np.eye(3,3))]
+
+    if not silent:
+        for cpl in couplings:
+            print(cpl)
+
+    # Construct the main object that is able to determine excitation spectrum
+    sw = SpinW(crystal=cs, 
+               couplings=couplings,
+               magnetic_modulation=magnetic_modulation)
+    
+    if not silent: print(sw.couplings_all)
+    
+    if show_struct:
+    #     plot_opts = dict(boundaries=([-0.5, 1.5],[-0.5,1.5],[-0.5,1]), coupling_colors={'J1a2': 'Cyan'})
+        plot_opts = dict(boundaries=([-0.1, 1.1],[-0.1,1.1],[-0.1,1.02]), 
+                             coupling_colors={'Jab': 'Gray', 'Jbb':'Blue', 'Jpbb':'Green'})
+        plot_structure(sw, engine='vispy', plot_options=plot_opts)
+    
+    return sw
+
+def plot_spectrum(sw, plot_type: str='dispersion') -> Figure:
+    Npath = 101
 
     mosaic = [ ['2h0', '2h0_in']
               ]
@@ -165,8 +237,8 @@ def plot_spectrum(sw_params, plot_type: str='dispersion') -> Figure:
 
 
     print('Calculate spectrum `2h0`...')
-    axs['2h0'].set_title("(2h0) EIGER")
-    qPath = sw.crystal.make_qPath(main_qs=[[2, -6, 0], [2, 4, 0]], Nqs=[Npath])    
+    axs['2h0'].set_title("(2h0) FeV2O4")
+    qPath = sw.crystal.make_qPath(main_qs=[[2, 0, 0], [2, 4, 0]], Nqs=[Npath])    
     omega1, _ = sw.calculate_spectrum(qPath=qPath, silent=True)
     sw.plot_dispersion(ax=axs['2h0'],    xaxis=qPath[:,1], plot_type=plot_type, plot_kwargs=dict(color='gray', alpha=0.5))
     sw.plot_dispersion(ax=axs['2h0_in'], xaxis=qPath[:,1], plot_type=plot_type, plot_kwargs=dict(color='gray', alpha=0.5))
@@ -216,8 +288,8 @@ def load_lfo_parameters(model_name: str) -> Parameters:
     # Simple J1-J2 model no more
     # Unstable, as it scales J1 an J2 up
     lfo_params = Parameters()
-    lfo_params.add(name='Da',  value=-0.01*50, vary=True)
-    lfo_params.add(name='Db',  value=-9.5*50, vary=False)
+    lfo_params.add(name='Da',  value=-0.01, vary=True)
+    lfo_params.add(name='Db',  value=-9.5, vary=False)
 
     lfo_params.add(name='Jab',  value=2.9, vary=True)
     lfo_params.add(name='Jbb',  value=15, vary=True)
@@ -233,12 +305,13 @@ if __name__ == '__main__':
     PATH = fr'C:\Users\Stekiel\Documents\GitHub\spinwaves\FeV2O4'
 
     lfo_params = load_lfo_parameters('mc')
-    # sw = load_system_cubic(lfo_params, show_struct=True, silent=False)
-    sw = load_system_orthorhombic(lfo_params, show_struct=False, silent=False)
+    sw = load_system_cubic(lfo_params, show_struct=True, silent=False)
+    # sw = load_system_orthorhombic(lfo_params, show_struct=False, silent=False)
+    # sw = load_system_tetragonal(lfo_params, show_struct=False, silent=False)
 
-    fig = plot_spectrum(lfo_params, plot_type='dispersion')
+    fig = plot_spectrum(sw, plot_type='dispersion')
     fig.savefig(PATH+'\spinwaves-fvo-Eq.png', dpi=400)
 
-    # fig = plot_spectrum(lfo_params, plot_type='spectral_weight')
+    # fig = plot_spectrum(sw, plot_type='spectral_weight')
     # fig.savefig(PATH+'\spinwaves-fvo-Sqw.png', dpi=400)
 

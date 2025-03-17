@@ -3,6 +3,11 @@
 `lufeo3.py`
 Full example of magnon plotting, fitting and compating with measurements.
 
+## Feature request
+
+- [ ] Add filters to the data.
+- [ ] Better diagnostic tools.
+
 ## Code structure
 
 Loading of libraries. You should set up your virtual pyhon environment properly.

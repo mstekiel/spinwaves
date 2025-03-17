@@ -66,7 +66,7 @@ class db_entry(metaclass=ABCMeta):
         for field_name, field_type in self.__annotations__.items():
             # Perform typecasting
             if not isinstance(self.__getattribute__(field_name), field_type):
-                logger.warning(f'')
+                logger.debug(f'Typecasting {field_name} to {field_type}')
             try:
                 casted_field_value = field_type(self.__getattribute__(field_name))
             except ValueError:

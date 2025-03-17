@@ -114,7 +114,7 @@ class SupercellPlotter(ABC):
         # Magnetic moments
         magnetic_atoms = [atom for atom in atoms if atom.is_mag]
         ma_r = self.crystal.uvw2xyz([atom.r for atom in magnetic_atoms])
-        ma_m = np.array([atom.m for atom in magnetic_atoms])
+        ma_m = np.array([atom.m*atom.s for atom in magnetic_atoms])
         # ma_colors = np.array([atom.color for atom in magnetic_atoms])
         ma_colors = np.array([[255,0,0] for atom in magnetic_atoms])
         try:

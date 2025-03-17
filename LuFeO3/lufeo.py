@@ -1,4 +1,5 @@
-from attr import dataclass
+from dataclasses import dataclass
+from matplotlib.axes import Axes
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -349,8 +350,91 @@ def plot_spectrum(sw_params, DATA: Data, plot_type: str='dispersion') -> Figure:
 
     return fig
 
+def plot_fit(sw_system: SpinW, DATA: Data, plot_type: str='dispersion') -> Figure:
+
+    mosaic = [['10L'] ,
+              ['H0N'] , 
+              ['H0mH'], 
+              ['AG-CF-5p5'],
+              ['AG-CF-4p5']
+              ]
+    layout = dict()
+    fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(6,8), tight_layout=True, gridspec_kw=layout)
+
+
+    # Plot experimental results
+    marker_style = dict(fmt='s', markersize=5, capsize=4, markeredgecolor='black')
+    def plot_res(label: str):
+        ax = axs[label]
+        data = DATA.get_Qpath(label)
+
+        ax.set_title(label)
+        ax.set_ylim(-10, 10)
+        ax.axhline(0, color='tab:blue')
+
+        for n,dd in enumerate(data.entries):
+            _, E_theo, I_theo, weights = get_residuum(sw_system, dd.Q, dd.E, 0, return_calc=True)
+            x = [n]*len(E_theo)
+
+            ax.scatter(x, E_theo-dd.E, alpha=0.5, c='white', ec='black')
+            ax.scatter(x, E_theo-dd.E, alpha=weights, c='black')
+
+        return
+
+    plot_res('10L')
+    plot_res('H0N')
+    plot_res('H0mH')
+    plot_res('AG-CF-5p5')
+    plot_res('AG-CF-4p5')
+
+    return fig
+
+def get_residuum(lfo_sw: SpinW, q: list[float], E_exp: float, E_err: float, return_calc: bool=False):
+    '''Calculate the residual for a single data point.
     
-def lfo_residuals(parameters: Parameters, DATA: Data):
+    The main problem here is to define which point from the model corresponds to the data point.
+    
+    Parameters
+    ----------
+    lfo_sw:
+        SpinW model
+    q: (3,)
+        Vector of momentum transfer in crystal coordinates.
+    E_exp:
+        Measured energy of the excitations.
+    E_err:
+        Error of measured energy.
+    return_calc (optional)
+        Flag enabling the return of calculated values and weights for diagnostics.
+
+    Return
+    ------
+    residuum:
+        Redisuum
+    E_theo: (optional)
+        Calculated excitation energies.
+    I_theo: (optional)
+        Calculated excitation intensity.
+    weights: (optional)
+        Applied excitation weights.
+    '''
+    E_theo, I_theo = np.squeeze(lfo_sw.calculate_spectrum([q]))
+
+    # Intensity can be 0- due to numerics? Clip for safety
+    I_theo = np.clip(I_theo, a_min=0, a_max=None)
+
+    weights = np.nan_to_num(I_theo, nan=1e-30)*np.power(E_exp-E_theo, -6)
+    weights /= np.sum(weights)
+
+    ret = np.sum(weights*(E_exp-E_theo))
+
+    if return_calc:
+        ret = (ret, E_theo, I_theo, weights)
+
+    return ret
+
+Nplot = 0
+def lfo_residuals(parameters: Parameters, DATA: Data, debug: bool=False):
 # def lfo_residuals(parameters: Parameters):
     """Calculate the residuals between the model and data of LuFeO3.
     
@@ -363,33 +447,23 @@ def lfo_residuals(parameters: Parameters, DATA: Data):
 
     lfo_sw = load_system(parameters)
 
-    def get_residual(q, E_exp, E_err):
-        '''Calculate the residual for a single data point.
-        
-        The main problem here is to define which point from the model corresponds to the data point.'''
-        E_theo, I_theo = lfo_sw.calculate_spectrum([q])
-
-        weights = np.nan_to_num(I_theo, nan=1e+30)*np.power(E_exp-E_theo, -6)
-        weights /= np.sum(weights)
-        # print(f'{I_theo=}')
-        # print(f'{E_exp-E_theo=}')
-        # print(f'{weights=}')
-
-        return np.sum(weights*(E_exp-E_theo))
-    
     for ee in DATA.entries:
         q = ee.Q
         E_exp = ee.E
         E_err = ee.E_err
 
-        residuals.append( get_residual(q, E_exp, E_err) )
+        residuals.append( get_residuum(lfo_sw, q, E_exp, E_err) )
         weights.append(1/E_err)
     
 
     residuals = np.array(residuals, dtype=float)
     weights = np.array(weights, dtype=float)
 
-    # residuals_w = residuals*weights
+    if debug:
+        global Nplot
+        Nplot += 1
+        fig = plot_fit(lfo_sw, DATA, plot_type='dispersion')
+        fig.savefig(PATH+f'\Fit\spinwaves-LuFeO3-residuals-{Nplot}.png')
 
     chi2 = np.sum(np.square(residuals))
     print(f'chi2={chi2}')
@@ -438,9 +512,33 @@ def minimize_lfo_gs(p0: Parameters):
 
 def load_lfo_parameters(model_name: str) -> Parameters:
     '''Define various parameter sets for LuFeO3 models.
+
+    Some interesting models:
+    - J1 with fit of J1, Ka, and Fz, where J2=0 and DMI is from Park. -> J1=4.45 Fz=0.06, Ka=-0.11
     '''
 
     models = dict()
+
+    # Simple J1 model no more
+    # Unstable, as it scales J1 an J2 up
+    lfo_params = Parameters()
+    lfo_params.add(name='Ka',  value=-0.11, vary=True)
+    lfo_params.add(name='Kc',  value=0, vary=False)
+    lfo_params.add(name='J1',  value=5.4, vary=True)
+    lfo_params.add(name='J2',  value=0, vary=False)
+    lfo_params.add(name='J1ab',  expr="J1")
+    lfo_params.add(name='J1c',  expr="J1")
+    lfo_params.add(name='J2a', expr="J2")
+    lfo_params.add(name='J2b', expr="J2")
+    lfo_params.add(name='J2d',  expr="J2")
+    lfo_params.add(name='Dab_x',  value=0.13*0.554, vary=False)
+    lfo_params.add(name='Dab_y',  value=0.13*0.553, vary=False)
+    lfo_params.add(name='Dab_z',  value=0.13*0.623, vary=False)
+    lfo_params.add(name='Dc_x',  value=0.158*0.191, vary=False)
+    lfo_params.add(name='Dc_y',  value=0.158*0.982, vary=False)
+    lfo_params.add(name='Dc_z',  value=0, vary=False)
+    lfo_params.add(name='Fz',  value=0.05, vary=True)
+    models['J1'] = lfo_params
 
 
     # Simple J1-J2 model no more
@@ -448,7 +546,6 @@ def load_lfo_parameters(model_name: str) -> Parameters:
     lfo_params = Parameters()
     lfo_params.add(name='Ka',  value=-0.28, vary=True)
     lfo_params.add(name='Kc',  value=0, vary=False)
-
     lfo_params.add(name='J1',  value=5.7, vary=True)
     lfo_params.add(name='J2',  value=0.51, vary=True)
     lfo_params.add(name='J1ab',  expr="J1")
@@ -456,7 +553,6 @@ def load_lfo_parameters(model_name: str) -> Parameters:
     lfo_params.add(name='J2a', expr="J2")
     lfo_params.add(name='J2b', expr="J2")
     lfo_params.add(name='J2d',  expr="J2")
-
     lfo_params.add(name='Dab_x',  value=0.13*0.554, vary=False)
     lfo_params.add(name='Dab_y',  value=0.13*0.553, vary=False)
     lfo_params.add(name='Dab_z',  value=0.13*0.623, vary=False)
@@ -464,19 +560,40 @@ def load_lfo_parameters(model_name: str) -> Parameters:
     lfo_params.add(name='Dc_y',  value=0.158*0.982, vary=False)
     lfo_params.add(name='Dc_z',  value=0, vary=False)
     lfo_params.add(name='Fz',  value=0, vary=True)
-
     models['J12'] = lfo_params
 
     # J1 J2 all split
-    model2 = Parameters()
-    model2.add(name='Ka',  value=-0.1, vary=True)
-    model2.add(name='Kc',  value=0, vary=False)
-    model2.add(name='D1',  value=0.074, vary=False)
-    model2.add(name='D2',  value=0.028, vary=False)
-    model2.add(name='J1ab',  value=4.8)
-    model2.add(name='J1c',  value=4.2)
-    model2.add(name='J2ab', value=0.2)
-    model2.add(name='J2d',  value=0.1)
+    # Simple J1-J2 model no more
+    # Unstable, as it scales J1 an J2 up
+    # Ka:    -0.09879743 +/- 0.05797001 (58.68%) (init = -0.28)
+    # Kc:     0 (fixed)
+    # J1ab:   3.79200079 +/- 3.54502045 (93.49%) (init = 5)
+    # J1c:    6.08123666 +/- 0.67811506 (11.15%) (init = 4)
+    # J2a:   -0.71368333 +/- 2.10736316 (295.28%) (init = 0.8)
+    # J2b:   -0.71368333 +/- 2.10736316 (295.28%) == 'J2a'
+    # J2d:    0.36005280 +/- 0.80274241 (222.95%) (init = 0.3)
+    # Dab_x:  0.07202 (fixed)
+    # Dab_y:  0.07189 (fixed)
+    # Dab_z:  0.08099 (fixed)
+    # Dc_x:   0.030178 (fixed)
+    # Dc_y:   0.155156 (fixed)
+    # Dc_z:   0 (fixed)
+    # Fz:     0 (fixed)
+    lfo_params = Parameters()
+    lfo_params.add(name='Ka',  value=-0.1, vary=True)
+    lfo_params.add(name='Kc',  value=0, vary=False)
+    lfo_params.add(name='J1ab', value=3.8, vary=True)
+    lfo_params.add(name='J1c',  value=6, vary=True)
+    lfo_params.add(name='J2a',  value=-0.7, vary=True)
+    lfo_params.add(name='J2b',  expr='J2a')
+    lfo_params.add(name='J2d',  value=0.36, vary=True)
+    lfo_params.add(name='Dab_x',  value=0.13*0.554, vary=False)
+    lfo_params.add(name='Dab_y',  value=0.13*0.553, vary=False)
+    lfo_params.add(name='Dab_z',  value=0.13*0.623, vary=False)
+    lfo_params.add(name='Dc_x',  value=0.158*0.191, vary=False)
+    lfo_params.add(name='Dc_y',  value=0.158*0.982, vary=False)
+    lfo_params.add(name='Dc_z',  value=0, vary=False)
+    lfo_params.add(name='Fz',  value=0.05, vary=True)
     models['Jall'] = lfo_params
 
     # MS parameters
@@ -558,7 +675,6 @@ def load_lfo_parameters(model_name: str) -> Parameters:
 
     return models[model_name]
 
-
 if __name__ == '__main__':
     PATH = fr'C:\Users\Stekiel\Documents\GitHub\spinwaves\LuFeO3'
 
@@ -566,18 +682,23 @@ if __name__ == '__main__':
     print(DATA)
 
     # Define main parameters
-    fit = False
+    fit = True
 
-    lfo_params = load_lfo_parameters('J12')
+    lfo_params = load_lfo_parameters('J1')
     sw = load_system(lfo_params, show_struct=False, silent=False)
 
     if fit:
         fit_result = fit_lfo(p0=lfo_params, DATA=DATA)
         lfo_params = fit_result.params
 
+    sw = load_system(lfo_params, show_struct=False, silent=False)
+    fig = plot_fit(sw, DATA, plot_type='dispersion')
+    fig.savefig(PATH+'\spinwaves-LuFeO3-residuals-final.png', dpi=400)
 
     fig = plot_spectrum(lfo_params, DATA, plot_type='dispersion')
     fig.savefig(PATH+'\spinwaves-LuFeO3-Eq.png', dpi=400)
-    fig = plot_spectrum(lfo_params, DATA, plot_type='spectral_weight')
-    fig.savefig(PATH+'\spinwaves-LuFeO3-Sqw.png', dpi=400)
+    # fig = plot_spectrum(lfo_params, DATA, plot_type='spectral_weight')
+    # fig.savefig(PATH+'\spinwaves-LuFeO3-Sqw.png', dpi=400)
+
+
 
