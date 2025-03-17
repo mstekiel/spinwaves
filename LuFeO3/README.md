@@ -5,8 +5,8 @@ Full example of magnon plotting, fitting and compating with measurements.
 
 ## Feature request
 
-- [ ] Add filters to the data.
-- [ ] Better diagnostic tools.
+- [X] ~~Add filters to the data~~. Allow data changes in the data files.
+- [X] Better diagnostic tools.
 
 ## Code structure
 

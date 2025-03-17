@@ -350,7 +350,8 @@ def plot_spectrum(sw_params, DATA: Data, plot_type: str='dispersion') -> Figure:
 
     return fig
 
-def plot_fit(sw_system: SpinW, DATA: Data, plot_type: str='dispersion') -> Figure:
+def plot_residuals(sw_system: SpinW, DATA: Data, plot_type: str='dispersion') -> Figure:
+    '''Plot residuals between the `sw_system` with its internal parameters and `DATA`.'''
 
     mosaic = [['10L'] ,
               ['H0N'] , 
@@ -369,6 +370,8 @@ def plot_fit(sw_system: SpinW, DATA: Data, plot_type: str='dispersion') -> Figur
         data = DATA.get_Qpath(label)
 
         ax.set_title(label)
+        ax.set_xlabel('N_datapoint')
+        ax.set_ylabel('E_theo-E_exp')
         ax.set_ylim(-10, 10)
         ax.axhline(0, color='tab:blue')
 
@@ -462,7 +465,7 @@ def lfo_residuals(parameters: Parameters, DATA: Data, debug: bool=False):
     if debug:
         global Nplot
         Nplot += 1
-        fig = plot_fit(lfo_sw, DATA, plot_type='dispersion')
+        fig = plot_residuals(lfo_sw, DATA, plot_type='dispersion')
         fig.savefig(PATH+f'\Fit\spinwaves-LuFeO3-residuals-{Nplot}.png')
 
     chi2 = np.sum(np.square(residuals))
@@ -482,7 +485,6 @@ def fit_lfo(p0: Parameters, DATA: Data):
     """
     print('Fitting LuFeO3 data')
     fit_result = lmfit.minimize(lfo_residuals, p0, method='leastsq', kws={'DATA': DATA})
-    print(fit_report(fit_result))
 
     return fit_result
 
@@ -505,10 +507,10 @@ def minimize_lfo_gs(p0: Parameters):
 
         return Eg
 
-    fit_result = lmfit.minimize(lfo_gs, p0, method='nelder')
+    fit_result = lmfit.minimize(lfo_gs, p0, method='leastsq')
 
     print(fit_report(fit_result))
-    return fit_result
+    return fit_result.params
 
 def load_lfo_parameters(model_name: str) -> Parameters:
     '''Define various parameter sets for LuFeO3 models.
@@ -519,18 +521,20 @@ def load_lfo_parameters(model_name: str) -> Parameters:
 
     models = dict()
 
+    ### J1
     # Simple J1 model no more
     # Unstable, as it scales J1 an J2 up
     lfo_params = Parameters()
-    lfo_params.add(name='Ka',  value=-0.11, vary=True)
+    lfo_params.add(name='Ka',  value=-0.11, vary=False)
     lfo_params.add(name='Kc',  value=0, vary=False)
-    lfo_params.add(name='J1',  value=5.4, vary=True)
+    lfo_params.add(name='J1',  value=5.4, vary=False)
     lfo_params.add(name='J2',  value=0, vary=False)
     lfo_params.add(name='J1ab',  expr="J1")
     lfo_params.add(name='J1c',  expr="J1")
     lfo_params.add(name='J2a', expr="J2")
     lfo_params.add(name='J2b', expr="J2")
     lfo_params.add(name='J2d',  expr="J2")
+
     lfo_params.add(name='Dab_x',  value=0.13*0.554, vary=False)
     lfo_params.add(name='Dab_y',  value=0.13*0.553, vary=False)
     lfo_params.add(name='Dab_z',  value=0.13*0.623, vary=False)
@@ -540,7 +544,7 @@ def load_lfo_parameters(model_name: str) -> Parameters:
     lfo_params.add(name='Fz',  value=0.05, vary=True)
     models['J1'] = lfo_params
 
-
+    ### J12
     # Simple J1-J2 model no more
     # Unstable, as it scales J1 an J2 up
     lfo_params = Parameters()
@@ -675,6 +679,25 @@ def load_lfo_parameters(model_name: str) -> Parameters:
 
     return models[model_name]
 
+report_template = '''
+# LuFeO3 fit report for model: `{model_name}`
+
+{fit_report}
+
+## Models
+
+### Dispersion relations
+![unloaded](./spinwaves-LuFeO3-{model_name}-Eq.png) 
+
+### Spectral weight
+![unloaded](./spinwaves-LuFeO3-{model_name}-Sqw.png)
+
+## Residuals
+
+![unloaded](./spinwaves-LuFeO3-{model_name}-residuals-final.png)
+'''
+
+
 if __name__ == '__main__':
     PATH = fr'C:\Users\Stekiel\Documents\GitHub\spinwaves\LuFeO3'
 
@@ -682,23 +705,44 @@ if __name__ == '__main__':
     print(DATA)
 
     # Define main parameters
-    fit = True
+    model_name = 'J1'
+    fit = False
+    minimize_gs = True
+    make_report = True
 
-    lfo_params = load_lfo_parameters('J1')
+    ######################################################
+    name_flag = ''
+    lfo_params = load_lfo_parameters(model_name)
     sw = load_system(lfo_params, show_struct=False, silent=False)
+
+    if minimize_gs:
+        name_flag += 'gs0'
+        gs_result = minimize_lfo_gs(lfo_params)
+        print(fit_report(gs_result))
 
     if fit:
+        name_flag += '-fit'
         fit_result = fit_lfo(p0=lfo_params, DATA=DATA)
         lfo_params = fit_result.params
+        print(fit_report(fit_result))
+        if make_report:
+            report = report_template.format(model_name=model_name, 
+                                            fit_report=fit_report(fit_result).replace('[[','### [['))
+            with open(PATH+fr'\fit_report-{model_name}.md', 'w') as ff:
+                ff.write(report)
 
+    plot_names = PATH+f'\spinwaves-LuFeO3-{model_name}{name_flag}'
     sw = load_system(lfo_params, show_struct=False, silent=False)
-    fig = plot_fit(sw, DATA, plot_type='dispersion')
-    fig.savefig(PATH+'\spinwaves-LuFeO3-residuals-final.png', dpi=400)
+
+    fig = plot_residuals(sw, DATA, plot_type='dispersion')
+    fig.savefig(plot_names+'-residuals-final.png', dpi=400)
 
     fig = plot_spectrum(lfo_params, DATA, plot_type='dispersion')
-    fig.savefig(PATH+'\spinwaves-LuFeO3-Eq.png', dpi=400)
-    # fig = plot_spectrum(lfo_params, DATA, plot_type='spectral_weight')
-    # fig.savefig(PATH+'\spinwaves-LuFeO3-Sqw.png', dpi=400)
+    fig.savefig(plot_names+'-Eq.png', dpi=400)
+    fig = plot_spectrum(lfo_params, DATA, plot_type='spectral_weight')
+    fig.savefig(plot_names+'-Sqw.png', dpi=400)
+
+
 
 
 
