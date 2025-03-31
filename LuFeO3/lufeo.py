@@ -75,6 +75,7 @@ def load_system(parameters: Parameters, show_struct: bool=False, silent=True) ->
     # Negative couplings are FM, positive are AF
     Ka = parameters['Ka'].value*2
     Kc = parameters['Kc'].value*2
+    Kac = parameters['Kac'].value
 
     J1ab = parameters['J1ab'].value
     J1c  = parameters['J1c'].value
@@ -94,7 +95,12 @@ def load_system(parameters: Parameters, show_struct: bool=False, silent=True) ->
     
     # Wrap up the couplings in one list
     # Single-ion anisotropies
-    couplings += [Coupling(label=f'K_Fe', n_uvw=[0,0,0], id1=0, id2=0, J=np.diag([Ka, 0, Kc]))]
+    K = np.array([
+        [ Ka, 0, Kac],
+        [  0, 0, 0],
+        [Kac, 0, Kc],
+    ])
+    couplings += [Coupling(label=f'K_Fe', n_uvw=[0,0,0], id1=0, id2=0, J=K)]
     # Nearest neighbour along the c axis
     DMI_c = DMI([Dc_x,-Dc_y, Dc_z])
     couplings += [Coupling(label=f'J1c', n_uvw=[0,0,0], id1=0, id2=1, J=J1c*np.eye(3,3)+DMI_c)]
@@ -119,6 +125,7 @@ def load_system(parameters: Parameters, show_struct: bool=False, silent=True) ->
     ]
 
     if not silent:
+        print('Provided couplings')
         for cpl in couplings:
             print(cpl)
 
@@ -127,7 +134,10 @@ def load_system(parameters: Parameters, show_struct: bool=False, silent=True) ->
                couplings=couplings,
                magnetic_modulation=magnetic_modulation)
     
-    if not silent: print(sw.couplings_all)
+    if not silent:
+        print('Symmetrized couplings')
+        for cpl in sw.couplings_all:
+            print(cpl)
     
     if show_struct:
     #     plot_opts = dict(boundaries=([-0.5, 1.5],[-0.5,1.5],[-0.5,1]), coupling_colors={'J1a2': 'Cyan'})
@@ -227,6 +237,8 @@ def load_data() -> Data:
     PATH_DATA = rf'C:\Users\Stekiel\Documents\GitHub\spinwaves\LuFeO3\data'
 
     DATA = Data()
+    DATA.append_file(f'{PATH_DATA}\LuFeO3_Fitted_Kscan_EIGER.txt', path_desc='0KN')
+    DATA.append_file(f'{PATH_DATA}\LuFeO3_Fitted_Lscan_EIGER.txt', path_desc='01L')
 
     DATA.append_file(f'{PATH_DATA}\HmHScan_LuFeO3_Taipan_R.txt', path_desc='H0mH')
     DATA.append_file(f'{PATH_DATA}\HScan_LuFeO3_Taipan_R.txt', path_desc='H0N')
@@ -353,14 +365,16 @@ def plot_spectrum(sw_params, DATA: Data, plot_type: str='dispersion') -> Figure:
 def plot_residuals(sw_system: SpinW, DATA: Data, plot_type: str='dispersion') -> Figure:
     '''Plot residuals between the `sw_system` with its internal parameters and `DATA`.'''
 
-    mosaic = [['10L'] ,
+    mosaic = [['0KN'] ,
+              ['01L'] , 
+              ['10L'] , 
               ['H0N'] , 
               ['H0mH'], 
               ['AG-CF-5p5'],
               ['AG-CF-4p5']
               ]
     layout = dict()
-    fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(6,8), tight_layout=True, gridspec_kw=layout)
+    fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(6,12), tight_layout=True, gridspec_kw=layout)
 
 
     # Plot experimental results
@@ -384,6 +398,8 @@ def plot_residuals(sw_system: SpinW, DATA: Data, plot_type: str='dispersion') ->
 
         return
 
+    plot_res('0KN')
+    plot_res('01L')
     plot_res('10L')
     plot_res('H0N')
     plot_res('H0mH')
@@ -525,9 +541,35 @@ def load_lfo_parameters(model_name: str) -> Parameters:
     # Simple J1 model no more
     # Unstable, as it scales J1 an J2 up
     lfo_params = Parameters()
-    lfo_params.add(name='Ka',  value=-0.11, vary=False)
+    lfo_params.add(name='Ka',  value=-0.05, vary=True)
+    lfo_params.add(name='Kc',  value=-0.0002, vary=False)
+    lfo_params.add(name='Kac',  value=-10, vary=False)
+    lfo_params.add(name='J1',  value=5.4, vary=True)
+    lfo_params.add(name='J2',  value=0, vary=False)
+    lfo_params.add(name='J1ab',  expr="J1")
+    lfo_params.add(name='J1c',  expr="J1")
+    lfo_params.add(name='J2a', expr="J2")
+    lfo_params.add(name='J2b', expr="J2")
+    lfo_params.add(name='J2d',  expr="J2")
+
+    lfo_params.add(name='Dab_x',  value=0, vary=False)
+    lfo_params.add(name='Dab_y',  value=0, vary=False)
+    lfo_params.add(name='Dab_z',  value=0, vary=False)
+    lfo_params.add(name='Dc_x',  value=0, vary=False)
+    lfo_params.add(name='Dc_y',  value=0, vary=False)
+    lfo_params.add(name='Dc_z',  value=0, vary=False)
+    lfo_params.add(name='Fz',  value=0.01, vary=False)
+    models['J1_D0'] = lfo_params
+
+
+    ### J1
+    # Simple J1 model no more
+    # Unstable, as it scales J1 an J2 up
+    lfo_params = Parameters()
+    lfo_params.add(name='Ka',  value=-0.11, vary=True)
     lfo_params.add(name='Kc',  value=0, vary=False)
-    lfo_params.add(name='J1',  value=5.4, vary=False)
+    lfo_params.add(name='Kac',  value=0, vary=False)
+    lfo_params.add(name='J1',  value=5.4, vary=True)
     lfo_params.add(name='J2',  value=0, vary=False)
     lfo_params.add(name='J1ab',  expr="J1")
     lfo_params.add(name='J1c',  expr="J1")
@@ -541,7 +583,7 @@ def load_lfo_parameters(model_name: str) -> Parameters:
     lfo_params.add(name='Dc_x',  value=0.158*0.191, vary=False)
     lfo_params.add(name='Dc_y',  value=0.158*0.982, vary=False)
     lfo_params.add(name='Dc_z',  value=0, vary=False)
-    lfo_params.add(name='Fz',  value=0.05, vary=True)
+    lfo_params.add(name='Fz',  value=0.01, vary=False)
     models['J1'] = lfo_params
 
     ### J12
@@ -702,18 +744,18 @@ if __name__ == '__main__':
     PATH = fr'C:\Users\Stekiel\Documents\GitHub\spinwaves\LuFeO3'
 
     DATA = load_data()
-    print(DATA)
 
     # Define main parameters
     model_name = 'J1'
-    fit = False
-    minimize_gs = True
+    fit = True
+    minimize_gs = False
     make_report = True
 
     ######################################################
     name_flag = ''
     lfo_params = load_lfo_parameters(model_name)
     sw = load_system(lfo_params, show_struct=False, silent=False)
+
 
     if minimize_gs:
         name_flag += 'gs0'
@@ -732,7 +774,7 @@ if __name__ == '__main__':
                 ff.write(report)
 
     plot_names = PATH+f'\spinwaves-LuFeO3-{model_name}{name_flag}'
-    sw = load_system(lfo_params, show_struct=False, silent=False)
+    sw = load_system(lfo_params, show_struct=False)
 
     fig = plot_residuals(sw, DATA, plot_type='dispersion')
     fig.savefig(plot_names+'-residuals-final.png', dpi=400)
@@ -741,8 +783,3 @@ if __name__ == '__main__':
     fig.savefig(plot_names+'-Eq.png', dpi=400)
     fig = plot_spectrum(lfo_params, DATA, plot_type='spectral_weight')
     fig.savefig(plot_names+'-Sqw.png', dpi=400)
-
-
-
-
-
