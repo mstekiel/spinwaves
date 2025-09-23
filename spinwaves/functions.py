@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.typing import NDArray
 from typing import Sequence, Tuple
 
 # Exchange interaction matrices
@@ -57,7 +58,7 @@ def gauss_satellites_bkg(x,x0,xs,As,sigmas,bkg):
 
 # Rotations
 # All of them are right-handed
-def rotate(n, angle):
+def rotate(n, angle: np.ndarray[float]):
     '''
     Return a matrix representing the rotation around vector `n` by `angle` radians.
     Length of the `n` vector does not matter.
@@ -66,26 +67,71 @@ def rotate(n, angle):
 
     return np.matmul(Rz(phi), np.matmul(Ry(theta), np.matmul(Rz(angle), np.matmul(Ry(-theta), Rz(-phi) ))))
     
-def Rx(alpha: float) -> np.ndarray:
-    '''Matrix of right-handed rotation around x-axis [1,0,0] by angle alpha in radians.'''
+def Rx(alpha: NDArray[float]) -> np.ndarray:
+    '''Matrix of right-handed rotation around x-axis [1,0,0] by angle alpha in radians.
+    >>> Ry = [ [          1,          0,           0],
+               [          0, cos(alpha), -sin(alpha)]
+               [          0, sin(alpha),  cos(alpha)]  ]
+               
+    Parameters
+    ----------
+    alpha: array_like
+        Array of rotation angles.
+    '''
     sa = np.sin(alpha)
     ca = np.cos(alpha)
-    return np.array([[1,0,0],[0,ca,-sa],[0,sa,ca]])
+    R = np.zeros(np.shape(alpha)+(3,3))
+    R[...,0,0] =   1
+    R[...,1,1] =  ca
+    R[...,1,2] = -sa
+    R[...,2,1] =  sa
+    R[...,2,2] =  ca
+    return R
     
 def Ry(alpha: float) -> np.ndarray:
-    '''Matrix of right-handed rotation around y-axis [0,1,0] by angle alpha in radians.'''
+    '''Matrix of right-handed rotation around y-axis [0,1,0] by angle alpha in radians.
+    >>> Ry = [ [ cos(alpha), 0, sin(alpha)],
+               [          0, 1,          0]
+               [-sin(alpha), 1, cos(alpha)]  ]
+               
+    Parameters
+    ----------
+    alpha: array_like
+        Array of rotation angles.
+    '''
     sa = np.sin(alpha)
     ca = np.cos(alpha)
-    return np.array([[ca,0,sa],[0,1,0],[-sa,0,ca]])
+    R = np.zeros(np.shape(alpha)+(3,3))
+    R[...,0,0] =  ca
+    R[...,0,2] =  sa
+    R[...,1,1] =   1
+    R[...,2,0] = -sa
+    R[...,2,2] =  ca
+    return R
 
 def Rz(alpha: float) -> np.ndarray:
-    '''Matrix of right-handed rotation around z-axis [0,0,1] by angle alpha in radians.'''
+    '''Matrix of right-handed rotation around z-axis [0,0,1] by angle alpha in radians.
+    >>> Rz = [ [cos(alpha), -sin(alpha), 0],
+               [sin(alpha),  cos(alpha), 0],
+               [         0,           0, 1]  ]
+
+    Parameters
+    ----------
+    alpha: array_like
+        Array of rotation angles.
+    '''
     sa = np.sin(alpha)
     ca = np.cos(alpha)
-    return np.array([[ca,-sa,0],[sa,ca,0],[0,0,1]])
+    R = np.zeros(np.shape(alpha)+(3,3))
+    R[...,0,0] =  ca
+    R[...,0,1] = -sa
+    R[...,1,0] =  sa
+    R[...,1,1] =  ca
+    R[...,2,2] =   1
+    return R
 
 def rot_Rn(n_uvw: Tuple[int,int,int], 
-           modulation_vector: Tuple[float,float,float], 
+           modulation_vector: np.ndarray[float], 
            global_rotation_axis: Tuple[float,float,float]) -> np.ndarray:
     '''Rotation matrix corresponding to modulation of magnetic moments in a crystal.
 
@@ -103,22 +149,21 @@ def rot_Rn(n_uvw: Tuple[int,int,int],
     As for eq. (6) of [SpinW]
     '''
     phi = 2*np.pi*np.dot(modulation_vector, n_uvw)
-    Rn = rotate(global_rotation_axis, phi)
+    Rn = rotate(global_rotation_axis, -phi)
     return Rn
 
-def rot_Rprime(v: Tuple[float,float,float]) -> np.ndarray:
-    '''Rotation matrix that rotates vector `v` to be along the `z` axis
-
-    Notes
-    -----
-    As for eq. (7) [SpinW]
-    Rn' is the rotation that puts the magnetic moment along z axis.
-        S'_nj = R'_n S''_nj
-        S'_nj=S_0j : magnetic moment of j-th atom in the 0-th unit cell, independent on unit cell
-        S''_nj : spin oriented along the ferromagnetic axis
+def RtoZ(v: Tuple[float,float,float]) -> np.ndarray:
+    '''Rotation matrix that rotates directly vector `v` to be along the `z` axis,
+    by rotating around the normal to `vz` plane.
     '''
     _, theta, phi = cartesian2spherical(v)
     return Rz(phi) @ Ry(-theta) @ Rz(-phi) 
+
+def RfromZ(v: Tuple[float,float,float]) -> np.ndarray:
+    '''Rotation matrix that rotates directly from the `z` axis to the vector `v`.'''
+    _, theta, phi = cartesian2spherical(v)
+    return Rz(phi) @ Ry(theta) @ Rz(-phi) 
+
 
 def rot_Rodrigues_complex(n: tuple[float,float,float]):
     """Return Rodrigues matrices of rotation R1, R2 according to complex formulation:
@@ -169,7 +214,8 @@ def angle(v1: list[float], v2: list[float]) -> float:
 
 def perp_matrix(q: list[float]):
     '''
-    Return the matrix representing projection on the plane perpendicular to the given vector q
+    Return the matrix representing projection on the plane perpendicular to the given vector q.
+    Also known as perpendicular projection operator P_ij = 1 - q_i*q_j/|q|
     '''
     
     # For the sake of speed the matrix is given explicitly based on calculations on paper
@@ -177,9 +223,9 @@ def perp_matrix(q: list[float]):
     st, ct = np.sin(theta), np.cos(theta)
     sp, cp = np.sin(phi), np.cos(phi)
     
-    return np.array([   [1-st*st*cp*cp, -st*st*sp*cp,   -ct*st*cp],
-                        [-st*st*sp*cp,  1-st*st*sp*sp,  -ct*st*sp],
-                        [-st*ct*sp,     -st*ct*sp,      1-ct*ct]])
+    return np.array([   [1-st*st*cp*cp,   -st*st*sp*cp,    -ct*st*cp],
+                        [ -st*st*sp*cp,  1-st*st*sp*sp,    -st*ct*sp],
+                        [ -ct*st*cp,      -st*ct*sp,      1-ct*ct]])
     
 def perp_part(m,q):
     '''
