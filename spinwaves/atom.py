@@ -57,8 +57,8 @@ class Atom:
 
     # Physical properties
     _r: tuple[Fraction]
-    m: np.ndarray[float]
-    s: float
+    _m: np.ndarray[float]
+    _s: float
     gtensor_mat: np.ndarray = None
     aniso_mat: np.ndarray = None
     occupation: float = 1
@@ -89,7 +89,7 @@ class Atom:
             raise ValueError(f'Atomic position must be a (3,) vector now is: {len(self.r)}')
         
         # Magnetic moment and spin
-        self.m = np.array(m, dtype=float)
+        self.m = m
         self.s = s
         if not self.m.shape == (3,):
             raise ValueError(f'Atomic magnetic moment must be a (3,) vector now is: {self.r.shape}')
@@ -123,15 +123,36 @@ class Atom:
                 self.radius = atom_data[self.element_symbol].radius
             else:
                 self.radius = 0.3
+        else:
+            self.radius = radius
 
     @property
-    def r(self) -> np.ndarray[float]:
-        '''Position in the unit cell in crystal coordinates'''
+    def r(self) -> tuple[Fraction]:
+        '''Position of the ion in the unit cell in crystal coordinates'''
+        # return self._r
         return np.array(self._r, dtype=float)
     
     @r.setter
     def r(self, r_new: Sequence):
         self._r = tuple([Fraction(x).limit_denominator(config['MAX_DENOMINATOR']) for x in r_new])
+
+    @property
+    def m(self) -> np.ndarray[float]:
+        '''Magnetic moment of the ion in cartesian coordinates.'''
+        return self._m
+    
+    @m.setter
+    def m(self, m_new: Sequence):
+        self._m = np.array(m_new, dtype=float)
+
+    @property
+    def s(self) -> np.ndarray[float]:
+        '''Spin number of the ion'''
+        return self._s
+    
+    @s.setter
+    def s(self, s_new: Sequence):
+        self._s = float(s_new)
     
     @property
     def is_mag(self) -> bool:
@@ -154,10 +175,11 @@ class Atom:
         return tuple(self._r) < tuple(other._r)
     
     def __eq__(self, other) -> bool:
-        return np.allclose(self._r, other._r)
+        # Comparing on Fractions, which should be safe
+        return self._r == other._r
     
     def __repr__(self) -> str:
         r_str = [format(x, '') if x.denominator<7 else f'{float(x):.4f}'
                   for x in self._r]
-        ret = f'Atom(label={self.label}, id={self._sw_id}, r=[{", ".join(r_str)}], m={self.m}), is_mag={self.is_mag}'
+        ret = f'Atom(label={self.label}, id={self._sw_id}, r=[{", ".join(r_str)}], m={self.m}, is_mag={self.is_mag})'
         return ret
