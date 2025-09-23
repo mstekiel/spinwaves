@@ -1,7 +1,12 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+spinwaves/__pycache__/
 *.py[cod]
 debug*.py
 
+# Dirty tests
+pyopengl.py
+
 # Some examples should be hidden
-LufeO3/FIT
+LuFeO3/
+FeV2O4/

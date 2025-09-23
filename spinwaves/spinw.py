@@ -13,20 +13,21 @@ import numpy as np
 
 import logging
 
+
+# Internal
+from .crystal import Crystal
+from .utils.arrays import ensure_shape, make_exc_dtype
+from .utils.physics import bose_occupation
+from .utils.linalg import rot_Rn, RfromZ, rot_Rodrigues_complex
+from .utils.functions import gauss_bkg
+
 # Typing
 from typing import Callable, List, Dict, TYPE_CHECKING, Union
-from numpy.typing import NDArray
-
-from spinwaves import Crystal
-
 if TYPE_CHECKING:
     from .crystal import Crystal
     import matplotlib.pyplot as plt
 
 
-# Internal
-from . import functions as funs_sw
-# import functions as funs_sw
 
 
 # Tobi confirmed the factor of two is missing from single-ion naisotropies.
@@ -34,162 +35,6 @@ from . import functions as funs_sw
 # in the spin-spin correlation function calculations.
 
 logger = logging.getLogger('SpinW')
-
-import inspect
-from functools import wraps
-
-def _match_shape(arr_shape: tuple[int, ...], expected_shape: tuple[int, ...]) -> bool:
-    """
-    Recursively match arr_shape against expected_shape with ... wildcards.
-    Supports multiple ellipses anywhere.
-    """
-    # print(f'DEBUG: matching: {arr_shape=} with {expected_shape=}')
-    if not expected_shape:
-        return not arr_shape
-
-    head, *tail = expected_shape
-
-    if head is ...:
-        # try all possible splits: let ... absorb 0,1,2,... dimensions
-        for k in range(len(arr_shape) + 1):
-            if _match_shape(arr_shape[k:], tuple(tail)):
-                return True
-        return False
-
-    if not arr_shape or arr_shape[0] != head:
-        return False
-
-    return _match_shape(arr_shape[1:], tuple(tail))
-
-def ensure_shape(**shapes):
-    """
-    Decorator to validate numpy array arguments by name and shape.
-
-    Usage:
-        @ensure_shapes(
-            a=(..., 3),          # last dimension must be 3
-            b=(2, ...),          # first dimension must be 2
-            c=(2, 3, ..., 3, 3)  # fixed prefix and suffix, flexible middle
-        )
-        def func(a, b, c): ...
-    """
-    def decorator(func):
-        sig = inspect.signature(func)
-
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            bound = sig.bind(*args, **kwargs)
-            bound.apply_defaults()
-
-            for name, expected_shape in shapes.items():
-                if name not in bound.arguments:
-                    raise ValueError(f"Parameter '{name}' not found in function arguments")
-
-                arr_shape = np.shape(bound.arguments[name])
-                if not _match_shape(arr_shape, expected_shape):
-                    raise ValueError(
-                        f"Parameter '{name}' expected shape {expected_shape}, "
-                        f"got {arr_shape}"
-                    )
-
-            return func(*args, **kwargs)
-
-        return wrapper
-    return decorator
-
-
-def bose_occupation(energies, temperature):
-    """
-    Compute the Bose-Einstein occupation factor:
-        n(E,T) = 1 / (exp(|E|/(kB*T)) - 1)
-
-    Handles edge cases:
-    - E = 0: returns +inf
-    - T = 0: returns 0 for E>0, +inf for E=0
-    - Uses expm1 for small arguments
-    - Uses exp(-x) for large arguments to avoid overflow
-    - Threshold for switching depends on dtype precision
-    """
-    energies = np.asarray(energies)
-    dtype = energies.dtype if np.issubdtype(energies.dtype, np.floating) else np.float64
-    energies = energies.astype(dtype, copy=False)
-
-    # machine limits
-    finfo = np.finfo(dtype)
-    # Safe threshold before exp(x) overflows
-    threshold = np.log(finfo.max) - 1.0
-
-    # Handle T=0 separately
-    if temperature == 0:
-        out = np.zeros_like(energies, dtype=dtype)
-        out[energies == 0] = np.inf
-        return out
-
-    # Normal case: finite T
-    kB = 0.08617333262
-    x = np.abs(energies) / (kB * temperature)
-    out = np.empty_like(x, dtype=dtype)
-
-    # Case: E=0 -> inf
-    zero_mask = (energies == 0)
-    out[zero_mask] = np.inf
-
-    # Case: moderate x (safe to use expm1)
-    mask = (x < threshold) & ~zero_mask
-    out[mask] = 1.0 / np.expm1(x[mask])
-
-    # Case: large x -> asymptotic exp(-x)
-    big_mask = ~mask & ~zero_mask
-    out[big_mask] = np.exp(-x[big_mask])
-
-    return out
-
-
-def make_exc_dtype(Etype: type=np.float64, Stype: type=np.complex128) -> 'np.dtype':
-    """Create a structured dtype with:
-    - E: scalar of real type `Etype`
-    - Sperp: scalar of real type `Etype`
-    - S: 3x3 matrix of complex type `Stype`
-    - Sxx...Szz: aliases into S elements
-
-    `E` represents the energy of the excitation, `S` the spin-spin correlation function matrix,
-    `Sperp` is the perpendicular component of S to the momentum transfer Q,
-    `Sij` with i,j in [x,y,z] are aliases into the S matrix.
-
-    Parameters
-    ----------
-    Etype: type, optional
-        Data type for the energy and Sperp scalars, default np.float64
-    Stype: type, optional
-        Data type for the spin-spin correlation function matrix, default np.complex128
-
-    Notes
-    -----
-    ChatGPT made it. I am not sure the offset calculations are correct,
-    in particular, that the S matrix is aligned properly with its components.
-    Test it properly.
-    """
-    # Sizes in bytes
-    esize = np.dtype(Etype).itemsize
-    ssize = np.dtype(Stype).itemsize
-
-    # Build names, formats, and offsets
-    offset_S = 2*esize
-    names = ["E", "Sperp", "S"]
-    formats = [Etype, Etype, (Stype, (3, 3))]
-    offsets = [0, esize, offset_S]
-
-    # Add aliases for each element of S
-    labels = ["x", "y", "z"]
-    for i, row in enumerate(labels):
-        for j, col in enumerate(labels):
-            name = f"S{row}{col}"
-            names.append(name)
-            formats.append(Stype)
-            offsets.append(offset_S + (i * 3 + j) * ssize)
-
-    # Construct dtype
-    return np.dtype({"names": names, "formats": formats, "offsets": offsets})
 
 class Coupling:
     '''Coupling between atoms in the crystal.
@@ -491,7 +336,7 @@ class SpinW:
         Wrapper around the fundamental function from `functions.rot_Rn`.
         '''
 
-        return funs_sw.rot_Rn(n_uvw, self.magnetic_modulation['k'], self.magnetic_modulation['n'])
+        return rot_Rn(n_uvw, self.magnetic_modulation['k'], self.magnetic_modulation['n'])
     
     def rot_Rprime(self, S: tuple[float, float, float]) -> np.ndarray:
         '''Matrix corresponding to rotation of the spin towards the `z` axis.
@@ -511,7 +356,7 @@ class SpinW:
             S''_nj : spin oriented along the ferromagnetic axis
         '''
 
-        return funs_sw.RfromZ(S)
+        return RfromZ(S)
     
     def _construct_h(self, Qhkl):
         '''Construct the hamlitonian kernel matrix `h`, the core matrix 
@@ -770,7 +615,7 @@ class SpinW:
 
         if includeS:
             k = np.array(self.magnetic_modulation['k'])
-            R1, R2 = funs_sw.rot_Rodrigues_complex(self.magnetic_modulation['n'])
+            R1, R2 = rot_Rodrigues_complex(self.magnetic_modulation['n'])
             E_0, Sp_0 = results
             if np.allclose(k % 1, [0,0,0]):
                 # Special case of (40) [SpinW] with Q=0
@@ -978,7 +823,7 @@ class SpinW:
 
         if includeS:
             k = np.array(self.magnetic_modulation['k'])
-            R1, R2 = funs_sw.rot_Rodrigues_complex(self.magnetic_modulation['n'])
+            R1, R2 = rot_Rodrigues_complex(self.magnetic_modulation['n'])
             E_0, Sp_0 = results
             if np.allclose(k % 1, [0,0,0]):
                 # Special case of (40) [SpinW] with Q=0
@@ -1028,7 +873,7 @@ class SpinW:
         for cpl in self.couplings_all:
             # According to [SpinW] eq 21: Jp = Rm @ J @ Rn,
             # where n,m index unit cells, but m=0 in this notation so is omitted.
-            Rn = funs_sw.rot_Rn(cpl.n_uvw, Qhkl, self.magnetic_modulation['n'])   # (...,3,3)
+            Rn = rot_Rn(cpl.n_uvw, Qhkl, self.magnetic_modulation['n'])   # (...,3,3)
 
 
             # We will be dealing with shape = (shape, 3,3)
@@ -1313,7 +1158,7 @@ class SpinW:
                 y = np.zeros(len(xvals))
                 for x0, A in zip(Es, Is):
                     sigma = 1 #+ 0.03*x0     # Imitates energy resolution
-                    y += funs_sw.gauss_bkg(xvals, x0=x0, A=A/sigma, sigma=sigma, bkg=0)
+                    y += gauss_bkg(xvals, x0=x0, A=A/sigma, sigma=sigma, bkg=0)
 
                 return y
 

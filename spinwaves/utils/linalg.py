@@ -1,6 +1,4 @@
 import numpy as np
-from numpy.typing import NDArray
-from typing import Sequence, Tuple
 
 # Exchange interaction matrices
 def DMI(v: tuple[float,float,float]) -> np.ndarray:
@@ -16,45 +14,6 @@ def DMI(v: tuple[float,float,float]) -> np.ndarray:
 
     return np.array([ [  0,  dz,-dy], [-dz,   0, dx], [dy, -dx,  0] ], dtype=float)
 
-# Fitting functions and other
-def gauss_bkg(x,x0,A,sigma,bkg):
-    '''
-    Gaussian with constant background.
-    
-    :math:`f(x) = A exp(-(x-x_0)^2/(2 \\sigma^2)) + bkg`
-    
-    To convert to intensity :math:`I = \\sqrt{2 \\pi} A \\sigma`
-    
-    To convert to FWHM :math:`FWHM = 2\\sqrt{2 \\ln 2} \\sigma \\approx 2.355 \\sigma`
-    '''
-    return A*np.exp(-(x-x0)**2/(2*sigma**2)) + bkg
-    
-def lorentz_bkg(x,x0,A,gamma,bkg):
-    '''
-    Lorentzian with constant background.
-    
-    :math:`f(x) = \\frac{A}{(1+(x-x_0)^2/\\gamma^2))} + bkg`
-    
-    To convert to intensity of the peak :math:`I = \\pi A \\gamma`
-    '''
-    return A/(1+np.power((x-x0)/gamma,2)) + bkg
-    
-def pseudoVoigt_bkg(x,x0,I,f,eta,bkg):
-    '''
-    Pseudo-Voigt function.
-    '''
-    
-    return eta*I*gauss_bkg(x,x0,1/(np.sqrt(2*np.pi)*f),f,0) + (1-eta)*I*lorentz_bkg(x,x0,1/(np.pi*f),f,0) + bkg
-
-def gauss_satellites_bkg(x,x0,xs,As,sigmas,bkg):
-    '''
-    Gaussian satellites
-    
-    :math:`f(x) = A ( exp(-(x-x_0-x_s)^2/(2 \\sigma^2)) + exp(-(x-x_0+x_s)^2/(2 \\sigma^2)) ) + bkg`
-    
-    To convert to intensity of the peak :math:`I = \\sqrt{2 \\pi} A \\sigma`
-    '''
-    return As*np.exp(-(x-x0-xs)**2/(2*sigmas**2)) + As*np.exp(-(x-x0+xs)**2/(2*sigmas**2)) + bkg
 
 # Rotations
 # All of them are right-handed
@@ -67,7 +26,7 @@ def rotate(n, angle: np.ndarray[float]):
 
     return np.matmul(Rz(phi), np.matmul(Ry(theta), np.matmul(Rz(angle), np.matmul(Ry(-theta), Rz(-phi) ))))
     
-def Rx(alpha: NDArray[float]) -> np.ndarray:
+def Rx(alpha: np.ndarray[float]) -> np.ndarray:
     '''Matrix of right-handed rotation around x-axis [1,0,0] by angle alpha in radians.
     >>> Ry = [ [          1,          0,           0],
                [          0, cos(alpha), -sin(alpha)]
@@ -88,7 +47,7 @@ def Rx(alpha: NDArray[float]) -> np.ndarray:
     R[...,2,2] =  ca
     return R
     
-def Ry(alpha: float) -> np.ndarray:
+def Ry(alpha: np.ndarray[float]) -> np.ndarray:
     '''Matrix of right-handed rotation around y-axis [0,1,0] by angle alpha in radians.
     >>> Ry = [ [ cos(alpha), 0, sin(alpha)],
                [          0, 1,          0]
@@ -109,7 +68,7 @@ def Ry(alpha: float) -> np.ndarray:
     R[...,2,2] =  ca
     return R
 
-def Rz(alpha: float) -> np.ndarray:
+def Rz(alpha: np.ndarray[float]) -> np.ndarray:
     '''Matrix of right-handed rotation around z-axis [0,0,1] by angle alpha in radians.
     >>> Rz = [ [cos(alpha), -sin(alpha), 0],
                [sin(alpha),  cos(alpha), 0],
@@ -130,9 +89,9 @@ def Rz(alpha: float) -> np.ndarray:
     R[...,2,2] =   1
     return R
 
-def rot_Rn(n_uvw: Tuple[int,int,int], 
+def rot_Rn(n_uvw: tuple[int,int,int], 
            modulation_vector: np.ndarray[float], 
-           global_rotation_axis: Tuple[float,float,float]) -> np.ndarray:
+           global_rotation_axis: tuple[float,float,float]) -> np.ndarray:
     '''Rotation matrix corresponding to modulation of magnetic moments in a crystal.
 
     Rn rotates the magnetic moment in the unit cell `n_uvw`, according to the phase
@@ -152,14 +111,14 @@ def rot_Rn(n_uvw: Tuple[int,int,int],
     Rn = rotate(global_rotation_axis, -phi)
     return Rn
 
-def RtoZ(v: Tuple[float,float,float]) -> np.ndarray:
+def RtoZ(v: tuple[float,float,float]) -> np.ndarray:
     '''Rotation matrix that rotates directly vector `v` to be along the `z` axis,
     by rotating around the normal to `vz` plane.
     '''
     _, theta, phi = cartesian2spherical(v)
     return Rz(phi) @ Ry(-theta) @ Rz(-phi) 
 
-def RfromZ(v: Tuple[float,float,float]) -> np.ndarray:
+def RfromZ(v: tuple[float,float,float]) -> np.ndarray:
     '''Rotation matrix that rotates directly from the `z` axis to the vector `v`.'''
     _, theta, phi = cartesian2spherical(v)
     return Rz(phi) @ Ry(theta) @ Rz(-phi) 
