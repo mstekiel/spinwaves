@@ -4,6 +4,8 @@ spinwaves/__pycache__/
 *.py[cod]
 debug*.py
 
+spinwaves.egg*
+
 # Dirty tests
 pyopengl.py
 
