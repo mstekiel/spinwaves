@@ -54,7 +54,7 @@ class PlotlyViewer(QtWebEngineWidgets.QWebEngineView):
         os.remove(self.file_path)
 
 
-class SWMain():
+class WindowPlotly():
     def __init__(self, engine: str='plotly'):
         fig = go.Figure()
         fig.add_scatter(x=np.random.rand(100), y=np.random.rand(100), mode='markers',

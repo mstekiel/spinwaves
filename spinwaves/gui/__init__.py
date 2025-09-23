@@ -1,15 +1,21 @@
-from PyQt5.QtWidgets import QMainWindow, QApplication
+IMPLEMENTED_GUI_ENGINES = ['vispy', 'plotly', 'qtgraph']
+
+import logging
+logger = logging.getLogger('GUI')
 
 
-from .main import SWMain
+def make_window(engine: str='vispy'):
+    if engine not in IMPLEMENTED_GUI_ENGINES:
+        raise NotImplementedError(f'{engine}')
+    
+    logger.info('Loading libraries')
+    if engine=='vispy':
+        from .gui_vispy import WindowVispy as MainWindow
+    if engine=='plotly':
+        from .gui_plotly import WindowPlotly as MainWindow
+    if engine=='qtgraph':
+        from .gui_qtgraph import WindowQtGraph as MainWindow
+        
+    logger.info('Starting GUI')
 
-
-def main():
-    app = QApplication([])
-    app.setApplicationName('spinwaves')
-
-    mainwindow = SWMain()
-
-    mainwindow.show()
-
-    app.exec()
+    return MainWindow()
