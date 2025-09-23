@@ -1,9 +1,12 @@
 # Core
+from copy import deepcopy
 import numpy as np
 import warnings
 
 # Typing
 from typing import TYPE_CHECKING, Union
+
+# from spinwaves import atom
 
 if TYPE_CHECKING:
     from .atom import Atom
@@ -32,10 +35,14 @@ class Crystal(Lattice):
     -----------
     1. Atoms are within the first unit cell, i.e. have crystal coordinates in [0;1) range.
     2. Atoms are sorted, such that magnetic atoms are first, then the non-magnetic atoms follow.
-       This is crucial for th eproper indexation of the matrices required by LSW calculations.
+       This is crucial for the proper indexation of the matrices required by LSW calculations.
 
     Notes
     -----
+    TODO Generate atoms by symmetry and check that magnetic moments transform acoordingly.
+
+    TODO IUCr tables A tab 1.3.1 with symmetry element symbols
+
     I am strongly worried about the stability of the generator. Meaning every time the atoms are 
     generated from symmetry, I need to be sure their order is always the same. Otherwise, 
     generation of coupling will change.
@@ -58,8 +65,8 @@ class Crystal(Lattice):
         All atoms in the unit cell will be generated from the `atoms` parameter
         according to the symmetry of the crystal.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         lattice_parameters: [a,b,c, alpha,beta,gamma]
             Lattice lengths in angstroem, lattice angles in degrees.
         MSG: `MSG`
@@ -78,10 +85,20 @@ class Crystal(Lattice):
         self._atoms_unique = tuple(sorted(atoms))
 
         ### atoms_all
+        # TODO
+        # Ok so this is faster and hurtless compared to taking all symmetry operations
+        # and ensuring that duplicate atoms have the same momemnt and g-tensor
+        # However, it omits a symmetry check -> not good
         atoms_all = []
         for atom in self._atoms_unique:
-            for _, g, id in zip(*MSG.get_orbit(atom.r, return_generators=True, return_indices=True)):
-                atom_new = g.transform_atom(atom, to_UC=True)
+            positions, generators, indices = MSG.get_orbit(atom.r, return_generators=True, return_indices=True)
+            for g, id in zip(generators, indices):
+                atom_new = deepcopy(atom)
+                atom_new.r = g.transform_position(atom.r, to_UC=True)
+                atom_new.m = self.uvw2xyz(g.transform_axial_vec(self.xyz2uvw(atom.m)))
+                print(f'{g=}')
+                # aotm_new.gtensor = self.g.matrix @ atom.gtensor @ self.g.inv().matrix
+
                 atoms_all.append(atom_new)
 
         atoms_all = sorted(atoms_all)
@@ -121,6 +138,43 @@ class Crystal(Lattice):
     ################################################################################
     # Functionalities
 
+    def get_atomic_distances(self, dmax: float=None, dmin: float=None):
+        ''''''
+
+        if dmin is None: dmin = -1.0
+        if dmax is None: dmax = 8.0
+
+        nx_max, ny_max, nz_max = np.floor(dmax / np.array(self.lattice_parameters[:3]))
+        Nx = np.arange(-nx_max-1, nx_max+1)
+        Ny = np.arange(-ny_max-1, ny_max+1)
+        Nz = np.arange(-nz_max-1, nz_max+1)
+
+        Ngrids = np.meshgrid(Nx,Ny,Nz)                      # each of 3 has shape (len Nx, len Ny, len Nz)
+        Ngrid_uvw = np.stack(Ngrids, axis=-1)               # shape (len Nx, len Ny, len Nz, 3)
+        UC = Ngrid_uvw.reshape(len(Nx)*len(Ny)*len(Nz), 3)  # flatten to (prod Ni, k)
+        
+        bond_dtype = [('dd', 'f4'), ('d_xyz', 'f4', (3,)), ('d_uvw', 'i', (3,)), ('i','i'), ('j','i'), ('n_uvw', 'i', (3,))]
+        entries = []
+        for i, atom1 in enumerate(self.atoms_all):
+            for n_uvw in UC:
+                # print(n_UC)
+                for j, atom2 in enumerate(self.atoms_all):
+                    # if j <= i:
+                    #     continue
+                    d_uvw = atom2.r + n_uvw - atom1.r
+                    d_xyz = self.uvw2xyz(d_uvw)
+                    dd = np.linalg.norm(d_xyz)
+                    if dd < dmax and dd > dmin:
+                        entries.append( (dd, d_xyz, d_uvw, i, j, n_uvw) )
+
+        # print(f'd = {dd:.5f} A, d_uvw = {d_uvw}, d_xyz = {d_xyz}')
+        # print('\t', atom1)
+        # print('\t', atom2)
+
+        bonds = np.array(entries, dtype=bond_dtype)
+
+        return np.sort(bonds, order=['dd'])
+    
     def get_atom_sw_id(self, position: np.ndarray) -> int:
         '''Find the index of the potential magnetic atom at `position`.
         The integer part of the position, i.e. allocation to specific unit cell, is ignored.
