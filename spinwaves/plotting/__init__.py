@@ -1,32 +1,18 @@
-'''Plotting functionalisites of the `spinwaves` package'''
+'''Plotting functionalites of the `spinwaves` package'''
 
-# DEV
-# The imports are slow. They should be done only if the plotter is requested
 
-from .supercell_plotter_vispy import VispySupercellPlotter
-from .supercell_plotter_mpl import MPLSupercellPlotter
-
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..spinw import SpinW
     
 
-# class SupercellPlotter: ...
-# class MPLSupercellPlotter(SupercellPlotter): ...
-# class VispySupercellPlotter(SupercellPlotter): ...
-# class PlotlySupercellPlotter(SupercellPlotter): ...
 
-supercell_plotters = {
-        'vispy': VispySupercellPlotter,
-        'mpl': MPLSupercellPlotter,
-        # 'plotly': 'PlotlySupercellPlotter'
-    }
 
-implemented_sc_plotters = supercell_plotters.keys()
+IMPLEMENTED_SC_ENGINES = ['vispy', 'vispy+', 'mpl', 'qtgraph']
 
 def plot_structure( sws: 'SpinW',
                     engine: str='vispy', 
-                    plot_options: dict={}) -> None:
+                    plot_options: dict={}) -> Any:
     '''Render the 3D crystal structure and couplings
     
     Parameters
@@ -44,8 +30,20 @@ def plot_structure( sws: 'SpinW',
     -------
         Library specific objects handling the plotting widget
     '''
-    # Run chosen application to render the structure
-    plotter = supercell_plotters[engine](sws)
-    # plotter.__init__(sws=sws)
+    if engine not in IMPLEMENTED_SC_ENGINES:
+        raise NotImplementedError(f'{engine}')
     
-    return plotter.plot(plot_options)
+    if engine=='vispy':
+        from .supercell_plotter_vispy import VispySupercellPlotter as SCPlotter
+    if engine=='vispy+':
+        from .supercell_plotter_vispy_advanced import AdvancedVispySupercellPlotter as SCPlotter
+    if engine=='mpl':
+        from .supercell_plotter_mpl import MPLSupercellPlotter as SCPlotter
+    if engine=='qtgraph':
+        from .supercell_plotter_qtgraph import QtgraphSupercellPlotter as SCPlotter
+
+    # Run chosen application to render the structure
+    plotter = SCPlotter(sws)
+    plotter.plot(plot_options)
+    
+    return plotter.deploy()

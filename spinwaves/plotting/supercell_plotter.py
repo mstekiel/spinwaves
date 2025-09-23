@@ -14,38 +14,9 @@ import logging.config
 import traceback
 sc_logger = logging.getLogger('SupercellPlotter')
 
-# setup_logging
-logging_config = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'simple': {
-            # 'format': '%(levelname)s: %(message)s'
-            'format': '[%(levelname)s|%(module)s|L%(lineno)d] %(asctime)s.%(msecs)03d: %(message)s',
-            'datefmt': '%Y-%m-%dT%H:%M:%S%z'
-        }
-    },
-    'handlers': {
-        'stdout': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-            'stream': 'ext://sys.stdout'
-        }
-    },
-    'loggers': {
-        'root': {
-            'level': 'INFO',
-            'handlers': ['stdout']
-        },
-        'matplotlib': {
-            'level': 'INFO'
-        }
-    }
-}
-logging.config.dictConfig(logging_config)
-
+#######################################################################################################
 # Tools
-def _prepare_bbox(boundaries: Union[int, list[int]]):
+def _format_bbox(boundaries: Union[int, list[int]]):
     # Handle bbox creation
     bbox = np.zeros((3,2))
     if np.shape(boundaries) == ():
@@ -70,140 +41,32 @@ def find_matching_label_color(label: str, label_colors: dict[str, Any]):
 
     return color_ret
 
+#######################################################################################################
+
 class SupercellPlotter(ABC):
-    '''Plots the 3d crystal.
+    '''Plots the supercell of a crystal in 3D.
     
-    How about implementing draw_line() in each child, and here have plot_unitcell_edges(), plot_bonds(), etc 
-    call draw_line?'''
+    All distances are in Angstroms. This includes decorators dimensions (hopefully).
+    '''
     def __init__(self, sws: SpinW):
         self.spinw = sws
         self.crystal = sws.crystal
 
         self.logger = sc_logger
 
+        # I am not sure how to do this best. 
+        # self._objects = dict(atoms=[], couplings=[], cell_deges=[], ref_system=[], extra=[])
+
         # Config settings, such that each child will adapt those to its engine
-        ...
 
-    
-    def plot(self, plot_options: dict={}):
-        '''Main plotting function
         
-        Return widgets responsible for plotting'''
-
-        boundaries = plot_options['boundaries']
-
-        bbox = _prepare_bbox(boundaries)
-        self.logger.info(f"Plotting stuff in bbox: {bbox}")
-        
-        atoms, edges = self.get_objects_in_supercell(bbox)
-        
-        self.logger.info(f"Plotting atoms: {atoms}")
-
-        # Atoms
-        pos = self.crystal.uvw2xyz([atom.r for atom in atoms])
-        sizes = np.array([atom.radius for atom in atoms])
-        colors = np.array([atom.color for atom in atoms])
-        try:
-            self.plot_balls(positions=pos, sizes=sizes, colors=colors)
-        except Exception as e:
-            self.logger.error(traceback.format_exc())
-
-
-        # TODO atom labels
-
-        # Magnetic moments
-        magnetic_atoms = [atom for atom in atoms if atom.is_mag]
-        ma_r = self.crystal.uvw2xyz([atom.r for atom in magnetic_atoms])
-        ma_m = np.array([atom.m*atom.s for atom in magnetic_atoms])
-        # ma_colors = np.array([atom.color for atom in magnetic_atoms])
-        ma_colors = np.array([[255,0,0] for atom in magnetic_atoms])
-        try:
-            self.plot_arrows(positions=ma_r, directions=ma_m, colors=ma_colors)
-        except Exception as e:
-            self.logger.error(traceback.format_exc())
-
-        # Cell edges
-        colors = np.array([color_data['Black'].RGB for _ in edges])
-        edges = np.array([self.crystal.uvw2xyz(np.array(edge)) 
-                          for edge in edges])
-        
-        try:
-            self.plot_lines(edges, colors, alpha=0.25)
-        except Exception as e:
-            self.logger.error(traceback.format_exc())
-
-        # zeroth cell has colorful edges, make a plot option
-        main_edges = np.array([
-            [[0,0,0],[1,0,0]],
-            [[0,0,0],[0,1,0]],
-            [[0,0,0],[0,0,1]]
-        ])
-        main_edges = np.array([self.crystal.uvw2xyz(np.array(edge)) 
-                               for edge in main_edges])
-        colors = np.array([
-            color_data['Red'].RGB,
-            color_data['Green'].RGB,
-            color_data['Blue'].RGB
-            ])
-
-        try:
-            self.plot_lines(main_edges, colors, width=5)
-        except Exception as e:
-            self.logger.error(traceback.format_exc())
-
-        # Prepare couplings
-        couplings_lines, couplings_colors = [], []
-        dmi_positions, dmi_directions, dmi_colors = [], [], []
-        for cpl in self.spinw.couplings_all:
-            l1 = self.crystal.uvw2xyz(self.spinw.magnetic_atoms[cpl.id1].r)
-            l2 = self.crystal.uvw2xyz(self.spinw.magnetic_atoms[cpl.id2].r + cpl.n_uvw)
-            
-            ### Use this snippet to remove bonds reaching outside bbox
-            l2_uvw = self.spinw.magnetic_atoms[cpl.id2].r + cpl.n_uvw
-            if any(l2_uvw < bbox[:,0]) or any(l2_uvw > bbox[:,1]):
-                continue
-
-            couplings_lines.append([l1,l2])
-            # TODO handle colors properly
-            if 'coupling_colors' in plot_options:               
-                couplings_colors.append(find_matching_label_color(cpl.label, plot_options['coupling_colors']))
-
-            if not np.allclose(cpl.DMI_vector, np.zeros(3)):
-                dmi_positions.append( (l1+l2)/2 )
-                dmi_directions.append( 11*cpl.DMI_vector )
-                dmi_colors.append(color_data['Black'].RGB)
-
-
-        # Plot couplings
-        try:
-            couplings_lines = np.array(couplings_lines)
-            couplings_colors = np.array(couplings_colors)
-            # couplings_colors = np.array([color_data['Gray'].RGB for _ in self.spinw.couplings_all])
-            self.plot_lines(couplings_lines, couplings_colors, width=5)
-        except Exception as e:
-            self.logger.error(traceback.format_exc())
-
-        # Plot DM vectors
-        try:
-            dmi_positions = np.array(dmi_positions)
-            dmi_directions = np.array(dmi_directions)
-            dmi_colors = np.array(dmi_colors)
-            # couplings_colors = np.array([color_data['Gray'].RGB for _ in self.spinw.couplings_all])
-            self.plot_arrows(dmi_positions, dmi_directions, dmi_colors)
-        except Exception as e:
-            self.logger.error(traceback.format_exc())
-
-
-        return self.deploy_plotter()
-    
-
     @abstractmethod
     def plot_balls(self, 
                    positions: np.ndarray, 
                    sizes: np.ndarray, 
                    colors: np.ndarray):
         '''Plot balls.
-        Used in:
+        Used for drawing:
          - atoms.
         
         Parameters
@@ -211,6 +74,11 @@ class SupercellPlotter(ABC):
         positions: (n,3)
         sizes: (n,)
         colors: (n,3)
+
+        Returns
+        -------
+        objects: (n,)
+            List of plot objects, specific for library used
         '''
         pass
 
@@ -219,7 +87,7 @@ class SupercellPlotter(ABC):
                    lines: np.ndarray,
                    colors: np.ndarray):
         '''Plot lines.
-        Used in:
+        Used for drawing:
          - cell edges,
          - bonds.
         
@@ -228,6 +96,11 @@ class SupercellPlotter(ABC):
         lines: (n,2,3)
             [..., [i_line_start, i_line_end], ...]
         colors: (n,3)
+
+        Returns
+        -------
+        objects: (n,)
+            List of plot objects, specific for library used
         '''
         pass
 
@@ -253,6 +126,10 @@ class SupercellPlotter(ABC):
         colors: (n,3)
             Color of the arrows.
 
+        Returns
+        -------
+        objects: (n,)
+            List of plot objects, specific for library used
         '''
         pass
 
@@ -268,12 +145,200 @@ class SupercellPlotter(ABC):
         positions: (n,3)
         labels: (n,)
         colors: (n,3)
+
+        Returns
+        -------
+        objects: (n,)
+            List of plot objects, specific for library used
         '''
         pass
 
     @abstractmethod
-    def deploy_plotter(self):
-        '''Library specifif routins to deploy the plot'''
+    def plot_ellipsoids(self,
+                        positions: np.ndarray,
+                        matrices: np.ndarray,
+                        colors: np.ndarray):
+        '''Plot ellipsoids.
+
+        Parameters
+        ----------
+        positions: (n,3)
+        matrices: (n,3,3)
+            Defined the principal axes, by solving the eigenproblem.
+        colors: (n,3)
+
+        Returns
+        -------
+        objects: (n,)
+            List of plot objects, specific for library used.
+        '''
+        pass
+
+    @abstractmethod
+    def deploy(self):
+        '''Library specific routines to deploy the plot.
+        
+        Returns
+        -------
+        widget:
+            Main widget used to control the plot window.
+        '''
+        pass
+
+    #######################################################################################################
+    
+    def plot(self, plot_options: dict={}):
+        '''Main plotting function'''
+
+        boundaries = [[0,1],[0,1],[0,1]]
+        if 'boundaries' in plot_options:
+            boundaries = plot_options['boundaries']
+
+        self.atom_alpha = plot_options.pop('atom_alpha', 0.8)
+        self.spin_scale = plot_options.pop('spin_scale', 1)
+        self.arrow_width = plot_options.pop('arrow_width', 0.1)
+        self.arrow_head_size = plot_options.pop('arrow_head_size', 3)
+
+        bbox = _format_bbox(boundaries)
+        self.logger.info(f"Plotting stuff in bbox: {bbox}")
+        
+        atoms, edges = self.get_objects_in_supercell(bbox)
+        
+        self.logger.info(f"Plotting atoms: {atoms}")
+
+        # Atoms
+        pos = self.crystal.uvw2xyz([atom.r for atom in atoms])
+        sizes = np.array([atom.radius for atom in atoms])
+        colors = np.array([atom.color for atom in atoms])
+        try:
+            self.plot_balls(positions=pos, sizes=sizes, colors=colors)
+        except Exception as e:
+            self.logger.error(traceback.format_exc())
+
+        # 
+        self._structure_center = np.average(pos, axis=0)
+        self._largest_distance = np.abs(pos-self._structure_center).max()
+
+        # TODO atom labels
+
+        # Magnetic moments
+        magnetic_atoms = [atom for atom in atoms if atom.is_mag]
+        ma_r = self.crystal.uvw2xyz([atom.r for atom in magnetic_atoms])
+        ma_m = np.array([atom.m*atom.s for atom in magnetic_atoms])
+        ma_colors = np.array([atom.color for atom in magnetic_atoms])
+        # ma_colors = np.array([[255,0,0] for atom in magnetic_atoms])
+        try:
+            self.plot_arrows(positions=ma_r, directions=ma_m, colors=ma_colors)
+        except Exception as e:
+            self.logger.error(traceback.format_exc())
+
+        # Cell edges
+        colors = np.array([color_data['Black'].RGB for _ in edges])
+        edges = np.array([self.crystal.uvw2xyz(np.array(edge)) 
+                          for edge in edges])
+        
+        try:
+            self.plot_lines(edges, colors, alpha=0.25, width=1)
+        except Exception as e:
+            self.logger.error(traceback.format_exc())
+
+        # zeroth cell has colorful edges, make a plot option
+        main_edges = np.array([
+            [[0,0,0],[1,0,0]],
+            [[0,0,0],[0,1,0]],
+            [[0,0,0],[0,0,1]]
+        ])
+        main_edges = np.array([self.crystal.uvw2xyz(np.array(edge)) 
+                               for edge in main_edges])
+        colors = np.array([
+            color_data['Red'].RGB,
+            color_data['Green'].RGB,
+            color_data['Blue'].RGB
+            ])
+
+        try:
+            print('DEBUG plotting main cell eges')
+            self.plot_lines(main_edges, colors, width=4)
+        except Exception as e:
+            self.logger.error(traceback.format_exc())
+
+        # Prepare couplings
+        couplings_lines, couplings_colors = [], []
+        scpl_ellipsoid_pos, scpl_ellipsoid_mat, scpl_ellipsoid_color = [], [], []
+        dmi_positions, dmi_directions, dmi_colors = [], [], []
+        for cpl in self.spinw.couplings_all:
+            ### Use this snippet to remove bonds reaching outside bbox
+            l2_uvw = self.spinw.magnetic_atoms[cpl.id2].r + cpl.n_uvw
+            if any(l2_uvw < bbox[:,0]) or any(l2_uvw > bbox[:,1]):
+                continue
+
+            l1 = self.crystal.uvw2xyz(self.spinw.magnetic_atoms[cpl.id1].r)
+            l2 = self.crystal.uvw2xyz(l2_uvw)
+
+            # self coupling, as in single ion anisotropy
+            if np.allclose(l1, l2):   # TODO, skip for now
+                scpl_ellipsoid_pos.append(l1)
+
+                atom = self.spinw.magnetic_atoms[cpl.id1]
+
+                ### Make the shortest axis = atom radius
+                # matrix = cpl.J - np.diag([1,1,1])*np.max(np.linalg.eigvals(cpl.J))  # highest eval is 0
+                # matrix = -matrix + atom.radius
+                ### Make the longest axis = twice atom radius
+                a, b, c = np.linalg.eigh(cpl.J)[0] # evals are ordered such the a<b<c
+                matrix = cpl.J - np.diag([1,1,1])*c # evals: a-c<b-c<0
+                matrix = -matrix # evals c-a > c-b > 0
+                matrix = matrix*5*atom.radius/(c-a) # evals: 2r > 
+                
+                scpl_ellipsoid_mat.append(matrix)
+                scpl_ellipsoid_color.append(self.spinw.magnetic_atoms[cpl.id1].color)
+
+                continue
+
+            # interatomic coupling as line
+            couplings_lines.append([l1,l2])
+            # TODO handle colors properly
+            if 'coupling_colors' in plot_options:               
+                # couplings_colors.append(find_matching_label_color(cpl.label, plot_options['coupling_colors']))
+                color_name = plot_options['coupling_colors'].get(cpl.label.split('_')[0], 'Gray')
+                couplings_colors.append(color_data[color_name].RGB)
+
+            # DMI arrow
+            if not np.allclose(cpl.DMI_vector, np.zeros(3)):
+                dmi_positions.append( (l1+l2)/2 )
+                dmi_directions.append( 11*cpl.DMI_vector )
+                dmi_colors.append(color_data['Black'].RGB)
+
+        # Plot self couplings
+        try:
+            scpl_ellipsoid_pos = np.array(scpl_ellipsoid_pos)
+            scpl_ellipsoid_mat = np.array(scpl_ellipsoid_mat)
+            scpl_ellipsoid_color = np.array(scpl_ellipsoid_color)
+            self.plot_ellipsoids(scpl_ellipsoid_pos, scpl_ellipsoid_mat, scpl_ellipsoid_color)
+        except Exception as e:
+            self.logger.error(traceback.format_exc())
+
+        # Plot interatomic couplings
+        try:
+            couplings_lines = np.array(couplings_lines)
+            couplings_colors = np.array(couplings_colors)
+            # couplings_colors = np.array([color_data['Gray'].RGB for _ in self.spinw.couplings_all])
+            self.plot_lines(couplings_lines, couplings_colors, width=5)
+        except Exception as e:
+            self.logger.error(traceback.format_exc())
+
+        # Plot DM vectors
+        try:
+            dmi_positions = np.array(dmi_positions)
+            dmi_directions = np.array(dmi_directions)
+            dmi_colors = np.array(dmi_colors)
+            # couplings_colors = np.array([color_data['Gray'].RGB for _ in self.spinw.couplings_all])
+            self.plot_arrows(dmi_positions, dmi_directions, dmi_colors)
+        except Exception as e:
+            self.logger.error(traceback.format_exc())
+
+
+        return
 
     def get_objects_in_supercell(self, boundaries) -> tuple[list[Atom], np.ndarray]:
         '''Find all objects that fit within the boundaries

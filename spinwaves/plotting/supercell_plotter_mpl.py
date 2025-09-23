@@ -44,7 +44,7 @@ class MPLSupercellPlotter(SupercellPlotter):
 
         return
     
-    def deploy_plotter(self):
+    def deploy(self):
         # self.fig.show()
         plt.show()
     
@@ -136,3 +136,6 @@ class MPLSupercellPlotter(SupercellPlotter):
         #                        color=color_array.Color(color=color, alpha=alpha)) # , method="gl")
 
         return
+
+    def plot_ellipsoids(self, positions: np.ndarray, matrices: np.ndarray, colors: np.ndarray):
+        pass
