@@ -17,15 +17,15 @@ def test_main_rotations():
 def test_Rprime():
     """Test rotation matrix"""
 
-    assert np.allclose( funs_sw.rot_Rprime([0,0,1]), np.eye(3,3))
-    assert np.allclose( funs_sw.rot_Rprime([1,0,0]), funs_sw.Ry(-np.pi/2))
+    assert np.allclose( funs_sw.RtoZ([0,0,1]), np.eye(3,3))
+    assert np.allclose( funs_sw.RtoZ([1,0,0]), funs_sw.Ry(-np.pi/2))
 
     v = [0.3, -0.2, 0.4]
-    assert np.allclose( funs_sw.rot_Rprime(v) @ v, [0, 0, funs_sw.norm(v)])
+    assert np.allclose( funs_sw.RtoZ(v) @ v, [0, 0, funs_sw.norm(v)])
     v = [-np.sqrt(2), 1e5, -np.pi]
-    assert np.allclose( funs_sw.rot_Rprime(v) @ v, [0, 0, funs_sw.norm(v)])
+    assert np.allclose( funs_sw.RtoZ(v) @ v, [0, 0, funs_sw.norm(v)])
     v = [1, 1, 1]
-    assert np.allclose( funs_sw.rot_Rprime(v) @ v, [0, 0, funs_sw.norm(v)])
+    assert np.allclose( funs_sw.RtoZ(v) @ v, [0, 0, funs_sw.norm(v)])
 
 def test_Rodrigues_complex():
     R1, R2 = funs_sw.rot_Rodrigues_complex([0,0,1])
@@ -35,6 +35,8 @@ def test_Rodrigues_complex():
 
 if __name__ == "__main__":
     # pytest.main()
+    test_main_rotations()
+    test_Rprime()
     test_Rodrigues_complex()
 
     ### Quick tests

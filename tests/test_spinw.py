@@ -36,7 +36,7 @@ def test_matrices():
     ]
 
     sw = SpinW(crystal=crystal, magnetic_modulation=magnetic_modulation, couplings=couplings)
-    print('E0 = ', sw.calculate_ground_state(q_hkl=[0,0,0]))
+    print('E0 = ', sw.calculate_ground_state(Qhkl=[0,0,0]))
     
     S = sw.determine_matrices(q_hkl = [0.1, 0.1, 0])
     print(S)
