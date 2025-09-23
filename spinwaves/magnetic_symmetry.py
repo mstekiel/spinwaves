@@ -1,6 +1,7 @@
-from copy import deepcopy
-import numpy as np
 from fractions import Fraction
+import numpy as np
+
+from copy import deepcopy
 from itertools import chain, combinations
 
 
@@ -8,6 +9,10 @@ from typing import Any, Union, TYPE_CHECKING
 if TYPE_CHECKING:
     from .crystal import Atom
 
+# TODO
+# - [ ] time reversal translations do not seem to be working?
+# - [ ] check the names and definitions against the dictionary for Crystallography
+# - [ ] Does the mSymOp.inversion() does not involve touching the translation?
 
 class mSymOp():
     '''Magnetic space group symmetry operation.
@@ -128,7 +133,7 @@ class mSymOp():
     
     @property
     def translation(self) -> np.ndarray[float]:
-        '''Translaiton part of the symmetry operation'''
+        '''Translation part of the symmetry operation'''
         return self._translation.astype(float)
     
     @property
@@ -165,11 +170,11 @@ class mSymOp():
         Conventions
         -----------
         1. String consists of four fields separated by `, ` [comma+space].
-        2. Last field denotes time reversal adjoined operation as is form [`+1`,`-1`].
+        2. Last field denotes time reversal adjoined operation that is form [`+1`,`-1`].
         3. First three fields represent matrix and translational part, each one of them
            has the same convention, described next.
             3.1. First we have matrix part represented by `xyz+-` symbols.
-                 First symbol is either `-` or from 'xyz', where latter indicates
+                 First symbol is either `-` or from 'xyz', where latter implies
                  `+` sign in front of the `xyz` symbol.
             3.2 Second is the optional translational part, with symbols from
                 '+[1235]/[2346]'. As such, it is always 4 characters long,
@@ -259,7 +264,7 @@ class mSymOp():
         # Because it is not significantly faster and sometimes slower
         # return self.str==other.str
         t1 = (self._matrix==other._matrix).all()
-        t2 = (self._translation==other._translation).all()    # comapring on fractions should be ok?
+        t2 = (self._translation==other._translation).all()    # comparing on fractions should be ok?
         t3 = (self._time_reversal==other._time_reversal)
 
         return t1 and t2 and t3
@@ -318,7 +323,7 @@ class mSymOp():
             time_reversal = self.time_reversal
         )
 
-    def transform_position(self, position: np.ndarray, to_UC: bool=False) -> np.ndarray[float]:
+    def transform_position(self, position: np.ndarray[Any], to_UC: bool=False) -> np.ndarray[float]:
         '''Transform the `position` in crystal coordinates according to `mSymOp`.
         
         Parameters
@@ -355,6 +360,8 @@ class mSymOp():
     def transform_atom(self, atom: 'Atom', to_UC: bool=False) -> 'Atom':
         '''Transform the position and magnetic moment of the atom
         according to the symmetry operation.
+
+        NOT FULLY USEFUL WITHOUT LATTICE AND MIXED COORDINATES
         
         Parameters
         ----------
@@ -403,7 +410,7 @@ class MSG():
         -----
         1. The construction takes place in real time, so for groups with large
            number of expected elements it can take seconds:
-           >>> 8 s for Ia-3d1' with 192 operations.
+           >>> 8 seconds for Ia-3d1' with 192 operations.
         2. MSGs with time reversal translations do not seem to work as expected
         '''
         return cls(generators = [mSymOp.from_string(xyz_string) for xyz_string in generators])
@@ -421,7 +428,7 @@ class MSG():
         # We dint have to multiply all elements each time, just the new ones.
         # Tried some improvements, but subtracted just constant time.
 
-        # Add 1 to generators, to fulfill `while` loops and ensure its in the group
+        # Add 1 to generators, to fulfill `while` loop entry condition and ensure its in the group
         ops_new = list(generators) + [mSymOp.from_string('x, y, z, +1')]
         ops = generators
         while len(ops_new) > len(ops):
@@ -434,7 +441,7 @@ class MSG():
     ##############################################################################
     # Properties
     @property
-    def operations(self):
+    def operations(self) -> tuple['mSymOp']:
         '''Symmetry operators of the MSG'''
         return self._operations
 
@@ -477,18 +484,28 @@ class MSG():
 
     def get_point_symmetry(self, position: np.ndarray[Any]) -> list[mSymOp]:
         '''Determine the point symmetry of the `position`.
+
+        Parameters
+        ----------
+        position: (3,) float
+            Position in the lattice coordinates for which the point symmetry is determined.
+
+        Returns
+        -------
+        point_symmetry: list[mSymOp]
+            List of symmetry operations that leave the `position` unchanged.
         
         Notes
         -----
-        So we just take a look at which positions leave it invariant?
+        Take a look which symmetry operations leave the `position` unchanged.
         '''
         return [g for g in self._operations 
-                if np.allclose( (position-g.transform_position(position))%1, [0,0,0])]
+                if np.allclose( (position-g.transform_position(position)), [0,0,0])]
     
     
     def get_orbit(self, position: np.ndarray[Any], 
                   return_generators: bool=False,
-                  return_indices: bool=False) -> list[mSymOp]:
+                  return_indices: bool=False) -> Union[np.ndarray, tuple[np.ndarray, list[mSymOp], list[int]]]:
         '''Get symmetry operations that generate the orbit of the Wyckoff position.
         https://dictionary.iucr.org/Crystallographic_orbit
 
@@ -502,10 +519,20 @@ class MSG():
             If True, return the indices of the symmetry operations generating 
             the orbit, as they are listed in the `MSG.operations`.
 
+        Returns
+        -------
+        positions: (n,3), float
+            Coordinates that form the orbit of the given `position`.
+        generators: (n,), optional
+            Symmetry elements that generate the `positions` from `position`.
+        indices: (n, ), optional
+            Indices of symmetry operations that generate `positions` from `position`.
+
         Notes
         -----
         The method finds unique positions, by comparing arrays containing floating point numbers.
         To prevent floating point inaccuracies the comparison is done until 5th decimal place.
+        WHY? With implementation of fractions, that shouldn't be necessary.
         '''
         positions_new = [g.transform_position(position)%1 for g in self.operations]
         positions, id_unique = np.unique( np.around(positions_new, 5), axis=0, return_index=True)

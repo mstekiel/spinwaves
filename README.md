@@ -4,9 +4,26 @@
 
  - [ ] There is some warning in `database` module that causes a lot of empty lines printout when warning levels are higher.
 
-TODO
-For list of modules and their descriptions see documentation at: 
-https://mstekiel.github.io/mikibox/build/html/index.html
+## TODO
+
+- Usage
+  - [ ] Plotting of unit cell edges.
+  - [x] coordinate systems.
+  - [x] lighting.
+
+- Make documentation:
+  For list of modules and their descriptions see documentation at: 
+  https://mstekiel.github.io/mikibox/build/html/index.html
+
+- Make GUI (PyQt6) with inline editeor (https://qscintilla.com), 3D viewer (https://vispy.org). The GUI can be a direct copy of vspy/.examples/../sandbox
+  - VISPY has a lot of beautiful examples for Ctrl+CV coding.
+    - whole GUI as in vispy\examples\basics\scene\modular_shaders\sandbox.py
+    - tubes vispy\examples\basics\visuals\tube.py
+    - check out `Canvas.measure_fps()`
+    - demo\gloo\boids.py for animatoins with particles (neutrons)
+    - demo\gloo\camera.py with gestures recognition neural network to control the viewing.
+  - https://mediapipe-studio.webapps.google.com/studio/demo/face_landmarker for gesture recognition and 3D navigation
+
 
 ## Installation
 1. Create an empty virtual environment with the python version specified in `setup.py: python-version`
