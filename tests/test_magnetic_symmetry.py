@@ -6,7 +6,7 @@ import numpy as np
 from fractions import Fraction
 import pytest
 
-from spinwaves.magnetic_symmetry import mSymOp, MSG
+from spinwaves.symmetry.magnetic_symmetry import mSymOp, MSG
 
 g_1 = mSymOp.from_string('x, y, z, +1') # 1
 g_m1 = mSymOp.from_string('-x, -y, -z, +1')  # -1

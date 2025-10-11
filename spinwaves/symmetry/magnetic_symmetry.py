@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from ..crystal import Atom
 
 T = TypeVar('T')
-logger = logging.getLogger('Symmetry')
+logger = logging.getLogger('Magnetic Symmetry')
 
 
 # TODO
@@ -40,7 +40,7 @@ class mSymOp():
         -1 means time revelrsal is involved
     
     inversion: int
-        Inversion of symmetry operation
+        Is inversion part of symmetry operation
     
     character: int
         Character of the operation, trace of matrix part.
@@ -266,7 +266,7 @@ class mSymOp():
     
     def __eq__(self, other: 'mSymOp') -> bool:
         # If we truly trust in string, why not?
-        # Because it is not significantly faster and sometimes slower
+        # Because it is not significantly faster and sometimes slower. Also, good to have double check.
         # return self.str==other.str
         t1 = (self._matrix==other._matrix).all()
         t2 = (self._translation==other._translation).all()    # comparing on fractions should be ok?
@@ -384,10 +384,6 @@ class mSymOp():
 
 ###########################################################################
 
-from collections import deque, defaultdict
-from typing import Any, Callable, Dict, Iterable, List, Tuple, Optional
-
-
 class MSG():
     '''Magnetic Space Group'''
     _name: str
@@ -426,112 +422,6 @@ class MSG():
         2. MSGs with time reversal translations do not seem to work as expected
         '''
         return cls(generators = [mSymOp.from_string(xyz_string) for xyz_string in generators])
-    
-
-
-    # class CayleyResult:
-    #     def __init__(self,
-    #                 elements: List[Any],
-    #                 mult_table: Dict[Tuple[Any, Any], Any],
-    #                 adjacency: Dict[Any, List[Tuple[str, Any]]],
-    #                 index_of: Dict[Any, int]):
-    #         self.elements = elements                  # discovery order; elements[i] gives the ith element
-    #         self.mult_table = mult_table              # (a,b) -> a*b
-    #         self.adjacency = adjacency                # u -> list of (label, v) edges
-    #         self.index_of = index_of                  # element -> row/col index in the table
-
-    def build_group_cayley(
-        generators: Iterable[Any],
-        identity: Any,
-        mul: Callable[[Any, Any], Any],
-        get_inverses: Callable[[Iterable[Any]], Iterable[Any]],
-        label: Optional[Callable[[Any], str]] = None,
-        max_size: Optional[int] = None,
-    ) -> tuple:
-        """
-        Generate the group from generators using a Cayley-graph BFS, build the full multiplication table,
-        and construct the Cayley graph.
-
-        Parameters
-        ----------
-        generators : iterable of group elements (identity NOT included)
-        identity   : the identity element
-        mul        : function mul(a, b) -> a*b
-        get_inverses : function that takes the given generators and returns their inverses
-                    (any order; they are simply treated as additional generators)
-        label      : optional function label(g) -> str used to name generator edges in the Cayley graph.
-                    Defaults to str(g).
-        max_size   : optional safety cap; raise if the group exceeds this many elements (helps catch infinite cases)
-
-        Returns
-        -------
-        CayleyResult with:
-        - elements   : list of all elements (discovery order)
-        - mult_table : dict mapping (a, b) -> a*b for all pairs a,b in elements
-        - adjacency  : dict u -> list of (edge_label, v) for each generator/inverse
-        - index_of   : map element -> index to address rows/cols of the table
-        """
-        gens = list(generators)
-        gens_inv = list(get_inverses(gens))
-        steps = gens + gens_inv                     # use S± as the generating set for BFS
-
-        if not steps:
-            # Degenerate case: only the identity exists
-            elements = [identity]
-            table = {(identity, identity): mul(identity, identity)}
-            adj = defaultdict(list)
-            return (elements, table, adj, {identity: 0})
-
-        lab = (label if label is not None else (lambda g: str(g)))
-
-        # --- BFS discovery over the Cayley graph ---
-        discovered = {identity}
-        elements: List[Any] = [identity]
-        index_of: Dict[Any, int] = {identity: 0}
-        q = deque([identity])
-
-        # Cayley graph (directed, edge-labeled)
-        adjacency: Dict[Any, List[Tuple[str, Any]]] = defaultdict(list)
-
-        # Full multiplication table, filled incrementally
-        mult_table: Dict[Tuple[Any, Any], Any] = {}
-        mult_table[(identity, identity)] = mul(identity, identity)
-
-        # Helper: when a new element y is discovered, fill its row/column vs all known elements
-        def fill_table_for_new(y: Any) -> None:
-            # row y,* and column *,y vs all existing elements (which exclude y)
-            for b in elements:
-                mult_table[(y, b)] = mul(y, b)
-                mult_table[(b, y)] = mul(b, y)
-            # finally y*y
-            mult_table[(y, y)] = mul(y, y)
-
-        while q:
-            if max_size is not None and len(elements) > max_size:
-                raise ValueError("Group appears larger than max_size (possible infinite subgroup).")
-
-            x = q.popleft()
-
-            # expand x by every generator and inverse (right-multiplication is sufficient)
-            for s in steps:
-                y = mul(x, s)
-
-                # record labeled edge x --(s)--> y in the Cayley graph
-                adjacency[x].append((lab(s), y))
-
-                # if new vertex, register and extend BFS frontier
-                if y not in discovered:
-                    discovered.add(y)
-                    fill_table_for_new(y)
-                    index_of[y] = len(elements)
-                    elements.append(y)
-                    q.append(y)
-
-        # After BFS, ensure the multiplication table is fully populated.
-        # (It already is: every new y was paired with all prior elements, and future inserts pair back with y.)
-
-        return (elements, mult_table, adjacency, index_of)
-
 
     def _generate_all_elements(self, generators: list[mSymOp]):
         '''Generate symmetry elements of magnetic space group from generators.
