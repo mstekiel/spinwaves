@@ -2,7 +2,8 @@
 from fractions import Fraction
 from typing import Sequence
 import numpy as np
-from dataclasses import dataclass
+
+from spinwaves.utils.arrays import ensure_shape
 
 # Typing
 # from typing import Dict, Union, TYPE_CHECKING
@@ -51,7 +52,8 @@ class Atom:
 
     Notes
     -----
-    - TODO decide on the convention whether the spin is represented in the crystal of cartesian coordinates
+    - I see no better convention than the mixed notation for r_uvw and m_xyz.
+    - Sorting is based on the position only. So th emixed occupation of the site is not implemented.
 
     '''
 
@@ -78,25 +80,22 @@ class Atom:
                  gtensor_mat = None, aniso_mat = None, occupation = 1,
                  label: str='atom', element_symbol: str='',
                  color: Sequence=[], radius: float=0):
-        '''
-        Assert field formats, and fill the correlated fields
-        '''
+        '''Create atom instance.
 
-        # Position
+        Parameters
+        ----------
+        r: array_like
+            Fractional coordinates of the atom's position. Will be converted to fractions.
+        m: array_like
+            Magnetic moment direction of the atom, in cartesian coordinates.
+        s: float
+            Spin number of the atom.
+        '''
+        # These have setters and validators within
         self.r = r
-        # self.r = np.array(self.r, dtype=float)
-        if not len(self.r) == (3):
-            raise ValueError(f'Atomic position must be a (3,) vector now is: {len(self.r)}')
-        
-        # Magnetic moment and spin
         self.m = m
         self.s = s
-        if not self.m.shape == (3,):
-            raise ValueError(f'Atomic magnetic moment must be a (3,) vector now is: {self.r.shape}')
-        # if not np.shape(s)==1:
-        #     raise ValueError(f'Atomic spin must be a single `float`: s={self.s} shape={np.shape(self.s)}')
-        # Normalize magnetic moment, just in case
-        self.m /= np.linalg.norm(self.m)
+
 
         # Label
         self.label = label
@@ -108,6 +107,8 @@ class Atom:
                 self.element_symbol = self.label[:2]
             elif self.label[:1] in atom_data.entries:
                 self.element_symbol = self.label[:1]
+
+        ### I now think that these properties should sit somewhere else, like in plot_options
 
         # Color as input, derived from the element symbol, or black
         if len(color):
@@ -126,6 +127,7 @@ class Atom:
         else:
             self.radius = radius
 
+    ##############################################################################################################
     @property
     def r(self) -> tuple[Fraction]:
         '''Position of the ion in the unit cell in crystal coordinates'''
@@ -133,6 +135,7 @@ class Atom:
         return np.array(self._r, dtype=float)
     
     @r.setter
+    @ensure_shape(r_new=(3,))
     def r(self, r_new: Sequence):
         self._r = tuple([Fraction(x).limit_denominator(config['MAX_DENOMINATOR']) for x in r_new])
 
@@ -142,32 +145,25 @@ class Atom:
         return self._m
     
     @m.setter
+    @ensure_shape(m_new=(3,))
     def m(self, m_new: Sequence):
         self._m = np.array(m_new, dtype=float)
 
     @property
     def s(self) -> np.ndarray[float]:
         '''Spin number of the ion'''
-        return self._s
+        return float(self._s)
     
     @s.setter
     def s(self, s_new: Sequence):
-        self._s = float(s_new)
-    
+        self._s = Fraction(s_new).limit_denominator(config['MAX_DENOMINATOR'])
+
     @property
     def is_mag(self) -> bool:
         '''Is the atom magnetic? Based on the spin and magnetic moment vector.'''
-        # Is magnetic atom
-        if (np.linalg.norm(self.m) < 1e-10) and (self.s == 0):    # non-magnetic atom
-            ret = False
-        elif np.linalg.norm(self.m) > 1e-10 and (np.abs(self.s)>0):
-            ret = True
-        else:
-            raise ValueError(f'''Must provide (3,) shape vector for magnetic moment and non-zero spin number for magnetic atom.\n\tNow: m={self.m} s={self.s}\n\t{self}''')
+        return (np.linalg.norm(self.m) > 1e-10) and (self._s != 0)
 
-        return ret
-
-    ##################################################################################
+    ##############################################################################################################
     def __lt__(self, other) -> bool:
         '''Implement comparison of atoms for sorting.
         Compares only atomic position.'''

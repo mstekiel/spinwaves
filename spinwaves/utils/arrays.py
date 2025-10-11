@@ -85,13 +85,14 @@ def ensure_shape(**shapes):
     """
     Decorator to validate numpy array arguments by name and shape.
 
-    Usage:
-        @ensure_shapes(
-            a=(..., 3),          # last dimension must be 3
-            b=(2, ...),          # first dimension must be 2
-            c=(2, 3, ..., 3, 3)  # fixed prefix and suffix, flexible middle
-        )
-        def func(a, b, c): ...
+    Usage
+    -----
+    @ensure_shape(
+        a=(..., 3),          # last dimension must be 3
+        b=(2, ...),          # first dimension must be 2
+        c=(2, 3, ..., 3, 3)  # fixed prefix and suffix, flexible middle
+    )
+    def func(a, b, c): ...
     """
     def decorator(func):
         sig = inspect.signature(func)
