@@ -5,7 +5,7 @@ import numpy as np
 
 from ..spinw import SpinW
 from .supercell_plotter import SupercellPlotter
-from ..functions import cartesian2spherical
+from ..utils.linalg import cartesian2spherical
 # from ..crystal import Atom
 
 from vispy import app

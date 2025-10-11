@@ -3,13 +3,13 @@ import logging
 import traceback
 import numpy as np
 
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..spinw import SpinW
     from ..crystal import Atom
 
-from ..functions import cartesian2spherical, RfromZ
+from ..utils.linalg import cartesian2spherical, RfromZ
 
 from vispy.scene import SceneCanvas
 from vispy.scene.widgets import ViewBox
@@ -81,12 +81,20 @@ class OptionsManager(object):
         ('coordinates_uvw_offset_x', 88),
         ('coordinates_uvw_offset_y', -66),
     ]
-    def __init__(self):
+    def __init__(self, options: dict[str, Any]={}):
+        # Logger
+        self.__setattr__('_logger', logging.getLogger('OptionsManager'), validate=False)
+
         for name, value in self.__attribute_defaults:
             self.__dict__[name] = value
 
         self._validate_boundaries_limits(self.__dict__)
         self._validate_boundaries_span(self.__dict__)
+
+        self.logger.warning(f"Initiating `{self.__class__.__name__}` with: {options}")
+        for name, value in options.items():
+            self.__setattr__(name, value)
+
 
         # Create events list
         emitters = EmitterGroup(source=self, 
@@ -138,7 +146,8 @@ class OptionsManager(object):
         
         # Check if attributes exists
         if name not in [att[0] for att in self.__attribute_defaults]:
-            raise AttributeError(f"Not allowed to set field '{name}'.")
+            self.logger.warning(f"Not allowed to set field '{name}'.")
+            return
 
         # Validate data types
         field_type = type(self.__dict__[name])
@@ -173,6 +182,17 @@ class OptionsManager(object):
             self.events.scale()
         elif name.startswith('coordinates'):
             self.events.coordinates()
+
+    def set(self, **kwargs):
+        for name, value in kwargs.items():
+            self.__setattr__(name, value)
+
+        return
+
+    @property
+    def logger(self) -> logging.Logger:
+        '''Logger of the class'''
+        return self._logger
 
     ### LIGHT ###
     @property
@@ -216,6 +236,14 @@ class OptionsManager(object):
                          self.boundaries_v2_lims, 
                          self.boundaries_v3_lims], dtype=float)
 
+    def set_bbox(self, bbox: np.ndarray):
+        assert np.shape(bbox) == (3,2), f"bbox must have shape (3,2), given: {bbox=}"
+        self.boundaries_v1_lim_1 = bbox[0][0]
+        self.boundaries_v1_lim_2 = bbox[0][1]
+        self.boundaries_v2_lim_1 = bbox[1][0]
+        self.boundaries_v2_lim_2 = bbox[1][1]
+        self.boundaries_v3_lim_1 = bbox[2][0]
+        self.boundaries_v3_lim_2 = bbox[2][1]
 
     def __str__(self):
         ret  = '<OptionsValidator\n'
@@ -271,7 +299,7 @@ class AdvancedVispySupercellPlotter(object):
     _atom_descriptions: list[str] = []
     _shaders: list[ShadingFilter] = []
 
-    def __init__(self, sws: 'SpinW', config: OptionsManager=None):
+    def __init__(self, sws: 'SpinW', config: dict={}):
         # This is too long
         from vispy import use
 
@@ -283,7 +311,6 @@ class AdvancedVispySupercellPlotter(object):
         self.logger = logging.getLogger('SupercellPlotter')
         # self.logger.setLevel('INFO')
 
-
         # Init vispy objects
         self.canvas = SceneCanvas(bgcolor='white', show=True)
         self.view = ViewBox()
@@ -294,10 +321,7 @@ class AdvancedVispySupercellPlotter(object):
         # self.view.camera = TurntableCamera()
         ##############################################################################################
         #### Configuration file
-        if config is None:
-            config = OptionsManager()
-
-        self.config = config
+        self.config = OptionsManager()
 
         ### Light configuration
         self._light_transform = deepcopy(self.view.camera.transform) 
@@ -332,7 +356,8 @@ class AdvancedVispySupercellPlotter(object):
         self.draw_supercell()
         self.draw_coordinate_system()
 
-    def plot(self, kwargs):
+    def plot(self, plot_options: dict[str, Any]):
+        self.config.set(**plot_options)
         return self.draw_supercell()
     
     def deploy(self):
@@ -434,6 +459,14 @@ class AdvancedVispySupercellPlotter(object):
             rotation = np.power(atom.s, 0.3) * np.linalg.inv(self.spinw.rot_Rprime(atom.m)) # Scale arro lengths arbitrarily
             rotations.append(rotation)
 
+        ### Cell edges
+        edges = self.crystal.uvw2xyz(edges)
+        edge_dir = edges[:,1,:] - edges[:,0,:]
+        edge_pos = 0.5*(edges[:,1,:] + edges[:,0,:])
+        edge_rot = RfromZ(edge_dir)
+        edge_transforms = [np.diag([0.1,0.1,ll]) for ll in np.linalg.norm(edge_dir, axis=-1)]
+        edge_colors = np.repeat([colors[0]], len(edge_pos), axis=0)
+
         try:
             # Need to block updating until all positions/transforms/colors are set
             with self._atoms_visual.events.data_updated.blocker():
@@ -447,12 +480,26 @@ class AdvancedVispySupercellPlotter(object):
 
             self._atoms_visual.events.data_updated()
 
+            # Magnetic moments
             with self._moments_visual.events.data_updated.blocker():
                 self._moments_visual.instance_positions = pos
                 self._moments_visual.instance_transforms = rotations
                 self._moments_visual.instance_colors = np.array(colors)/256.0
 
             self._moments_visual.events.data_updated()
+
+            # Celle edges
+            with self._edge_visual.events.data_updated.blocker():
+                self._edge_visual.instance_positions = edge_pos
+                self._edge_visual.instance_transforms = edge_transforms
+                self._edge_visual.instance_colors = np.array(edge_colors)/256.0
+
+                self._edge_visual.unfreeze()
+                self._edge_visual.instance_descriptions = atoms
+                self._edge_visual.freeze()
+
+            self._edge_visual.events.data_updated()
+        
 
             self._structure_center = np.average(pos, axis=0)
             self._largest_distance = np.abs(pos-self._structure_center).max()
@@ -723,31 +770,32 @@ class AdvancedVispySupercellPlotter(object):
 
         return atoms, edges
     
-    def _prepare_meshes(self):        
-        '''Prepare base visuals that will be used to depict the crystal.'''
+    def _prepare_meshes(self, names: list[str]=[]):        
+        '''Prepare base visuals that will be used to depict the crystal.
+        
+        '''
         # So now the main deal is that we will have just one mesh,
         # and atoms positions and their size will be in the multiple transforms
 
         ### ATOMS ###
 
+
         # Base mesh is dinosaur
-        from vispy.io import imread, load_data_file, read_mesh
+        # from vispy.io import imread, load_data_file, read_mesh
 
+        # mesh_path = load_data_file('spot/spot.obj.gz')
+        # texture_path = load_data_file('spot/spot.png')
+        # vertices, faces, normals, texcoords = read_mesh(mesh_path)
+        # vertices *= 2  # Scale the mesh to make it larger
+        # ### The texture needs to be attached to the Instanced mesh
+        # texture = np.flipud(imread(texture_path))
+        # texture_filter = TextureFilter(texture, texcoords)
 
-        mesh_path = load_data_file('spot/spot.obj.gz')
-        texture_path = load_data_file('spot/spot.png')
-        vertices, faces, normals, texcoords = read_mesh(mesh_path)
-        vertices *= 2  # Scale the mesh to make it larger
-        ### The texture needs to be attached to the Instanced mesh
-        texture = np.flipud(imread(texture_path))
-        texture_filter = TextureFilter(texture, texcoords)
-
-
-        # Base mesh is shpere
-        # N = 16
-        # sphere = visuals.Sphere(radius=1, method='latitude', cols=N, rows=N)
-        # mesh = sphere._mesh.mesh_data
-        # vertices, faces = mesh.get_vertices(), mesh.get_faces()
+        # Base mesh is sphere
+        N = 8
+        sphere = visuals.Sphere(radius=1, method='latitude', cols=N, rows=N)
+        mesh = sphere._mesh.mesh_data
+        vertices, faces = mesh.get_vertices(), mesh.get_faces()
 
         self._atoms_visual = visuals.InstancedMesh(vertices=vertices, faces=faces,
                                         instance_positions = [0,0,0],
@@ -758,7 +806,7 @@ class AdvancedVispySupercellPlotter(object):
         self._atoms_visual.interactive = True
         # self._atoms_visual.attach(Alpha(0.75))
         self._atoms_visual.attach( self.default_shading_filter() )
-        self._atoms_visual.attach(texture_filter)
+        # self._atoms_visual.attach(texture_filter)
 
         ### MAGNETIC MOMENTS ###
         self.spin_scale = 1
@@ -789,12 +837,19 @@ class AdvancedVispySupercellPlotter(object):
         self._moments_visual.attach(self.default_shading_filter())
 
         ### CELL EDGES ###
+        edge = visuals.Tube(points=[[0,0,-1e-3], [0,0,0], [0,0,1], [0,0,1+1e-3]], radius=[0,1,1,0], tube_points=ang_res)
+        mesh = edge.mesh_data
+        self._edge_visual = visuals.InstancedMesh(vertices=mesh.get_vertices(), faces=mesh.get_faces(),
+                                                     instance_positions = [0,0,0],
+                                                     instance_transforms = np.eye(3),
+                                                     instance_colors= [1,1,1],
+                                                     parent=self.view.scene)
+                
+        self._edge_visual.attach(self.default_shading_filter())
 
-        visuals.Line
+        ### BONDS ###
         
         return
-
-
         
     def plot_labels(self,
                     positions: np.ndarray,
@@ -964,10 +1019,6 @@ class AdvancedVispySupercellPlotter(object):
             obj.parent = self.view.scene
 
             self._objects.append(obj)
-
-
-
-
             
     def present_arrows(self):
         '''Show types of arrows that can be used.'''

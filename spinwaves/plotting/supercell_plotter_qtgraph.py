@@ -5,7 +5,7 @@ qt_logger = logging.getLogger('QtSupercellPlotter')
 
 from ..spinw import SpinW
 from .supercell_plotter import SupercellPlotter
-from ..functions import cartesian2spherical
+from ..utils.linalg import cartesian2spherical
 # from ..crystal import Atom
 
 import pyqtgraph as pg
