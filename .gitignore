@@ -1,10 +1,10 @@
 # Byte-compiled / optimized / DLL files
-__pycache__/
-spinwaves/__pycache__/
+*__pycache__*
 *.py[cod]
 debug*.py
 
 spinwaves.egg*
+.vscode/
 
 # Dirty tests
 pyopengl.py
@@ -12,3 +12,4 @@ pyopengl.py
 # Some examples should be hidden
 LuFeO3/
 FeV2O4/
+
