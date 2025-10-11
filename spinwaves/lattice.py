@@ -1,22 +1,27 @@
-import numpy as np
+"""Lattice implementation.
+Main functionality is transformation between coordinate systems
+of direct and reciprocal lattices, as well as their cartesian bases.
 
-from typing import Union, List, Tuple
+Lattice
+---------------------
+Holder and validator of lattice parameters with functionalities
+of coordinate system transformations.
 
-from . import functions as funs_sw
-
-import warnings
-# warnings.filterwarnings("error")
-
-# -*- coding: utf-8 -*-
-r"""Handles lattice geometries to find rotations and transformations
-
+LatticeOriented
+-------------------
+`Lattice` equipped with orientation. All coordinate transformations
+are now including the orientation of the lattice.
 """
-from functools import cached_property
 import numpy as np
 
+from .utils import linalg
+from .utils.arrays import ensure_shape
 
-class Lattice2(object):
-    """Class to describe a generic lattice system defined by lattice six
+from typing import Sequence, Union
+
+
+class Lattice(object):
+    """Class to describe a generic lattice system defined by six lattice
     parameters, (three constants and three angles).
 
     Parameters
@@ -51,8 +56,8 @@ class Lattice2(object):
     abg
     abg_rad
     lattice_type
-    Amatrix
-    Bmatrix
+    A
+    B
     G
     Gstar
     volume
@@ -64,8 +69,8 @@ class Lattice2(object):
         - a || x
         - b* || y
         - c to complete RHS
-    2. The phase factors are (i) exp(i k_xyz r_xyz) and (ii) exp(i Q_hkl r_uvw).
-    3. All matrices, so for both real and reciprocal space, are represented for column vectors.
+    2. The phase factors are (i) exp(i k_xyz r_xyz) and (ii) exp(2pi i Q_hkl r_uvw).
+    3. All matrices, so for both direct and reciprocal space, are represented for column vectors.
     4. `B` matrix contains the 2pi factor. Consequently A.T @ B = 2pi eye(3,3). Transposition due to pt 3.
     5. Implemented methods should work with arrays assuming the last index representing the `h, k, l` coordinates.
 
@@ -74,7 +79,7 @@ class Lattice2(object):
     --------------------
     A: ndarray((3,3))
 
-        Transforms a real lattice point into an orthonormal coordinates system. Upper triangle matrix.
+        Transforms a direct lattice coordinates into an cartesian coordinates system. Upper triangle matrix.
         [u,v,w] -> [x,y,z] (Angstroems)
 
 
@@ -85,41 +90,47 @@ class Lattice2(object):
 
     """
 
-    def __init__(self, a: float, b: float, c: float, alpha: float, beta: float, gamma: float):
-        self._lattice_parameters = [a,b,c, alpha,beta,gamma]
-        self._update_lattice()
+    def __init__(self, lattice_pars: Sequence[float]):
+        # Initiate the main internal container
+        self._lattice_parameters = [1,1,1, 90,90,90]
+        # Setters will run validation checks and update lattice automatically
+        a,b,c, alpha,beta,gamma = lattice_pars
+        self.a = a
+        self.b = b
+        self.c = c
+        self.alpha = alpha
+        self.beta = beta
+        self.gamma = gamma
 
     #################################################################################################
     # Core methods
 
-    def _update_lattice(self):
+    def _update_lattice_parameters(self):
         '''Master function recalculating all matrices involving the lattice parameters.'''
         a,b,c, alpha,beta,gamma = self._lattice_parameters
         # A matrix follows convention 1.
-        self._Amatrix = self._constructA(a,b,c, alpha,beta,gamma)
+        self._A = self._constructA(a,b,c, alpha,beta,gamma)
 
         # B matrix based on the perpendicularity condition to A
+        # with the 2pi factor
         # To get column representation it needs to be transposed
-        self._Bmatrix = 2*np.pi* np.linalg.inv(self.Amatrix).T
+        self._B = 2*np.pi* np.linalg.inv(self.A).T
 
         # Metric tensor of real space
-        self._G = self.Amatrix.T @ self.Amatrix
+        self._G = self.A.T @ self.A
 
         # Metric tensor of reciprocal space
-        self._Gstar = self.Bmatrix.T @ self.Bmatrix
+        self._Gstar = self.B.T @ self.B
 
-    def _constructA(self, a: float, b: float, c: float, alpha: float, beta: float, gamma: float) -> np.ndarray:
+    @staticmethod
+    def _constructA(a: float, b: float, c: float, alpha: float, beta: float, gamma: float) -> np.ndarray:
         '''
         Construct the `A` matrix as crystal axes in orthonormal system, ie a||x, b in xy plane, c accordingly.
 
-        Transforms a real lattice point into an orthonormal coordinates system. Upper triangle matrix.
-        A * [u,v,w] -> [x,y,z] (Angstroems)
-
-        Shortcut to define lattice vectors:
-        >>> a, b, c = A.T
-        '''
+        With the convention of the `Lattice` it is an upper triangular matrix with columns representing
+        lattice vectors in cartesian coordinates.'''
         
-        alpha, beta, gamma = self.abg_rad
+        alpha, beta, gamma = np.radians([alpha, beta, gamma])
         bx = b*np.cos(gamma)
         by = b*np.sin(gamma)
         
@@ -130,12 +141,13 @@ class Lattice2(object):
         return np.array([[a,bx,cx],[0,by,cy],[0,0,cz]])
 
     def __repr__(self):
-        return "<Lattice {0}, {1}, {2}, {3}, {4}, {5}>".format(self.a, self.b, self.c, self.alpha, self.beta, self.gamma)
-
+        return f"{self.__class__.__name__}(a={self.a}, b={self.b}, c={self.c}, alpha={self.alpha}, beta={self.beta}, gamma={self.gamma}>"
+    
+    
     #################################################################################################
     # Defining properties
     @property
-    def Amatrix(self):
+    def A(self):
         '''Crystal axes in orthonormal system, ie a||x, b in xy plane, c accordingly.
         Upper triangle matrix.
 
@@ -146,10 +158,10 @@ class Lattice2(object):
         Shortcut to define lattice vectors:
         >>> a, b, c = A.T
         '''
-        return self._Amatrix
+        return self._A
 
     @property
-    def Bmatrix(self):
+    def B(self):
         '''Reciprocal crystal axes in orthonormal system, perpendicular to real axes.
         By definition `b* || y`.
 
@@ -159,12 +171,12 @@ class Lattice2(object):
         Shortcut to define reciprocal lattice vectors:
         >>> astar, bstar, cstar = B.T
         '''
-        return self._Bmatrix
+        return self._B
 
     @property
     def G(self):
         '''Metric tensor of the real lattice.
-        G = A @ A.T
+        G = A.T @ A
         '''
         return self._G
 
@@ -172,9 +184,10 @@ class Lattice2(object):
     @property
     def Gstar(self):
         '''Metric tensor of the reciprocal lattice.
-        Gstar = B @ B.T
+        Gstar = B.T @ B
 
         Allows to calculate products of vector in hkl base.
+        Note, that due to 2pi factor in B matrix, it contains the 4pi**2 factor.
         '''
         return self._Gstar
 
@@ -192,8 +205,9 @@ class Lattice2(object):
 
     @a.setter
     def a(self, new_a: float):
+        assert new_a > 0, f'Lattice length must be larger than zero: {new_a=}'
         self._lattice_parameters[0] = new_a
-        self._update_lattice()
+        self._update_lattice_parameters()
 
     @property
     def b(self) -> float:
@@ -202,8 +216,9 @@ class Lattice2(object):
 
     @b.setter
     def b(self, new_b: float):
+        assert new_b > 0, f'Lattice length must be larger than zero: {new_b=}'
         self._lattice_parameters[1] = new_b
-        self._update_lattice()
+        self._update_lattice_parameters()
 
     @property
     def c(self) -> float:
@@ -212,8 +227,9 @@ class Lattice2(object):
     
     @c.setter
     def c(self, new_c: float):
+        assert new_c > 0, f'Lattice length must be larger than zero: {new_c=}'
         self._lattice_parameters[2] = new_c
-        self._update_lattice()
+        self._update_lattice_parameters()
 
 
     @property
@@ -223,8 +239,9 @@ class Lattice2(object):
 
     @alpha.setter
     def alpha(self, new_alpha):
+        assert 180 > new_alpha > 0, f'Lattice angle must be 180>...>0: {new_alpha=}'
         self._lattice_parameters[3] = new_alpha
-        self._update_lattice()
+        self._update_lattice_parameters()
 
     @property
     def beta(self) -> float:
@@ -233,8 +250,9 @@ class Lattice2(object):
 
     @beta.setter
     def beta(self, new_beta: float):
+        assert 180 > new_beta > 0, f'Lattice angle must be 180>...>0: {new_beta=}'
         self._lattice_parameters[4] = new_beta
-        self._update_lattice()
+        self._update_lattice_parameters()
 
     @property
     def gamma(self) -> float:
@@ -243,10 +261,11 @@ class Lattice2(object):
 
     @gamma.setter
     def gamma(self, new_gamma: float):
+        assert 180 > new_gamma > 0, f'Lattice angle must be 180>...>0: {new_gamma=}'
         self._lattice_parameters[5] = new_gamma
-        self._update_lattice()
+        self._update_lattice_parameters()
 
-    # Properties without setters
+    ### Properties without setters
 
     @property
     def abc(self):
@@ -297,7 +316,73 @@ class Lattice2(object):
         return np.sqrt(np.linalg.det(self.Gstar))
 
     #################################################################################################
+    # Coordinate transforms
+    
+    @ensure_shape(uvw=(...,3))
+    def uvw2xyz(self, uvw: Sequence[float]) -> np.ndarray[float]:
+        '''
+        Calculate direct cartesian coordinates [x,y,z] from direct lattice coordinates [u,v,w].
+        
+        Parameters:
+            uvw : array_like
+                Crystal coordinates or list of crystal coordinates
+                
+        Returns: ndarray
+            Vector in real space or list of vectors in real space.
+        '''       
+        return np.einsum('ij,...j', self.A, uvw)
+    
+    @ensure_shape(xyz=(...,3))
+    def xyz2uvw(self, xyz: Sequence[float]) -> np.ndarray[float]:
+        '''
+        Calculate the direct lattice coordinates [u,v,w] based on the direct cartesian coordinates [x,y,z].
+        
+        Parameters:
+            xyz: array_like
+                Direct space coordinates or list of thereof.
+                
+        Returns: ndarray
+            Crystal coordinates.
+        '''       
+        return np.einsum('ij,...j', np.linalg.inv(self.A), xyz)
+
+    @ensure_shape(hkl=(...,3))
+    def hkl2xyz(self, hkl: Sequence[float]) -> np.ndarray[float]:
+        '''
+        Calculate reciprocal cartesian coordinates (kx,ky,kz) based on the reciprocal lattice coordinates (h,k,l).
+                     
+        Parameters
+        ----------
+        hkl : array_like, (...,3)
+            Reciprocal lattice coordinates.
+                
+        Returns
+        ------- 
+        Qxyz: ndarray, (...,3)
+            Vector in reciprocal space or list of vectors in reciprocal space.
+        '''        
+        return  np.einsum('ij,...j', self.B, hkl)
+        
+    @ensure_shape(xyz=(...,3))
+    def xyz2hkl(self, xyz: Sequence[float]) -> np.ndarray[float]:
+        '''
+        Calculate the reciprocal lattice coordinates (h,k,l) from the reciprocal cartesian coordinates (kx,ky,kz).
+        
+        Parameters
+        ----------
+        xyz : array_like, (...,3)
+            Reciprocal space coordinates or list of thereof.
+                
+        Returns
+        -------
+        Qhkl: ndarray, (...,3)
+            Miller indices or list of Miller indices.
+        '''
+        return np.einsum('ij,...j', np.linalg.inv(self.B), xyz)
+    
+    #################################################################################################
     # Functionalities
+    @ensure_shape(hkl1=(...,3), hkl2=(...,3))
     def get_scalar_product(self, hkl1: np.ndarray, hkl2: np.ndarray):
         """Returns the scalar product between two lists of vectors.
         
@@ -323,20 +408,21 @@ class Lattice2(object):
         v1v2_cosine = np.einsum('...i,ij,...j->...', hkl1, self.Gstar, hkl2)
 
         return v1v2_cosine
-    
+
+    @ensure_shape(hkl=(...,3))
     def get_Q(self, hkl: np.ndarray) -> np.ndarray:
         '''Returns the magnitude |Q| [1/A] of reciprocal lattice vectors `hkl`.
                 
         Parameters
         ----------
-        hkl : array_like (3,...)
+        hkl : array_like (...,3)
             Reciprocal lattice vector in r.l.u. Signature: `h,k,l = hkl`
 
         Returns
         -------
-        Q : array_like (,...)
+        Q : array_like (...)
             The magnitude of the reciprocal lattice vectors in [1/A].
-            Shape follows the input signature with reduced first dimension.
+            Shape follows the input signature with reduced last dimension.
 
 
         Notes
@@ -347,7 +433,8 @@ class Lattice2(object):
         # return np.sqrt(np.einsum('i...,ij,j...->...', hkl, self.Gstar, hkl))
         return np.sqrt(self.get_scalar_product(hkl, hkl))
     
-    def get_dspacing(self,hkl: np.ndarray) -> np.ndarray:
+    @ensure_shape(hkl=(...,3))
+    def get_dspacing(self, hkl: np.ndarray) -> np.ndarray:
         u"""Returns the d-spacing of a given reciprocal lattice vector.
 
         Parameters
@@ -366,13 +453,14 @@ class Lattice2(object):
 
         return 2*np.pi / self.get_Q(hkl)
 
+    @ensure_shape(hkl=(...,3))
     def get_tth(self, hkl: np.ndarray, wavelength: float) -> np.ndarray:
         u"""Returns the detector angle two-theta [rad] for a given reciprocal
         lattice vector [rlu] and incident wavelength [A].
 
         Parameters
         ----------
-        hkl : array_like (3,...)
+        hkl : array_like (...,3)
             Reciprocal lattice vector in r.l.u. Signature: `h,k,l = hkl`
 
         wavelength : float
@@ -380,9 +468,9 @@ class Lattice2(object):
 
         Returns
         -------
-        two_theta : array_like (,...)
+        two_theta : array_like (...)
             The scattering angle two-theta i nradians.
-            Shape follows the input signature with reduced first dimension.
+            Shape follows the input signature with reduced last dimension.
 
         """
 
@@ -418,19 +506,76 @@ class Lattice2(object):
 
         return np.arccos( np.clip(v1v2_cosine / (v1*v2), -1, 1) )
     
-class Lattice:
+    @ensure_shape(main_qs=(...,3))
+    def make_qPath(self, main_qs: list, Nqs: Union[int, list[int]], return_Qinc: bool=False) -> np.ndarray:
+        '''
+        Make a list of q-points along the `main_qs` with spacing defined by `Nqs`.
+
+        Parameters
+        ----------
+        main_qs: array_like, (N,3)
+            List of consequtive q-points along which the path is construted.
+        Nqs: array_like, (M,)
+            Number of q-points in total, or list of numbers that define 
+            numbers of q-points in between `main_qs`.
+        return_Qinc: bool, (optional)
+            If true, also return an array trailing how much distance in reciprocal space
+            is made with each point.
+
+        Returns
+        -------
+        Qpath: ndarray, ((N-1)*M, 3)
+            Points in reciprocal space [r.l.u.] along the specified path.
+        Qinc: ndarray, ((N-1)*M, 3)
+            Cumultative sum of distance in reciprocal space [A-1] covered after each point in `Qpath`.
+        '''
+
+        _main_qs = np.asarray(main_qs)
+
+        if isinstance(Nqs, int):
+            _Nqs = np.array([Nqs]*(len(main_qs)-1))
+        elif len(Nqs) == _main_qs.shape[0]-1:
+            _Nqs = np.array(Nqs)
+        else:
+            raise IndexError(f'List of Nqs points must be one shorter that list of main Qs. Is {len(Nqs)}, should be {len(main_qs)-1}')
+
+        Qpath_hkl = []
+        for qstart, qend, Nq in zip(_main_qs[:-1], _main_qs[1:], _Nqs):
+            Qpath_hkl.append(np.linspace(qstart, qend, Nq))
+
+        Qpath_hkl.append([_main_qs[-1]])
+        Qpath_hkl = np.vstack(Qpath_hkl)
+
+
+        Qpath_xyz = self.hkl2xyz(Qpath_hkl)
+        Qinc1p = np.cumsum( np.linalg.norm(Qpath_xyz[1:]-Qpath_xyz[:-1], axis=1) )
+        Qinc = np.concatenate(([0], Qinc1p))
+
+        # Prep output
+        ret = Qpath_hkl
+        if return_Qinc:
+            ret = (ret, Qinc)
+
+        return ret
+    
+#######################################################################################################################
+#######################################################################################################################
+#######################################################################################################################
+
+class LatticeOriented(Lattice):
     '''
-    Object representing the lattice of a crystal. Facilitates transformations between Cartesian and lattice
-    coordinates as well as real and reciprocal space.
+    Object representing the lattice of an oriented crystal. Facilitates transformations between Cartesian and lattice
+    coordinates as well as direct and reciprocal space.
     
     Conventions:
         1. Lattice vectors are positioned in the Cartesian coordinates as:
             - a || x
             - b* || y
             - c to complete RHS
-        2. The phase factors are (i) exp(i k r_xyz) and (ii) exp(2 pi i Q r_uvw).
-        3. All matrices, so for both real and reciprocal space, are represented for column vectors.
-        4. `B` matrix contains the 2pi factor. Consequently A @ B.T = 2pi eye(3,3). Transposition due to pt 3.
+        2. All matrices, so for both direct and reciprocal space, are represented for column vectors.
+        3. `B` matrix contains the 2pi factor. Consequently B.T @ A = 2pi eye(3,3). Transposition due to pt 3.
+        4. The phase factors are (i) exp(i k r_xyz) and (ii) exp(2 pi i Q r_uvw). 
+           So in lattice coordinates we use 2pi, in cartesian coordinates we don't.
     
     The main idea is that the orientation can be changed, but the lattice type and parameters no.
     
@@ -438,23 +583,23 @@ class Lattice:
         lattice_parameters: ndarray((6))
             List containing `a,b,c,alpha, beta, gamma` lattice parameters. Lengths in angstroems, angles in degrees.
         A : ndarray((3,3))
-            Transforms a real lattice point into an orthonormal coordinates system. Upper triangle matrix.
+            Transforms a direct lattice point into cartesian coordinates system. Upper triangle matrix.
             [u,v,w] -> [x,y,z] (Angstroems)
         B : ndarray((3,3))
-            Transforms a reciprocal lattice point into an orthonormal coordinates system. Upper triangle matrix.
+            Transforms a reciprocal lattice point into an cartesian coordinates system with 2pi factor. Upper triangle matrix.
             (h,k,l) -> [kx,ky,kz] (1/Angstroem)
         U : ndarray((3,3))
-            Orientation matrix that relates the orthonormal, reciprocal lattice coordinate system into the diffractometer/lab coordinates
+            Orientation matrix that relates the cartesian lattice coordinate system into the diffractometer/lab coordinates
             [kx,ky,kz]_{crystal} -> [kx,ky,kz]_{lab}
         UA : ndarray((3,3))
-            Transforms a real lattice point into lab coordinate system.
+            Transforms a direct lattice point into lab coordinate system.
             (u,v,w) -> [x,y,z]_{lab} (Angstroem)
         UB : ndarray((3,3))
             Transforms a reciprocal lattice point into lab coordinate system.
             (h,k,l) -> [kx,ky,kz]_{lab} (1/Angstroem)
     '''
 
-    def __init__(self, lattice_parameters: list[float], orientation: Union[None, tuple, np.ndarray]=None):
+    def __init__(self, lattice_pars: list[float], orientation: Union[None, tuple, np.ndarray]=None):
         '''
         Object representing crystal lattice and coordinate system in cartesian space.
 
@@ -462,6 +607,7 @@ class Lattice:
         -----------
 
         lattice parameters: [a,b,c,alpha,beta,gamma]
+            Lattice lengths in Angstroem, lattice angles in degrees.
         
         orientation : None
             Identity matrix
@@ -472,80 +618,22 @@ class Lattice:
         orientation : ndarray(3,3)
             U is given directly as an argument.
         '''
-        self.lattice_parameters = lattice_parameters
-        #self.G = self.metricTensor(a,b,c,alpha,beta,gamma)
-        
-        # Transforms real lattice points into orthonormal coordinate system.
-        self.A = self.constructA(lattice_parameters)
-        
-        # Transforms reciprocal lattice points into orthonormal coordinate system.
-        self.B = self.constructB(lattice_parameters)
+        # Initialize lattice parameters from the parent
+        super().__init__(lattice_pars=lattice_pars)
         
         # Initialize the orientation, U and the UB matrix within the wrapper.
         self.updateOrientation(orientation)
 
-                
-        
-    # def __str__(self):
-    #     return str(self.lattice_parameters)
-    
+
+
+
     def __repr__(self):
-        rr = f'Lattice('
+        rr = f'{self.__class__.__name__}('
         rr += ', '.join(f'{name}={value}' for name,value in zip(['a','b','c','alpha','beta','gamma'], 
                                                                 self.lattice_parameters))
         rr += f', orientation={self._current_orientation})'
 
         return rr
-    
-    def constructA(self, lattice_parameters: list[float]) -> np.ndarray:
-        '''
-        Construct the `A` matrix as crystal axes in orthonormal system, ie a||x, b in xy plane, c accordingly.
-
-        Transforms a real lattice point into an orthonormal coordinates system. Upper triangle matrix.
-        A * [u,v,w] -> [x,y,z] (Angstroems)
-
-        Shortcut to define lattice vectors:
-        >>> a, b, c = A.T
-        '''
-        a,b,c,alpha,beta,gamma = lattice_parameters
-        
-        bx = b*np.cos(np.radians(gamma))
-        by = b*np.sin(np.radians(gamma))
-        
-        cx = c*np.cos(np.radians(beta))
-        cy = c*(np.cos(np.radians(alpha))-np.cos(np.radians(gamma))*np.cos(np.radians(beta)))/np.sin(np.radians(gamma))
-        cz  = np.sqrt(c*c-cx*cx-cy*cy)
-        
-        return np.array([[a,bx,cx],[0,by,cy],[0,0,cz]])
-    
-    def constructB(self, lattice_parameters: list[float]) -> np.ndarray:
-        '''
-        Construct the `B` matrix as reciprocal lattice base vectors in orthonormal system.
-
-        Construction is based on the perpendicularity to the `A` matix.
-        '''
-        # Construction based on the perpendicularity.
-        A = self.constructA(lattice_parameters)
-
-        # Include pt 3 and 4 from conventions.
-        # 3. Transpose to get column vector representation.
-        # 4. Include the 2pi factor.
-        B = 2*np.pi*np.linalg.inv(A).T
-
-        # NOTE
-        # Previous convention tried to keep a* || x, which requires following rotations. 
-        
-        # _, B = np.linalg.qr(B.T)
-        
-        # # Align a* along x
-        # if B[0,0]<0:
-        #     B = np.dot(ms.Rz(np.pi), B)
-            
-        # # Make c* have positive z-component
-        # if B[2,2]<0:
-        #     B = np.dot(ms.Rx(np.pi), B)
-            
-        return B
         
     def constructU(self, orientation: Union[None, tuple, np.ndarray]) -> np.ndarray:
         '''
@@ -561,15 +649,15 @@ class Lattice:
             U is given directly as an argument.
         '''
                 
-        # If the orientation is not None the U matrix heas to be updated
-        if orientation == None:
+        # If the orientation is not None the U matrix has to be updated
+        if orientation is None:
             # Initial orientation is as given by B
             U = np.eye(3,3)
         elif np.shape(orientation) == (3,):
             # Single vector
             hkl = orientation
             n = np.dot(self.B, hkl)
-            U = funs_sw.rotate( np.cross(n, [0,0,1]), funs_sw.angle(n, [0,0,1]) )
+            U = linalg.rotate( np.cross(n, [0,0,1]), linalg.angle(n, [0,0,1]) )
         elif np.array(orientation).shape == (2,3):
             # Two vectors
             hkl1, hkl2 = orientation
@@ -577,18 +665,18 @@ class Lattice:
             n2 = np.dot(self.B, hkl2)
             
             # This rotation puts hkl1 along `x`
-            R1 = funs_sw.rotate( np.cross(n1, [1,0,0]), funs_sw.angle([1,0,0], n1) )
+            R1 = linalg.rotate( np.cross(n1, [1,0,0]), linalg.angle([1,0,0], n1) )
 
             # Find the angle necessary to put hkl2 in `xy` plane
             n3 = np.dot(R1, n2)
-            beta2 = funs_sw.angle(n3, [n3[0],n3[1],0]) * np.sign(-n3[2])
-            R2 = funs_sw.rotate( [1,0,0], beta2 )
+            beta2 = linalg.angle(n3, [n3[0],n3[1],0]) * np.sign(-n3[2])
+            R2 = linalg.rotate( [1,0,0], beta2 )
             
             U = np.dot(R2, R1)
         elif np.array(orientation).shape == (3,3):
             U = np.array(orientation)
         else:
-            raise ValueError('Wrong orientation argument for initializing the Lattice object.')
+            raise ValueError(f'Wrong orientation argument for initializing the `{self.__class__.__name__}` object.')
             
 
         return U
@@ -625,9 +713,13 @@ class Lattice:
         
         return
     
-    def uvw2xyz(self, uvw: Union[tuple, list]) -> np.ndarray:
+    #################################################################################################
+    # Coordinate transforms
+    
+    @ensure_shape(uvw=(...,3))
+    def uvw2xyz(self, uvw: Sequence[float]) -> np.ndarray[float]:
         '''
-        Calculate real space coordinates [x,y,z] based on the crystal coordinates [u,v,w].
+        Calculate direct cartesian coordinates [x,y,z] from direct lattice coordinates [u,v,w].
         
         Parameters:
             uvw : array_like
@@ -635,117 +727,78 @@ class Lattice:
                 
         Returns: ndarray
             Vector in real space or list of vectors in real space.
-        '''
-        
-        _uvw = np.array(uvw)
-        
-        # hkl is a single vector
-        if _uvw.shape == (3,):
-            out = np.dot(self.UA, _uvw)
-        elif _uvw.shape[1] == 3:
-            out = np.einsum('kj,ij', self.UA, _uvw)
-        else:
-            raise IndexError('Incompatible dimension of the uvw array. Should be (3,) or (N,3).')
-        
-        return out
+        '''       
+        return np.einsum('ij,...j', self.UA, uvw)
     
-    def xyz2uvw(self, xyz: Union[tuple, list]) -> Union[tuple, list]:
+    @ensure_shape(xyz=(...,3))
+    def xyz2uvw(self, xyz: Sequence[float]) -> np.ndarray[float]:
         '''
-        Calculate the Miller indices (h,k,l) based on the reciprocal space coordinates (kx,ky,kz).
+        Calculate the direct lattice coordinates [u,v,w] based on the direct cartesian coordinates [x,y,z].
         
         Parameters:
-            Q : array_like
-                Reciprocal space coordinates or list of thereof.
+            xyz: array_like
+                Direct space coordinates or list of thereof.
                 
         Returns: ndarray
-            Miller indices or list of Miller indices.
-        '''
-        
-        _xyz = np.array(xyz)
-        
-        if _xyz.shape == (3,):
-            out = np.dot(np.linalg.inv(self.UA), _xyz)
-        elif _xyz.shape[1] == 3:
-            out = np.einsum('kj,ij', np.linalg.inv(self.UA), _xyz)
-        else:
-            raise IndexError(f'Incompatible dimension of the `xyz` array. Should be (3,) or (N,3) is: {_xyz.shape}.')
-        
-        return out
+            Crystal coordinates.
+        '''       
+        return np.einsum('ij,...j', np.linalg.inv(self.UA), xyz)
 
-
-    def hkl2xyz(self, hkl: Union[tuple, list]) -> np.ndarray:
+    @ensure_shape(hkl=(...,3))
+    def hkl2xyz(self, hkl: Sequence[float]) -> np.ndarray[float]:
         '''
-        Calculate reciprocal space coordinates (kx,ky,kz) based on the Miller indices (h,k,l).
+        Calculate reciprocal cartesian coordinates (kx,ky,kz) based on the reciprocal lattice coordinates (h,k,l).
                      
-        Parameters:
-            hkl : array_like
-                Miller indices or list of Miller indices.
+        Parameters
+        ----------
+        hkl : array_like, (...,3)
+            Reciprocal lattice coordinates.
                 
-        Returns: ndarray
+        Returns
+        ------- 
+        Qxyz: ndarray, (...,3)
             Vector in reciprocal space or list of vectors in reciprocal space.
+        '''        
+        return  np.einsum('ij,...j', self.UB, hkl)
+        
+    @ensure_shape(xyz=(...,3))
+    def xyz2hkl(self, xyz: Sequence[float]) -> np.ndarray[float]:
         '''
+        Calculate the reciprocal lattice coordinates (h,k,l) from the reciprocal cartesian coordinates (kx,ky,kz).
         
-        _hkl = np.array(hkl)
-        
-        # hkl is a single vector
-        if _hkl.shape == (3,):
-            out = np.dot(self.UB, _hkl)
-        elif _hkl.shape[1] == 3:
-            out = np.einsum('kj,ij', self.UB, _hkl)
-        else:
-            raise IndexError('Incompatible dimension of the hkl array. Should be (3,) or (N,3).')
-        
-        return out
-        
-    def xyz2hkl(self, Q: Union[tuple, list]) -> Union[tuple, list]:
-        '''
-        Calculate the Miller indices (h,k,l) based on the reciprocal space coordinates (kx,ky,kz).
-        
-        Parameters:
-            Q : array_like
-                Reciprocal space coordinates or list of thereof.
+        Parameters
+        ----------
+        xyz : array_like, (...,3)
+            Reciprocal space coordinates or list of thereof.
                 
-        Returns: ndarray
+        Returns
+        -------
+        Qhkl: ndarray, (...,3)
             Miller indices or list of Miller indices.
         '''
+        return np.einsum('ij,...j', np.linalg.inv(self.UB), xyz)
         
-        _Q = np.array(Q)
-        
-        # Q is a single vector
-        if _Q.shape == (3,):
-            out = np.dot(np.linalg.inv(self.UB), _Q)
-        elif _Q.shape[1] == 3:
-            out = np.einsum('kj,ij', np.linalg.inv(self.UB), _Q)
-        else:
-            raise IndexError('Incompatible dimension of the Q array. Should be (3,) or (N,3).')
-        
-        return out
-        
-    def scattering_angle(self, hkl: Union[tuple, list], wavelength: float) -> np.ndarray:
+    #################################################################################################
+    # Coordinate transforms
+    @ensure_shape(hkl=(...,3))
+    def scattering_angle(self, hkl: Sequence[float], wavelength: float) -> np.ndarray:
         '''
-        Calculate the scattering angle otherwise known as two-theta from the Miller indices.
+        Calculate the scattering angle two-theta for the reciprocal lattice coordinates `hkl`.
         
-        Parameters:
-            hkl : array_like
-                Miller indices or list of Miller indices
-            wavelength : float
-                Wavelength of the incoming wave in Angstroems.
+        Parameters
+        ----------
+        hkl : array_like
+            Reciprocal lattice coordinates.
+        wavelength : float
+            Wavelength of the incoming wave in Angstroems.
                 
-        Returns: ndarray
-            Scattering angle or a list of scattering angles.
+        Returns
+        -------
+        tth: ndarray
+            Scattering angles in radians.
         '''
         
-        _hkl = np.array(hkl)
-        Q = self.hkl2xyz(hkl)
-
-        # hkl is a single vector
-        if _hkl.shape == (3,):
-            Q_lengths = np.linalg.norm(Q)
-        elif _hkl.shape[1] == 3:
-            Q_lengths = np.linalg.norm(Q, axis=1)
-        else:
-            raise IndexError(f'Incompatible dimension of the hkl array. Should be (3,) or (N,3), but is: {_hkl.shape}')
-        
+        Q_lengths = self.get_Q(hkl)        
         y = wavelength*Q_lengths/(4*np.pi)
         try:
             theta = np.arcsin(y)
@@ -754,35 +807,14 @@ class Lattice:
             
         return 2*theta
         
-    def is_in_scattering_plane(self, hkl: tuple) -> bool:
+    @ensure_shape(hkl=(...,3))
+    def is_in_scattering_plane(self, hkl: Sequence[float]) -> bool:
         '''
         Test whether the given hkl is in the scattering plane i.e. `xy` plane.
         '''
         # XY is the scattering plane, to be in the scattering plane the z component must be small.
         v = self.hkl2xyz(hkl)
-        v = v/funs_sw.norm(v)
+        # v = v/linalg.norm(v)
         
-        return v[2]<1e-7
+        return v[...,2] < 1e-7
     
-    def make_qPath(self, main_qs: list, Nqs: list[int]) -> np.ndarray:
-        '''
-        Make a list of q-points along the `main_qs` with spacing defined by `Nqs`.
-
-        main_qs:
-            List of consequtive q-points along which the path is construted.
-        Nqs:
-            Number of q-points in total, or list of numbers that define 
-            numbers of q-points in between `main_qs`.
-        '''
-
-        _main_qs = np.asarray(main_qs)
-        _Nqs = np.asarray(Nqs)
-
-        assert _main_qs.shape[1] == 3 # `main_qs` is list of 3d vectors
-        assert _Nqs.shape[0] == _main_qs.shape[0]-1 # `main_qs` is list of 3d vectors
-
-        qPath = []
-        for qstart, qend, Nq in zip(_main_qs[:-1], _main_qs[1:], Nqs):
-            qPath.append(np.linspace(qstart, qend, Nq))
-
-        return np.vstack(qPath)
