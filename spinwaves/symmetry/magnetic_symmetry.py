@@ -1,13 +1,18 @@
 from fractions import Fraction
 import numpy as np
+import logging
 
 from copy import deepcopy
 from itertools import chain, combinations
 
 
-from typing import Any, Union, TYPE_CHECKING
+from typing import Any, Callable, TypeVar, Union, TYPE_CHECKING
 if TYPE_CHECKING:
-    from .crystal import Atom
+    from ..crystal import Atom
+
+T = TypeVar('T')
+logger = logging.getLogger('Symmetry')
+
 
 # TODO
 # - [ ] time reversal translations do not seem to be working?
@@ -87,7 +92,7 @@ class mSymOp():
         xyz_str = xyz_str.replace(' ', '')
         substrings = [s.strip() for s in xyz_str.split(',')]
         if not (len(substrings) == 4):
-            raise ValueError('`xyz_string` must have three commas.')
+            raise ValueError(f'`xyz_string` must have three commas: {xyz_str!r}')
 
         # time reversal part
         time_reversal = None
@@ -323,7 +328,7 @@ class mSymOp():
             time_reversal = self.time_reversal
         )
 
-    def transform_position(self, position: np.ndarray[Any], to_UC: bool=False) -> np.ndarray[float]:
+    def transform_position(self, position: np.ndarray[Any], to_UC: bool=False) -> np.ndarray[Any]:
         '''Transform the `position` in crystal coordinates according to `mSymOp`.
         
         Parameters
@@ -378,6 +383,11 @@ class mSymOp():
         return atom_new
 
 ###########################################################################
+
+from collections import deque, defaultdict
+from typing import Any, Callable, Dict, Iterable, List, Tuple, Optional
+
+
 class MSG():
     '''Magnetic Space Group'''
     _name: str
@@ -399,6 +409,8 @@ class MSG():
         # Generate other symmetry operations
         self._operations = tuple(sorted(self._generate_all_elements(generators)))
 
+        # elements, mult_table, adjacency, index_of = self.build_group_cayley()
+
     ##############################################################################
     # Constructors
     @classmethod
@@ -414,14 +426,121 @@ class MSG():
         2. MSGs with time reversal translations do not seem to work as expected
         '''
         return cls(generators = [mSymOp.from_string(xyz_string) for xyz_string in generators])
+    
+
+
+    # class CayleyResult:
+    #     def __init__(self,
+    #                 elements: List[Any],
+    #                 mult_table: Dict[Tuple[Any, Any], Any],
+    #                 adjacency: Dict[Any, List[Tuple[str, Any]]],
+    #                 index_of: Dict[Any, int]):
+    #         self.elements = elements                  # discovery order; elements[i] gives the ith element
+    #         self.mult_table = mult_table              # (a,b) -> a*b
+    #         self.adjacency = adjacency                # u -> list of (label, v) edges
+    #         self.index_of = index_of                  # element -> row/col index in the table
+
+    def build_group_cayley(
+        generators: Iterable[Any],
+        identity: Any,
+        mul: Callable[[Any, Any], Any],
+        get_inverses: Callable[[Iterable[Any]], Iterable[Any]],
+        label: Optional[Callable[[Any], str]] = None,
+        max_size: Optional[int] = None,
+    ) -> tuple:
+        """
+        Generate the group from generators using a Cayley-graph BFS, build the full multiplication table,
+        and construct the Cayley graph.
+
+        Parameters
+        ----------
+        generators : iterable of group elements (identity NOT included)
+        identity   : the identity element
+        mul        : function mul(a, b) -> a*b
+        get_inverses : function that takes the given generators and returns their inverses
+                    (any order; they are simply treated as additional generators)
+        label      : optional function label(g) -> str used to name generator edges in the Cayley graph.
+                    Defaults to str(g).
+        max_size   : optional safety cap; raise if the group exceeds this many elements (helps catch infinite cases)
+
+        Returns
+        -------
+        CayleyResult with:
+        - elements   : list of all elements (discovery order)
+        - mult_table : dict mapping (a, b) -> a*b for all pairs a,b in elements
+        - adjacency  : dict u -> list of (edge_label, v) for each generator/inverse
+        - index_of   : map element -> index to address rows/cols of the table
+        """
+        gens = list(generators)
+        gens_inv = list(get_inverses(gens))
+        steps = gens + gens_inv                     # use S± as the generating set for BFS
+
+        if not steps:
+            # Degenerate case: only the identity exists
+            elements = [identity]
+            table = {(identity, identity): mul(identity, identity)}
+            adj = defaultdict(list)
+            return (elements, table, adj, {identity: 0})
+
+        lab = (label if label is not None else (lambda g: str(g)))
+
+        # --- BFS discovery over the Cayley graph ---
+        discovered = {identity}
+        elements: List[Any] = [identity]
+        index_of: Dict[Any, int] = {identity: 0}
+        q = deque([identity])
+
+        # Cayley graph (directed, edge-labeled)
+        adjacency: Dict[Any, List[Tuple[str, Any]]] = defaultdict(list)
+
+        # Full multiplication table, filled incrementally
+        mult_table: Dict[Tuple[Any, Any], Any] = {}
+        mult_table[(identity, identity)] = mul(identity, identity)
+
+        # Helper: when a new element y is discovered, fill its row/column vs all known elements
+        def fill_table_for_new(y: Any) -> None:
+            # row y,* and column *,y vs all existing elements (which exclude y)
+            for b in elements:
+                mult_table[(y, b)] = mul(y, b)
+                mult_table[(b, y)] = mul(b, y)
+            # finally y*y
+            mult_table[(y, y)] = mul(y, y)
+
+        while q:
+            if max_size is not None and len(elements) > max_size:
+                raise ValueError("Group appears larger than max_size (possible infinite subgroup).")
+
+            x = q.popleft()
+
+            # expand x by every generator and inverse (right-multiplication is sufficient)
+            for s in steps:
+                y = mul(x, s)
+
+                # record labeled edge x --(s)--> y in the Cayley graph
+                adjacency[x].append((lab(s), y))
+
+                # if new vertex, register and extend BFS frontier
+                if y not in discovered:
+                    discovered.add(y)
+                    fill_table_for_new(y)
+                    index_of[y] = len(elements)
+                    elements.append(y)
+                    q.append(y)
+
+        # After BFS, ensure the multiplication table is fully populated.
+        # (It already is: every new y was paired with all prior elements, and future inserts pair back with y.)
+
+        return (elements, mult_table, adjacency, index_of)
+
 
     def _generate_all_elements(self, generators: list[mSymOp]):
-        '''Generate symmetry elements of magnetic space group from generators.'''
+        '''Generate symmetry elements of magnetic space group from generators.
+        Uses the pairwise closure algorithm. Simple in implementation, not optimal.'''
         # Algorithm
         # 1. Multiply all symmetry operators by each other
         # 2. Find unique symmetry operations in the multiplied list
         # 3. If the list of unique elements is longer than the
-        #    original symmetry some new operators were created GOTO 1
+        #    original symmetry some new operators were created -> GOTO 1
         # Exit: When no new symmetry operators were created
         #
         # The algorithm is O(n*n) and becomes heavy for large n.
@@ -461,8 +580,66 @@ class MSG():
     def __getitem__(self, index: int) -> 'mSymOp':
         return self._operations[index]
     
+    
+    def symmetrize(self, obj: T, transform_func: Callable[['mSymOp', T], T], check_attrs: list[str]=[]) -> list[T]:
+        '''Symmetrize the `object` of arbitrary type according to the `transform_func`
+        within the symmetry of the `MSG`.
+        In other words, will apply each symmetry element of the `MSG` to the `object`,
+        where the symmetry transformation rules are defeined within the `transform_func`.
+
+        >>> class A: r=[0,0,0]
+        >>> gen_fun = lambda g, a: A(g.matrix @ a.r)
+        >>> MSG.symmetrize(A([0, 0, 0.5]), gen_fun) 
+        
+        Parameters
+        ----------
+        obj: T
+            Object that will be symmetrized
+        transform_obj: Callable[[T], T]
+            Recipe how the object transforms under symmetry operations.
+        check_attrs: list[str], optional
+            If provided, it will check if the attributes are respecting the symmetry conditions of the MSG.
+
+        Returns
+        -------
+        list[T]
+            List of objects created by applyin symmetry operations of the `MSG`.
+        '''
+        objs_symmetrized = []
+        for g in self.operations:
+            objs_symmetrized.append(transform_func(g, obj))
+
+        objs_unique, id_inverse = np.unique(objs_symmetrized, return_inverse=True)
+
+
+        # Check symmetry condidtion
+        # [ ] Which symmetry elements to not produce compatible attributes?
+        for id_unique, obj_unique in enumerate(objs_unique):
+            id_equivalent = np.where(id_inverse==id_unique)[0]
+
+            for check_field in check_attrs:
+                field_eq = [objs_symmetrized[id].__getattribute__(check_field) for id in id_equivalent]
+                field_averaged = np.average(field_eq, axis=0)
+
+                field_unique = obj_unique.__getattribute__(check_field)
+                if not np.allclose(field_unique, field_averaged):
+                    warning_message = f'The following object property does not respect the symmetry\n\t{obj_unique}\n'
+                    warning_message+= f'\tSet value        : {check_field}={field_unique}\n'
+                    warning_message+= f'\tSymmetrized value: {check_field}={field_averaged}\n'
+
+                    for id in id_equivalent:
+                        warning_message += f'\t{self.operations[id]}\t-> {check_field}={objs_symmetrized[id].__getattribute__(check_field)}\n'
+
+                    warning_message+=  'You better know what you are doing.'
+
+                    logger.warning(warning_message)
+
+
+        return objs_unique
+    
     def make_cayley_table(self):
-        '''Construct Cayley table of the symmetry group.'''
+        '''Construct Cayley table of the symmetry group.
+        Indices of the table correspond to the `self._operations` list.'''
         cayley_table = np.full((self.order, self.order), -1, dtype=int)
         for id_i, gi in enumerate(self._operations):
             for id_j, gj in enumerate(self._operations):

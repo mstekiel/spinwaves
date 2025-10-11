@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from .atom import Atom
-    from .magnetic_symmetry import MSG
+    from .symmetry.magnetic_symmetry import MSG, mSymOp
     from .spinw import Coupling
 
 # Internal
@@ -75,7 +75,7 @@ class Crystal(Lattice):
             List of unique atoms in the crystal.
         '''
         # Lattice
-        super().__init__(lattice_parameters, orientation=None)
+        super().__init__(lattice_parameters)
 
         # MSG
         self._MSG = MSG
@@ -84,22 +84,19 @@ class Crystal(Lattice):
         # Constructor should also check if provided magnetic moment respects the symmetry
         self._atoms_unique = tuple(sorted(atoms))
 
-        ### atoms_all
-        # TODO
-        # Ok so this is faster and hurtless compared to taking all symmetry operations
-        # and ensuring that duplicate atoms have the same momemnt and g-tensor
-        # However, it omits a symmetry check -> not good
+        def transform_atom(g: 'mSymOp', a: 'Atom'):
+            atom_new = deepcopy(atom)
+            atom_new.r = g.transform_position(atom.r, to_UC=True)
+            atom_new.m = self.uvw2xyz(g.transform_axial_vec(self.xyz2uvw(atom.m)))
+            # aotm_new.gtensor = self.g.matrix @ atom.gtensor @ self.g.inv().matrix
+
+            return atom_new
+        
         atoms_all = []
         for atom in self._atoms_unique:
-            positions, generators, indices = MSG.get_orbit(atom.r, return_generators=True, return_indices=True)
-            for g, id in zip(generators, indices):
-                atom_new = deepcopy(atom)
-                atom_new.r = g.transform_position(atom.r, to_UC=True)
-                atom_new.m = self.uvw2xyz(g.transform_axial_vec(self.xyz2uvw(atom.m)))
-                print(f'{g=}')
-                # aotm_new.gtensor = self.g.matrix @ atom.gtensor @ self.g.inv().matrix
+            atoms_symmetrized = MSG.symmetrize(atom, transform_atom, check_attrs=['r', 'm'])
+            atoms_all.extend(atoms_symmetrized)
 
-                atoms_all.append(atom_new)
 
         atoms_all = sorted(atoms_all)
         for id, atom in enumerate(atoms_all):
@@ -138,11 +135,15 @@ class Crystal(Lattice):
     ################################################################################
     # Functionalities
 
-    def get_atomic_distances(self, dmax: float=None, dmin: float=None):
-        ''''''
+    def get_atomic_distances(self, dmax: float=8, dmin: float=-1):
+        '''Make a list of interatomic distances in the range `dmin < d < dmax`.
+        
+        Returns
+        -------
+        np.ndarray: bond_dtype.names = ['dd', 'd_xyz', 'd_uvw', 'i', 'j', 'n_uvw']
+            List of bonds.
 
-        if dmin is None: dmin = -1.0
-        if dmax is None: dmax = 8.0
+        '''
 
         nx_max, ny_max, nz_max = np.floor(dmax / np.array(self.lattice_parameters[:3]))
         Nx = np.arange(-nx_max-1, nx_max+1)
@@ -153,8 +154,8 @@ class Crystal(Lattice):
         Ngrid_uvw = np.stack(Ngrids, axis=-1)               # shape (len Nx, len Ny, len Nz, 3)
         UC = Ngrid_uvw.reshape(len(Nx)*len(Ny)*len(Nz), 3)  # flatten to (prod Ni, k)
         
-        bond_dtype = [('dd', 'f4'), ('d_xyz', 'f4', (3,)), ('d_uvw', 'i', (3,)), ('i','i'), ('j','i'), ('n_uvw', 'i', (3,))]
-        entries = []
+        cl_dtype = [('dd', 'f4'), ('d_xyz', 'f4', (3,)), ('d_uvw', 'i', (3,)), ('id1', 'i'), ('id2', 'i'), ('n_uvw', 'i', (3,))]
+        clens = []
         for i, atom1 in enumerate(self.atoms_all):
             for n_uvw in UC:
                 # print(n_UC)
@@ -165,15 +166,16 @@ class Crystal(Lattice):
                     d_xyz = self.uvw2xyz(d_uvw)
                     dd = np.linalg.norm(d_xyz)
                     if dd < dmax and dd > dmin:
-                        entries.append( (dd, d_xyz, d_uvw, i, j, n_uvw) )
+                        clens.append( (dd, d_xyz, d_uvw, i,j, n_uvw) )
 
         # print(f'd = {dd:.5f} A, d_uvw = {d_uvw}, d_xyz = {d_xyz}')
         # print('\t', atom1)
         # print('\t', atom2)
 
-        bonds = np.array(entries, dtype=bond_dtype)
+        clens = np.array(clens, dtype=cl_dtype)
+        id_sorting = np.argsort(clens, order=['dd'])
 
-        return np.sort(bonds, order=['dd'])
+        return clens[id_sorting]
     
     def get_atom_sw_id(self, position: np.ndarray) -> int:
         '''Find the index of the potential magnetic atom at `position`.

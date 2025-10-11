@@ -8,14 +8,17 @@ heavy checks.
 '''
 # Core
 # from scipy.linalg import schur, cholesky
+from copy import deepcopy
 import scipy
 import numpy as np
 
 import logging
 
 
+
 # Internal
 from .crystal import Crystal
+from .coupling import Coupling
 from .utils.arrays import ensure_shape, make_exc_dtype
 from .utils.physics import bose_occupation
 from .utils.linalg import rot_Rn, RfromZ, rot_Rodrigues_complex
@@ -24,6 +27,7 @@ from .utils.functions import gauss_bkg
 # Typing
 from typing import Callable, List, Dict, TYPE_CHECKING, Union
 if TYPE_CHECKING:
+    from .symmetry.magnetic_symmetry import mSymOp
     from .crystal import Crystal
     import matplotlib.pyplot as plt
 
@@ -36,118 +40,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger('SpinW')
 
-class Coupling:
-    '''Coupling between atoms in the crystal.
-    
-    Notes
-    -----
-    - TODO establish the convention of the `J` matrix entries, 
-      either crystal or Cartesian coordinates.
-    - The fields `id1`, `id2`, and `J` are linked to the `Crystal` class.
-      Their validity is not checked.
-    '''
-    _label: str
-    _id1: int
-    _id2: int
-    _n_uvw: np.ndarray[int]
-    _J: np.ndarray[float]
-    _defining_bond: str
-
-    # DMI_vector: np.ndarray[float] = np.zeros(3)
-
-    # hidden_symmetry: tuple = ()
-
-    def __init__(self, label: str, id1: int, id2: int, n_uvw: list[int],
-                 J: np.ndarray[float], Jcoords: str='xyz',
-                 defining_bond: str=''):
-        # DEV NOTES
-        # Allow using the constructor directly, thus ensure the types.
-        self._label = label
-        self._id1 = int(id1)
-        self._id2 = int(id2)
-        self._n_uvw = np.array(n_uvw, dtype=int)
-        self._J = J
-        self._defining_bond = defining_bond
-
-    ############################################################################
-    # Properties
-
-    # Allow for the label setter, but no more
-    @property
-    def label(self) -> str:
-        '''Label of the coupling'''
-        return self._label
-    
-    @label.setter
-    def label(self, new_label):
-        self._label = new_label
-
-    @property
-    def id1(self) -> int:
-        '''Index of the first interacting atom'''
-        return self._id1
-    
-    @property
-    def id2(self) -> int:
-        '''Index of the second interacting atom'''
-        return self._id2
-
-    @property
-    def n_uvw(self) -> np.ndarray[int]:
-        '''Origin/index of the unit cell where the second interacting atoms resides.'''
-        return self._n_uvw
-    
-    @property
-    def J(self) -> np.ndarray[float]:
-        '''Exchange interaction in matrix form.'''
-        return self._J
-    
-    @property
-    def DMI_vector(self) -> np.ndarray[float]:
-        '''Ansitymmetric part of the interaction represented
-        by the Dzialoshynskii-Moriya vector.'''    
-        J_asym = (self.J - self.J.T) / 2
-        Dx = J_asym[1,2]
-        Dy = J_asym[0,2]
-        Dz = J_asym[0,1]
-        return np.array([Dx, Dy, Dz], dtype=float)
-    
-    ###########################################################################
-    # Fors sorting and comparing
-
-    # DEV
-    # The main use case is when symmetrizing the couplings.
-    # For that, we don't want to look into the exchange interaction matrix.
-
-    def __hash__(self) -> int:
-        return hash((self.id1, self.id2) + tuple(self.n_uvw.astype(int)))
-    
-    def __lt__(self, other) -> bool:
-        comp_fields_left  = (self._id1, self._id2, self._n_uvw[0], self._n_uvw[1], self._n_uvw[2])
-        comp_fields_right = (other._id1, other._id2, other._n_uvw[0], other._n_uvw[1], other._n_uvw[2])
-        return comp_fields_left < comp_fields_right
-    
-    def __eq__(self, other: 'Coupling') -> bool:
-        comp_fields_left  = (self._id1, self._id2, self._n_uvw[0], self._n_uvw[1], self._n_uvw[2])
-        comp_fields_right = (other._id1, other._id2, other._n_uvw[0], other._n_uvw[1], other._n_uvw[2])
-        return comp_fields_left == comp_fields_right
-    
-    ###########################################################################
-    # Methods
-
-    def revert(self) -> 'Coupling':
-        '''Revert the coupling, as in exchange the coupled atoms.'''
-        return Coupling(label = self.label+'_rev',
-                        id1 = self.id2,
-                        id2 = self.id1,
-                        n_uvw = -self.n_uvw,
-                        J = self.J.T,
-                        defining_bond = self.label
-                        )
-    
-    def __repr__(self) -> str:
-        return f'<Coupling label={self.label}, id1={self.id1}, id2={self.id2}, n_uvw={self.n_uvw}, J={self.J.tolist()}>'
-        
 class Dispersion:
     pass
 
@@ -176,11 +68,6 @@ class SpinW:
     ----
     OK so the whole package needs restructurization into CRYSTAL = LATTICE + MSG + COUPLINGS.
     CRYSTAL will become a state machine
-    - add decorator that condifrms the shape of the function parameters are ok
-    - fix ground state calculation
-    - I think symmetrization will fail in non 90*3 lattice. 
-      I do symmetrization based on xyz, but it is implemented as uvw.
-      When marrying symmetry operations with lattice, I should construct symmetry operations in cartesian representation.
     - pyLiSW is great inspiration. Split _determine_ESp into hamiltonian prep and intensity calc.
     - add functionality of magnetic field
     - seems liek we also have all components to determine the bond symmetry i nthe symbolic picture.
@@ -194,9 +81,10 @@ class SpinW:
     '''
     def __init__(self, crystal: 'Crystal', magnetic_modulation: Dict, couplings: List[Coupling],
                  temperature: float=0):
-        '''
-        Parameters:
-        -------
+        '''Create the instance of the LSW calculator.
+
+        Parameters
+        ----------
         crystal: 'Crystal'
             `Crystal` object holding information on position and magnetic moment of atoms as well as crystal symmetry.    
         magnetic_modulation: dict[str, tuple[float,float,float]]
@@ -248,6 +136,67 @@ class SpinW:
         couplings_all = []
         # [1]
         for cpl in couplings:
+            # atom1 = self.magnetic_atoms[cpl.id1]
+            # atom2 = self.magnetic_atoms[cpl.id2]
+
+            # # Check that coupled atoms are both magnetic
+            # if not (atom1.is_mag and atom2.is_mag):
+            #     logger.error(f'Coupling a non magnetic atom:\n\t{atom1}\n\t{atom2}')
+            #     raise KeyError(f'Coupling a non magnetic atom: {atom1} {atom2}')
+            
+            def transform_coupling(g: 'mSymOp', cpl: 'Coupling'):
+                atom1 = self.magnetic_atoms[cpl.id1]
+                atom2 = self.magnetic_atoms[cpl.id2]
+
+                r1 = g.transform_position(atom1.r)
+                n_uvw1 = np.floor(r1)
+                new_id1 = self.crystal.get_atom_sw_id(r1)
+
+                r2 = g.transform_position(atom2.r+cpl.n_uvw)
+                n_uvw2 = np.floor(r2)
+                new_id2 = self.crystal.get_atom_sw_id(r2)
+
+                new_n_uvw_12 = n_uvw2 - n_uvw1
+
+                # g matrix has to be represented in xyz coordinates
+                g_xyz = self.crystal.A @ g.matrix @ np.linalg.inv(self.crystal.A)
+                new_J = g_xyz @ cpl.J @ np.linalg.inv(g_xyz)
+
+                # If self interaction, anisotropy
+                # we need to correct for the unnecesary double counting
+                if np.allclose(r1, r2):
+                    logger.info(f'Correcting for double-counting, {cpl}')
+                    new_J *= 2
+
+                cpl_new  = Coupling(label=f'{cpl.label}_({g.to_string()})',
+                                n_uvw=new_n_uvw_12,
+                                id1=new_id1,
+                                id2=new_id2,
+                                J = new_J,
+                                defining_bond=cpl.label)
+
+                return cpl_new
+            
+
+            couplings_symmetrized = self.crystal.MSG.symmetrize(cpl, transform_coupling, check_attrs=['J'])
+            couplings_all.extend(couplings_symmetrized)
+
+            couplings_symmetrized = self.crystal.MSG.symmetrize(cpl.revert(), transform_coupling, check_attrs=['J'])
+            couplings_all.extend(couplings_symmetrized)
+
+
+        # Could it be that the bond reversal is not always working nicely as here?
+        # couplings_all.extend([c.revert() for c in couplings_all]) # The bond reversal should be done already in symmetrization
+        # couplings_unique = couplings_all
+        couplings_unique = np.unique(couplings_all)
+
+        logger.info(f'Symmetrization report: generated / unique / provided = {len(couplings_all)} / {len(couplings_unique)} / {len(couplings)}')
+        return sorted(couplings_unique, key=lambda cpl: cpl.label)
+
+    def symmetrize_couplings_old(self, couplings: list['Coupling']) -> list['Coupling']:
+        couplings_all = []
+        # [1]
+        for cpl in couplings:
             atom1 = self.magnetic_atoms[cpl.id1]
             atom2 = self.magnetic_atoms[cpl.id2]
 
@@ -255,7 +204,6 @@ class SpinW:
             if not (atom1.is_mag and atom2.is_mag):
                 logger.error(f'Coupling a non magnetic atom:\n\t{atom1}\n\t{atom2}')
                 raise KeyError(f'Coupling a non magnetic atom: {atom1} {atom2}')
-
             for n,g in enumerate(self.crystal.MSG):
                 r1 = g.transform_position(atom1.r)
                 n_uvw1 = np.floor(r1)
@@ -523,7 +471,7 @@ class SpinW:
             # E = energies[...,:,None] * np.eye(2*M, 2*M)
 
             # (34) [SpinW]
-            T = np.linalg.inv(K_up) @ U @ np.sqrt(E.astype(np.complex)) # shape=(...,2M,2M)
+            T = np.linalg.inv(K_up) @ U @ np.sqrt(E.astype(np.complex128)) # shape=(...,2M,2M)
 
             r_i = np.asarray([atom_i.r for atom_i in self.magnetic_atoms])
             r_ij = r_i[None,:,:] - r_i[:,None,:]    # shape=(M,M,3)
