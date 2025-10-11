@@ -8,7 +8,7 @@ import pytest
 
 from spinwaves import Crystal, MSG, Atom, Coupling, SpinW
 from spinwaves.plotting import plot_structure   # this takes some serious time
-from spinwaves.functions import DMI
+from spinwaves.utils.linalg import DMI
 
 def test_matrices():
     """Test how the characteristic matrices are calculated"""

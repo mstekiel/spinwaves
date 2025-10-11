@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 from spinwaves import Crystal, MSG, Atom, Coupling, SpinW
 from spinwaves.plotting import plot_structure   # this takes some serious time
-from spinwaves.functions import DMI
+from spinwaves.utils.functions import DMI
 
 
 from pathlib import Path

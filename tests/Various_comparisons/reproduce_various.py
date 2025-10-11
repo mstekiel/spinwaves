@@ -2,25 +2,124 @@
 r"""Tests lattice math
 
 """
-from multiprocessing.spawn import old_main_modules
-from matplotlib import tight_layout
+
 import numpy as np
-from fractions import Fraction
-
-from scipy.__config__ import show
-import pytest
-
 import matplotlib.pyplot as plt
 
 from spinwaves import Crystal, MSG, Atom, Coupling, SpinW
 from spinwaves.plotting import plot_structure   # this takes some serious time
-from spinwaves.functions import DMI
-
 
 from pathlib import Path
 PATH_PLOTS = Path(r'C:\Users\Stekiel\Documents\GitHub\spinwaves\tests\Various_comparisons')
 
 ### Altermagnets
+def make_comparison():
+    """Comparison picture between ferro- anti- and altermagnetic square lattices."""
+
+    ### SETUP
+    magnetic_modulation = {
+        'k':(0, 0, 0),
+        'n':(1,0,0)
+    }
+
+
+    P4p = MSG.from_xyz_strings(generators=[' -y, x, z, -1']) # just 4z'
+    atoms = [Atom(label='Mn', r=(1/2,0,0),   m=(0,0,1), s=5/2)] 
+    crystal_A = Crystal(lattice_parameters=[4, 4, 5, 90,90,90], MSG=P4p, atoms=atoms)
+
+    atoms = [Atom(label='Mn', r=(0,0,0),   m=(0,0,1), s=5/2)] 
+    crystal_F = Crystal(lattice_parameters=[4, 4, 5, 90,90,90], MSG=P4p, atoms=atoms)
+
+    v1, v2 = 10, -1
+
+    J1 = v1+2*v2
+    J2 = v2
+    couplings = [
+        Coupling(label='J1', id1=0, id2=1, n_uvw=[0,0,0], J=J1*np.eye(3,3)),
+        Coupling(label='J2', id1=0, id2=0, n_uvw=[1,0,0], J=J2*np.eye(3,3)),
+        Coupling(label='J2', id1=0, id2=0, n_uvw=[0,1,0], J=J2*np.eye(3,3))
+    ]
+    sw_AFM = SpinW(crystal=crystal_A, magnetic_modulation=magnetic_modulation, couplings=couplings)
+
+    J1 = v1+v2
+    J2 = v2
+    couplings = [
+        Coupling(label='J1', id1=0, id2=1, n_uvw=[0,0,0], J=J1*np.eye(3,3)),
+        Coupling(label='J2', id1=0, id2=0, n_uvw=[1,0,0], J=J2*np.eye(3,3)),
+    ]
+    sw_AM = SpinW(crystal=crystal_A, magnetic_modulation=magnetic_modulation, couplings=couplings)
+
+    J1 = -v1/2
+    couplings = [Coupling(label='J1', id1=0, id2=0, n_uvw=[1,0,0], J=J1*np.eye(3,3))]
+    sw_FM = SpinW(crystal=crystal_F, magnetic_modulation=magnetic_modulation, couplings=couplings)
+    # for cpl in sw.couplings_all:
+    #     print(cpl)
+
+    # show_struct = False
+    # if show_struct:
+    #     plot_opts = dict(boundaries=([-1.1, 2.1],[-1.1,2.1],[-0.1,0.1]), 
+    #                      coupling_colors={'J1': 'Green', 'J2':'Red', 'Jaa':'Gray', 'J2b':'Red', 'J2d':'Blue'},
+    #                      spin_scale=2)
+    #     plot_structure(sw, engine='vispy', plot_options=plot_opts)
+
+
+
+
+    ### PLOTTING
+    margins = dict(width_ratios=[1,1,1,0.1])
+    fig, axes = plt.subplots(figsize=(6,6), nrows=3, ncols=4, tight_layout=True, gridspec_kw=margins)
+
+    def make_plot_col(sw, axes, plt_opts=dict()):
+        N = 200
+        # Qpath, Qinc = sw.crystal.make_qPath([[0,0,0], [1/2,0,0], [1/2,-1/2,0], [0,0,0]], N, return_Qinc=True)
+        Qpath, Qinc = sw.crystal.make_qPath([[0,1/2,0], [0,0,0], [1/2,0,0]], N, return_Qinc=True)
+
+        excitations = sw.calculate_excitations(Qhkl = Qpath)
+
+        xticks = Qinc[::N]
+        xticklabels = ['$k_x$', '0', '$k_y$']
+        # xticklabels = ['$\Gamma$', 'M', 'A', '$\Gamma$']
+
+        ylim = (0, excitations.E.max()*1.1)
+        titles = ['dispersions', f'$Re(S_{{xx}}+S_{{yy}}+S_{{zz}})$', '$Im(S_{{xy}}-S_{{yx}})$']
+
+        Erange = np.linspace(*ylim, 500)
+
+        for n,ax in enumerate(axes):
+            ax.set(xticks=xticks, xticklabels=xticklabels, 
+                   ylim=ylim, yticks=[])#), title=titles[n])
+        
+        axes[0].plot(Qinc, excitations.E, label='branch')
+
+        spectrum = sw.calculate_spectrum(Erange, 11, spectral_weight=(excitations.Sxx+excitations.Syy).real)
+        cm_Sii = axes[1].pcolormesh(Qinc, Erange, spectrum, cmap='afmhot_r')
+        # cbar = fig.colorbar(pcm, ax=axes[1], orientation='vertical', extend='max', label='intensity (a.u.)')
+
+        spectrum = sw.calculate_spectrum(Erange, 11, spectral_weight=-(excitations.Sxy-excitations.Syx).imag)
+        axes[2].plot(Qinc, excitations.E, c='black', lw=1, zorder=10)
+        vv = plt_opts['vv']
+        cm_Sch = axes[2].pcolormesh(Qinc, Erange, spectrum, cmap='RdBu_r', vmin=-vv, vmax=vv)
+
+        # axes[0].legend()
+        return cm_Sii, cm_Sch
+    
+
+    plt_opts = dict(vv=0.2)
+    make_plot_col(sw_FM,  axes=axes[:,0], plt_opts=dict(vv=0.4))
+    make_plot_col(sw_AFM, axes=axes[:,1], plt_opts=dict(vv=0.2))
+    cm_Sii, cm_Sch = make_plot_col(sw_AM,  axes=axes[:,2], plt_opts=dict(vv=0.15))
+
+    axes[0,3].set_axis_off()
+    cbar = fig.colorbar(cm_Sii, cax=axes[1,3], orientation='vertical', extend='max', label='intensity (a.u.)')
+    cbar = fig.colorbar(cm_Sch, cax=axes[2,3], orientation='vertical', extend='both', label='chirality',
+                        ticks=[-0.15, 0.15])
+    cbar.set_ticklabels(['$\circlearrowright$', '$\circlearrowleft$'])
+
+    fig.savefig(f'{PATH_PLOTS}\compare_FM-AFM-AlterM.png', dpi=400)
+    
+    return
+
+
 def reproduce_CrSb_Biniskos():
     """Spin wave spectrum of the CrSb altermagnet measured with RIXS"""
 
@@ -28,7 +127,7 @@ def reproduce_CrSb_Biniskos():
     P63ommc = MSG.from_xyz_strings(generators=[
         '-y, x-y,z, +1',     # 3z
         '-x,-y, z+1/2, -1',  # 2z
-        ' y, x,-z, +1',      # 2_110
+        ' y, x,-z, -1',      # 2_110
         '-x,-y,-z, +1',    # -1
     ])
     atoms = [
@@ -53,6 +152,8 @@ def reproduce_CrSb_Biniskos():
 
     ### CALCULATIONS
     sw = SpinW(crystal=crystal, magnetic_modulation=magnetic_modulation, couplings=couplings)
+
+    print(sw.couplings_all)
 
     show_struct = False
     if show_struct:
@@ -88,12 +189,10 @@ def reproduce_CrSb_Biniskos():
     
     axes[0].plot(Qinc, excitations.E)
 
-    print(excitations.S[220])
     spectrum = sw.calculate_spectrum(Erange, 15, spectral_weight=excitations.Sxx.real)
     pcm = axes[1].pcolormesh(Qinc, Erange, spectrum, cmap='afmhot_r')
     cbar = fig.colorbar(pcm, ax=axes[1], orientation='vertical', extend='max', label='intensity (a.u.)')
 
-    print(excitations.S[220])
     spectrum = sw.calculate_spectrum(Erange, 20, spectral_weight=(excitations.Sxy-excitations.Syx).imag)
     axes[2].plot(Qinc, excitations.E, c='black', lw=0.5, zorder=10)
     pcm = axes[2].pcolormesh(Qinc, Erange, spectrum, cmap='RdBu')
@@ -143,6 +242,9 @@ def reproduce_MnF2_Faure():
     ### CALCULATIONS
     sw = SpinW(crystal=crystal, magnetic_modulation=magnetic_modulation, couplings=couplings)
 
+    for cpl in sw.couplings_all:
+        print(cpl)
+
     show_struct = False
     if show_struct:
     #     plot_opts = dict(boundaries=([-0.5, 1.5],[-0.5,1.5],[-0.5,1]), coupling_colors={'J1a2': 'Cyan'})
@@ -186,12 +288,10 @@ def reproduce_MnF2_Faure():
     
     axes[0].plot(Qinc, excitations.E)
 
-    print(excitations.S[220])
     spectrum = sw.calculate_spectrum(Erange, 1)
     pcm = axes[1].pcolormesh(Qinc, Erange, spectrum, vmax=10, cmap='jet')
     cbar = fig.colorbar(pcm, ax=axes[1], orientation='vertical', extend='max', label='intensity (a.u.)')
 
-    print(excitations.S[220])
     spectrum = sw.calculate_spectrum(Erange, 1, spectral_weight=(excitations.Sxy-excitations.Syx).imag)
     axes[2].plot(Qinc, excitations.E, c='black', lw=0.5, zorder=10)
     pcm = axes[2].pcolormesh(Qinc, Erange, spectrum, cmap='RdBu')
@@ -312,7 +412,8 @@ def reproduce_MnTe_Liu():
         ] 
     crystal = Crystal(lattice_parameters=[4.15, 4.15, 6.712, 90,90,120], MSG=P63ommc, atoms=atoms)
 
-    print(crystal)
+    # print(crystal)
+    # print(crystal.atoms_magnetic)
     crystal.atoms_magnetic[1].m = [0,-1,0]
     print(crystal)
 
@@ -458,7 +559,9 @@ def reproduce_MnTe_Liu():
 if __name__ == "__main__":
     # pytest.main()
 
-    # reproduce_CrSb_Biniskos()
-    # reproduce_MnF2_Faure()
-    # reproduce_MnF2_Morano()
+    # make_comparison()
+
+    reproduce_CrSb_Biniskos()
+    reproduce_MnF2_Faure()
+    reproduce_MnF2_Morano()
     reproduce_MnTe_Liu()

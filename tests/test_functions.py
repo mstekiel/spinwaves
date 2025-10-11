@@ -6,7 +6,7 @@ import numpy as np
 from fractions import Fraction
 import pytest
 
-import spinwaves.functions as funs_sw
+import spinwaves.utils.functions as funs_sw
 
 def test_main_rotations():
     """Test principal rotations"""

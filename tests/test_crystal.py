@@ -8,7 +8,7 @@ import pytest
 
 from spinwaves import Crystal, MSG, Atom
 from spinwaves.spinw import Coupling
-from spinwaves.functions import DMI
+from spinwaves.utils.linalg import DMI
 
 
 
