@@ -9,17 +9,17 @@ logger = logging.getLogger()
 logger.setLevel('INFO')
 
 def load_system() -> SpinW:
-    atoms = [Atom(label='Fe', r=(0,   0.5, 0),   m=(-1,0,0.1), s=2.5),
-             Atom(label='Er', r=(0.5, 0.5, 0.25),   m=(1,0,1), s=5),]
+    atoms = [Atom(label='Fe', r=(0,   0.5, 0),   m=(0,0,1), s=2.5, atom_mesh='sphere'),
+             Atom(label='Er', r=(0.5, 0.5, 0.25),   m=(1,0,0), s=5, atom_mesh='sphere'),]
             #  Atom(label='O', r=(0.25, 0.25, 0),   m=(1,0,1), s=5)]
-    Pbnm = MSG.from_xyz_strings(generators=[
-        'x+1/2,-y+1/2,-z, -1',
-        '-x,-y,-z, +1',
-        '-x,-y,z+1/2, +1',
+    Pbnm_G2 = MSG.from_xyz_strings(generators=[
+        'x+1/2,-y+1/2,-z, +1',
+        '-x,-y,z+1/2, -1',
+        # '-x,-y,-z, +1',
     ])
 
     cs = Crystal(lattice_parameters=[5.3, 5.6, 7.5, 90, 90, 90], 
-                 atoms=atoms, MSG=Pbnm)
+                 atoms=atoms, MSG=Pbnm_G2)
     
     print(cs)
 
@@ -222,6 +222,16 @@ def vispy_xyz(filename):
     
     canvas = plotter.canvas.app.run()
 
+from vispy.visuals.transforms import MatrixTransform
+
+def symOp_to_vispyTransform(g, sw: 'SpinW') ->MatrixTransform:
+    # rotate scale translate
+    mm = MatrixTransform()
+    g_xyz = sw.crystal.A @ g.matrix @ np.linalg.inv(sw.crystal.A)
+
+    mm.matrix[:3,:3] = g_xyz
+    mm.translate(sw.crystal.A @ atom.r)
+    return mm
 
 if __name__ == "__main__":
     # crystal_vis()
@@ -232,8 +242,17 @@ if __name__ == "__main__":
 
     # filename = r'C:\GDrive\PostDoc-Juelich\7_NBMP-Nikolaos\6_D23-finalized\NBMPO-600mK-0T.xyz'
     # vispy_xyz(filename)
+    spinw = load_system()
+
+    # print(spinw)
+
+    # print('ATOMS')
+    # for atom in spinw.magnetic_atoms:
+    #     print(atom, atom._gen_symop)
+    #     print(symOp_to_vispyTransform(atom._gen_symop, spinw))
+    #     print()
 
 
     from spinwaves.plotting.supercell_plotter_vispy_advanced import AdvancedVispySupercellPlotter
-    plotter = AdvancedVispySupercellPlotter( load_system() )
+    plotter = AdvancedVispySupercellPlotter( spinw )
     plotter.launch()
