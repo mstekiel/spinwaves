@@ -82,12 +82,19 @@ class Crystal(Lattice):
 
         # Should I ensure the provided list of atoms contains unique atoms? YES
         # Constructor should also check if provided magnetic moment respects the symmetry
-        self._atoms_unique = tuple(sorted(atoms))
+        for atom in atoms:
+            atom._gen_symop = MSG.operations[0].identity()
+
+        self._atoms_unique = tuple(atoms)
+
+        # TODO atom that lives in a crystal has to have its symmetry operations saved
 
         def transform_atom(g: 'mSymOp', a: 'Atom'):
-            atom_new = deepcopy(atom)
-            atom_new.r = g.transform_position(atom.r, to_UC=True)
-            atom_new.m = self.uvw2xyz(g.transform_axial_vec(self.xyz2uvw(atom.m)))
+            atom_new = deepcopy(a)
+
+            atom_new._gen_symop = g
+            atom_new.r = g.transform_position(a.r, to_UC=True)
+            atom_new.m = self.uvw2xyz(g.transform_axial_vec(self.xyz2uvw(a.m)))
             # aotm_new.gtensor = self.g.matrix @ atom.gtensor @ self.g.inv().matrix
 
             return atom_new

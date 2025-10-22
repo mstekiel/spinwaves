@@ -1,6 +1,8 @@
+from copy import deepcopy
 import numpy as np
 
 from ..coupling import Coupling
+from ..atom import Atom
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -47,3 +49,10 @@ def transform_coupling(g: 'mSymOp', cpl: 'Coupling', crystal: 'Crystal'):
                     defining_bond=cpl.label)
 
     return cpl_new
+
+
+def transform_atom(g: 'mSymOp', a: 'Atom', crystal: 'Crystal'):
+    atom_new = deepcopy(a)
+    atom_new.r = g.transform_position(a.r, to_UC=True)
+
+    return atom_new

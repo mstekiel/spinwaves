@@ -169,6 +169,11 @@ class mSymOp():
     
     ##############################################################################
     # Utility operations
+
+    @staticmethod
+    def identity() -> 'mSymOp':
+        return mSymOp.from_string("x, y, z, +1")
+
     def to_string(self) -> str:
         '''Represent symmetry operation as xyz string.
         
@@ -475,7 +480,7 @@ class MSG():
         '''Symmetrize the `object` of arbitrary type according to the `transform_func`
         within the symmetry of the `MSG`.
         In other words, will apply each symmetry element of the `MSG` to the `object`,
-        where the symmetry transformation rules are defeined within the `transform_func`.
+        where the symmetry transformation rules are defined within the `transform_func`.
 
         >>> class A: r=[0,0,0]
         >>> gen_fun = lambda g, a: A(g.matrix @ a.r)

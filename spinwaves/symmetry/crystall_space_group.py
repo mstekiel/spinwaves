@@ -203,4 +203,22 @@ class cSymOp(SymOp):
     
 
 class SG(Group):
-    pass
+    def __init__(self, generators: list['cSymOp'], name: str='SG'):
+        
+        super().__init__(generators=generators, name=name)
+
+    ##############################################################################
+    # Constructors
+    @classmethod
+    def from_xyz_strings(cls, generators: list[str]):
+        '''Construct Crystallographic Space Group from a list of xyz_strings,
+        that represent SG operations.
+        
+        Notes
+        -----
+        1. The construction takes place in real time, so for groups with large
+           number of expected elements it can take seconds:
+           >>> 8 seconds for Ia-3d1' with 192 operations.
+        2. MSGs with time reversal translations do not seem to work as expected
+        '''
+        return cls(generators = [cSymOp.from_string(xyz_string) for xyz_string in generators])

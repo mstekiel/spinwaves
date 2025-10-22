@@ -1,12 +1,20 @@
 '''Implementation of basic entities from group theory.
 Limited to application of groups to symmetry elements
 which allows for certain simplifications and forces conventions.
+
+For example, I call the group elements operations, more natural in crystallography.
+Also, each element has its inverse.
 '''
 
 from abc import abstractmethod
+import logging
 import numpy as np
 from collections import deque, defaultdict
-from typing import Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Tuple, TypeVar
+
+T = TypeVar('T')
+logger = logging.getLogger('Symmetry')
+
 
 MAX_GROUP_ORDER = 1024
 
@@ -74,7 +82,7 @@ class Group(object):
 
         # Generate few attributes of the group that can be done in single loop
         # and thus enhances the speed and clarity.
-        (operations, mult_table, adjacency, index_of) = self._build_group_cayley(generators=self._generators)
+        (operations, mult_table, adjacency, index_of) = self.build_group_cayley(generators=self._generators)
 
         self._operations = operations
         self._mult_table = mult_table
@@ -92,18 +100,84 @@ class Group(object):
     # Properties
 
     @property
+    def operations(self) -> list['SymOp']:
+        '''List of all symmetry operations of the group.'''
+        return self._operations
+
+    @property
     def order(self) -> int:
         '''Order of the group, that is number of operations in the group.'''
         return len(self._operations)
 
     ##########################################################################################################
     # Methods
-    def __repr__(self) -> str():
+    def index_of(self, g: 'SymOp') -> int:
+        '''Index of the group element, as stored in `self.operations`.'''
+        return self._index_of[g]
+
+    def __repr__(self) -> str:
         gen_str = ", ".join([g.__repr__() for g in self._generators])
         return f"<{self.__class__.__name__}={self._name}, order={self.order}, gens=[{gen_str}]>"
+    
+    def symmetrize(self, object: T, transform_func: Callable[['SymOp', T], T], check_attrs: list[str]=[]) -> list[T]:
+        '''Symmetrize the `object` of arbitrary type according to the `transform_func`
+        within the symmetry of the `Group`.
+        In other words, will apply each symmetry operation of the `Group` to the `object`,
+        where the symmetry transformation rules are defined within the `transform_func`,
+        and return only unique elements from the symmetrized elements.
+
+        >>> class A: r=[0,0,0]
+        >>> gen_fun = lambda g, a: A(g.matrix @ a.r)
+        >>> MSG.symmetrize(A([0, 0, 0.5]), gen_fun) 
+        
+        Parameters
+        ----------
+        obj: T
+            Object that will be symmetrized
+        transform_obj: Callable[[T], T]
+            Recipe how the object transforms under symmetry operations.
+        check_attrs: list[str], optional
+            If provided, it will check if the attributes are respecting the symmetry conditions of the MSG.
+
+        Returns
+        -------
+        list[T]
+            List of objects created by applyin symmetry operations of the `MSG`.
+        '''
+        objs_symmetrized = []
+        for g in self.operations:
+            objs_symmetrized.append(transform_func(g, object))
+
+        objs_unique, id_inverse = np.unique(objs_symmetrized, return_inverse=True)
+
+
+        # Check symmetry condidtion
+        # [ ] Which symmetry elements to not produce compatible attributes?
+        for id_unique, obj_unique in enumerate(objs_unique):
+            id_equivalent = np.where(id_inverse==id_unique)[0]
+
+            for check_field in check_attrs:
+                field_eq = [objs_symmetrized[id].__getattribute__(check_field) for id in id_equivalent]
+                field_averaged = np.average(field_eq, axis=0)
+
+                field_unique = obj_unique.__getattribute__(check_field)
+                if not np.allclose(field_unique, field_averaged):
+                    warning_message = f'The following object property does not respect the symmetry\n\t{obj_unique}\n'
+                    warning_message+= f'\tSet value        : {check_field}={field_unique}\n'
+                    warning_message+= f'\tSymmetrized value: {check_field}={field_averaged}\n'
+
+                    for id in id_equivalent:
+                        warning_message += f'\t{self.operations[id]}\t-> {check_field}={objs_symmetrized[id].__getattribute__(check_field)}\n'
+
+                    warning_message+=  'You better know what you are doing.'
+
+                    logger.warning(warning_message)
+
+
+        return objs_unique
 
     @staticmethod
-    def _build_group_cayley(generators: tuple[SymOp]) -> tuple:
+    def build_group_cayley(generators: tuple[SymOp]) -> tuple:
         """
         Generate the group from generators using a Cayley-graph Breadth-First Search algorithm BFS,
         build the full multiplication table, and construct the Cayley graph.
@@ -126,11 +200,12 @@ class Group(object):
         identity = gType.identity()
         
         # use Spm as the generating set for BFS
-        steps = set(generators + gens_inv) - {identity}
+        steps_bfs = set(generators + gens_inv) - {identity}
+        steps_adj = set(generators) - {identity}
 
 
         # Degenerate case: only the identity exists
-        if not steps:
+        if not steps_bfs:
             elements = [identity]
             table = {(identity, identity): identity*identity}
             adj = defaultdict(list)
@@ -139,19 +214,19 @@ class Group(object):
 
         # --- BFS discovery over the Cayley graph ---
         discovered = {identity}
-        operations: List[gType] = [identity]
-        index_of: Dict[gType, int] = {identity: 0}
+        operations = [identity]
+        index_of = {identity: 0}
         q = deque([identity])
 
         # Cayley graph (directed, edge-labeled)
-        adjacency: Dict[gType, List[Tuple[str, gType]]] = defaultdict(list)
+        adjacency = defaultdict(list)
 
         # Full multiplication table, filled incrementally
-        mult_table: Dict[Tuple[gType, gType], gType] = {}
+        mult_table = {}
         mult_table[(identity, identity)] = identity*identity
 
         # Helper: when a new element y is discovered, fill its row/column vs all known elements
-        def fill_table_for_new(y: gType) -> None:
+        def fill_table_for_new(y: Any) -> None:
             # row y,* and column *,y vs all existing elements (which exclude y)
             for b in operations:
                 mult_table[(y, b)] = y*b
@@ -160,21 +235,17 @@ class Group(object):
             mult_table[(y, y)] = y*y
 
         while q:
-            # for g in discovered:
-            #     print(g, hash(g))
-
-            # print('BFS step:', q, discovered, operations)
             if len(operations) > MAX_GROUP_ORDER:
                 raise ValueError("Group appears larger than max_size (possible infinite subgroup).")
 
             x = q.popleft()
-
-            # expand x by every generator and inverse (right-multiplication is sufficient)
-            for s in steps:
+            for s in steps_bfs:
+                # should it be LH or RH multiplicatoin?
                 y = x*s
 
                 # record labeled edge x --(s)--> y in the Cayley graph
-                adjacency[x].append((s.to_str(), y))
+                if s in steps_adj:
+                    adjacency[x].append((s, y))
 
                 # if new vertex, register and extend BFS frontier
                 if y not in discovered:
@@ -187,7 +258,6 @@ class Group(object):
 
         return (operations, mult_table, adjacency, index_of)
     
-
     @staticmethod
     def adjacency_tensor(
         generators: List["SymOp"],
@@ -195,71 +265,98 @@ class Group(object):
         adjacency: Dict["SymOp", List[Tuple[str, "SymOp"]]],
     ) -> Dict["SymOp", np.ndarray]:
         """
-        Build a per-generator adjacency tensor for the Cayley digraph.
+        Build a per-generator adjacency tensor for the Cayley diagram of the group.
 
         Returns a dict keyed by the *generator elements themselves* (not strings):
-            { g -> A_g }  where A_g is an n×n numpy array (int)
-        and (A_g)[i, j] counts directed edges operations[i] --(g or g^{-1})--> operations[j].
-
-        Assumptions:
-          - `adjacency[u]` stores edges as (label_str, v) where label_str == s.to_str()
-            for s in the step set used when building the graph (typically S ∪ S^{-1}).
-          - `SymOp` implements `.to_str()` and `.inv()`, and equality/hash are canonical.
+            { g -> A_g }  where A_g is an n*n numpy array (int)
+        and (A_g)[i, j] counts directed edges operations[i] --(g)--> operations[j].
 
         Parameters
         ----------
-        operations : list[SymOp]
-            All group elements, in the row/column order of the matrices.
-        adjacency : Dict[SymOp, List[Tuple[str, SymOp]]]
-            Directed, labeled edges of the Cayley graph: u -> [(label, v), ...]
         generators : Iterable[SymOp]
             The base generating set S (identity excluded). The tensor is indexed by these objects.
+        operations : list[SymOp]
+            All group elements, their order will define the row/column order of the matrices.
+        adjacency : Dict[SymOp, List[Tuple[str, SymOp]]]
+            Directed, labeled edges of the Cayley graph: u -> [(label, v), ...]
 
         Returns
         -------
         Dict[SymOp, np.ndarray]
-            One n×n matrix per generator g ∈ S. Edges labeled by g or g^{-1} are folded into A_g.
+            One n*n matrix per generator g in S. Edges labeled by g or g^{-1} are folded into A_g.
         """
         n = len(operations)
         idx = {g: i for i, g in enumerate(operations)}
 
-        # Map every edge label seen in `adjacency` back to a *base* generator in S.
-        # We cover both g and g^{-1} labels by mapping each to the same base generator g.
-        gens = list(generators)
-        label_to_base: Dict[str, "SymOp"] = {}
+        mats: Dict["SymOp", np.ndarray] = {g: np.zeros((n, n), dtype=int) 
+                                           for g in generators}
 
-        for g in gens:
-            lbl_g = g.to_str()
-            lbl_inv = g.inv().to_str()
-
-            # Enforce uniqueness of mapping
-            if lbl_g in label_to_base and label_to_base[lbl_g] != g:
-                raise ValueError(f"Ambiguous label '{lbl_g}' maps to multiple generators.")
-            if lbl_inv in label_to_base and label_to_base[lbl_inv] != g:
-                raise ValueError(f"Ambiguous label '{lbl_inv}' maps to multiple generators.")
-
-            label_to_base[lbl_g] = g
-            label_to_base[lbl_inv] = g
-
-        # Allocate an n×n matrix per generator
-        mats: Dict["SymOp", np.ndarray] = {g: np.zeros((n, n), dtype=int) for g in gens}
-
-        # Populate counts
-        for u in operations:
-            i = idx[u]
-            for lbl, v in adjacency.get(u, []):
-                j = idx.get(v)
-                if j is None:
-                    # Edge points outside the provided vertex set; skip.
-                    continue
-                base = label_to_base.get(lbl)
-                if base is None:
-                    # The graph contains an edge labeled by a step that isn't tied to any base generator.
-                    # This usually means `generators` is missing something (or labels don't match to_str()).
-                    raise KeyError(
-                        f"Adjacency label '{lbl}' not recognized from provided generators."
-                    )
-                mats[base][i, j] += 1
+        for g1, connections in adjacency.items():
+            for gc,g2 in connections:
+                if gc in mats:
+                    mats[gc][idx[g1],idx[g2]] += 1
 
         return mats
+
+
+
+def plot_network(group, layout: str='spring', seed:int=0, node_size: float=100, font_size: int=8):
+    """Export Cayley digraph as a NetworkX MultiDiGraph with string node ids."""
+    try:
+        import networkx as nx
+        import matplotlib.pyplot as plt
+    except ImportError as e:
+        raise ImportError("Either `matplotlib` or `networkx` are not installed.") from e
+
+
+    G = nx.DiGraph(name=group._name)
+
+    # nodes: use string ids; keep useful attrs
+    for op in group._operations:
+        nid = op.to_str()
+        G.add_node(nid, index=group._index_of[op], op_str=nid, op=op)
+
+    # edges: label may be SymOp or str; store as 'generator'
+    for u, edges in group._adjacency.items():
+        u_id = u.to_str()
+        for label, v in edges:
+            if label in group._generators:
+                v_id = v.to_str()
+                G.add_edge(u_id, v_id, generator=label.to_str())
+
+
+
+    # positions
+    if layout == "spring":
+        pos = nx.spring_layout(G, seed=seed)
+    elif layout == "kamada_kawai":
+        pos = nx.kamada_kawai_layout(G)
+    elif layout == "circular":
+        pos = nx.circular_layout(G)
+    else:
+        pos = nx.spring_layout(G, seed=seed)
+
+    # nodes
+    nx.draw_networkx_nodes(G, pos, node_size=node_size)
+    nx.draw_networkx_labels(G, pos, font_size=font_size)
+
+    # assign distinct colors per generator label
+    gens = sorted({d["generator"] for _, _, d in G.edges(data=True)})
+    import itertools
+    palette = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    color_of = {g: c for g, c in zip(gens, itertools.cycle(palette))}
+
+    # draw edges per generator with its color
+    for g in gens:
+        edgelist = [(u, v) for u, v, d in G.edges(data=True) if d["generator"] == g]
+        nx.draw_networkx_edges(G, pos, edgelist=edgelist, edge_color=color_of[g], arrows=True, width=3)
+
+    # edge labels (works for DiGraph)
+    nx.draw_networkx_edge_labels(
+        G, pos,
+        edge_labels={(u, v): d["generator"] for u, v, d in G.edges(data=True)},
+        font_size=font_size, alpha=0.8
+    )
+    plt.axis("off")
+    plt.show()
 

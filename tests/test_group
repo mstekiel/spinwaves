@@ -2,7 +2,7 @@
 import pytest
 
 # CHANGE THIS IMPORT to your module path
-from spinwaves.symmetry.crystall_space_group import cSymOp
+from spinwaves.symmetry.crystall_space_group import cSymOp, SG
 from spinwaves.symmetry.group import Group
 
 # test_group.py
@@ -18,7 +18,7 @@ import pytest
 # which matches how Group._build_group_cayley calls gtype.identity().
 
 class SymOpS3:
-    """Permutation on 3 points. Composition (self * other) := self ∘ other."""
+    """Permutation on 3 points. Composition (self * other) := self * other."""
     __slots__ = ("perm",)
 
     def __init__(self, perm):
@@ -139,8 +139,8 @@ def test_adjacency_has_right_labels_and_vertices_s3(s3_generators):
     G = Group([s, t])
 
     # Each vertex should have out-degree equal to number of steps used when building:
-    # steps = set(gens ∪ gens^{-1}) \ {identity}. Here s and t are involutions, so steps = {s,t}.
-    steps = {s.to_str(), t.to_str()}
+    # steps = set(gens u gens^{-1}) \ {identity}. Here s and t are involutions, so steps = {s,t}.
+    steps = {s, t}
     for u, edges in G._adjacency.items():
         # all labels among steps, all endpoints in operations
         assert all(lbl in steps for lbl, v in edges)
@@ -185,15 +185,14 @@ def test_c4_rotation_inverse_folding_in_tensor(c4_generator):
 
     M = mats[r]
     n = G.order
-    # Because adjacency was built with steps = {r, r^{-1}} and the tensor folds both labels into r,
-    # each row should have sum 2 (two outgoing edges: by r and by r^{-1}).
-    row_sums = M.sum(axis=1)
-    assert np.all(row_sums == 2), "Each row should have two edges when folding r and r^{-1}"
+    # For a nice simple case, we have circular Cayley graph.
+    assert np.all(M.sum(axis=1) == 1)
+    assert np.all(M.sum(axis=0) == 1)
 
     # The uncolored adjacency is the same here (only one slice), still row-sum 2
     A = G._adjacency_matrix
     assert np.array_equal(A, M)
-    assert np.all(A.sum(axis=1) == 2)
+    assert np.all(A.sum(axis=1) == 1)
 
 def test_building_with_redundant_generator_yields_same_elements_but_denser_graph(s3_generators):
     # Minimal S3 generators: s=(01), t=(12)
@@ -205,6 +204,8 @@ def test_building_with_redundant_generator_yields_same_elements_but_denser_graph
 
     G_min = Group([s, t])
     G_red = Group([s, t, g3])
+    print(G_red.operations)
+    print(G_min.operations)
 
     # Same group elements / same order
     assert set(G_red._operations) == set(G_min._operations)
@@ -213,10 +214,14 @@ def test_building_with_redundant_generator_yields_same_elements_but_denser_graph
     # Uncolored adjacency matrices
     A_min = G_min._adjacency_matrix
     A_red = G_red._adjacency_matrix
+    print(A_red)
+    print(A_min)
     assert A_min.shape == A_red.shape
 
     # With extra generator(s), every edge present in the minimal graph is still present.
     # Hence the redundant graph's adjacency (counts) dominates element-wise.
+    print(G_red._adjacency_tensor)
+    print(G_min._adjacency_tensor)
     assert (A_red >= A_min).all()
 
     # Row sums equal the number of "steps" used during construction:
@@ -240,20 +245,47 @@ def test():
     g4 = cSymOp.from_string('-x,-y,-z')
     g5 = cSymOp.from_string('y,x,z')
     g6 = cSymOp.from_string('y,z,x')
-    SG = Group([g1,g2,g3,g4,g5,g6])
+    SG = Group([
+            cSymOp.from_string('x,y+1/2,z+1/2'),
+            # cSymOp.from_string('x+1/2,y,z+1/2'),
+            cSymOp.from_string('-y,x,z'),
+            cSymOp.from_string('-x,-y,-z'),
+            cSymOp.from_string('y,x,z'),
+            cSymOp.from_string('y,z,x'),
+    ])
     print(SG)
-    print(SG._adjacency_matrix)
-    print(SG._adjacency_tensor)
+    # print(SG._adjacency_matrix)
+    # print(SG._adjacency_tensor)
+    print(SG.operations)
+
+    print(g2, SG.index_of(g2))
+
+def test_plotting():
+    sg = SG.from_xyz_strings([
+            # 'x,y+1/2,z+1/2',
+            # 'x+1/2,y,z+1/2',
+            'x-y,x,z',
+            '-x,-y,-z',
+            # 'x,y,-z',
+            # 'y,x,z',
+            # 'y,z,x',
+    ])
+    print(sg)
+    from spinwaves.symmetry.group import plot_network
+        
+    plot_network(sg, layout='kamada_kawai', seed=10, node_size=200, font_size=8)
+
 
 if __name__ == '__main__':
-    # test()
+    test()
+    # test_plotting()
 
     # Following tests were written by ChatGPT, approach with care
-    test_group_repr_and_order_s3(s3_generators())
-    test_generators_set_identity_removed(s3_generators())
-    test_mult_table_matches_operation_s3(s3_generators())
-    test_adjacency_has_right_labels_and_vertices_s3(s3_generators())
-    test_adjacency_tensor_keys_are_generators_and_shapes_s3(s3_generators())
-    test_adjacency_matrix_equals_sum_of_slices_s3(s3_generators())
-    test_c4_rotation_inverse_folding_in_tensor(c4_generator())
-    test_building_with_redundant_generator_yields_same_elements_but_denser_graph(s3_generators())
+    # test_group_repr_and_order_s3(s3_generators())
+    # test_generators_set_identity_removed(s3_generators())
+    # test_mult_table_matches_operation_s3(s3_generators())
+    # test_adjacency_has_right_labels_and_vertices_s3(s3_generators())
+    # test_adjacency_tensor_keys_are_generators_and_shapes_s3(s3_generators())
+    # test_adjacency_matrix_equals_sum_of_slices_s3(s3_generators())
+    # test_c4_rotation_inverse_folding_in_tensor(c4_generator())
+    # test_building_with_redundant_generator_yields_same_elements_but_denser_graph(s3_generators())
