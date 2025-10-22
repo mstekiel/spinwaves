@@ -79,7 +79,8 @@ class Atom:
     def __init__(self, r: Sequence, m: Sequence = [0,0,0], s: float = 0,
                  gtensor_mat = None, aniso_mat = None, occupation = 1,
                  label: str='atom', element_symbol: str='',
-                 color: Sequence=[], radius: float=0):
+                 color: Sequence=[], radius: float=0, 
+                 atom_mesh: str='sphere', moment_mesh: str='arrow'):
         '''Create atom instance.
 
         Parameters
@@ -126,6 +127,9 @@ class Atom:
                 self.radius = 0.3
         else:
             self.radius = radius
+
+        self.atom_mesh = atom_mesh
+        self.moment_mesh = moment_mesh
 
     ##############################################################################################################
     @property

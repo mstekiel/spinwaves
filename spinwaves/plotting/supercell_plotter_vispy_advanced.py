@@ -1,4 +1,5 @@
 from copy import deepcopy
+from itertools import cycle
 import logging
 import traceback
 import numpy as np
@@ -7,7 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..spinw import SpinW
-    from ..crystal import Atom
+    from ..crystal import Atom, Crystal
+    from ..symmetry import mSymOp
 
 from ..utils.linalg import cartesian2spherical, RfromZ
 
@@ -16,7 +18,8 @@ from vispy.scene.widgets import ViewBox
 from vispy.scene.cameras import TurntableCamera
 import vispy.scene.visuals as visuals
 from vispy.visuals.transforms import MatrixTransform, STTransform
-from vispy.visuals.filters import ShadingFilter, Alpha, TextureFilter
+from vispy.visuals.filters import ShadingFilter, Alpha, TextureFilter, WireframeFilter
+from vispy.visuals.filters.mesh import InstancedShadingFilter
 from vispy.util.event import EmitterGroup, Event
 from vispy.app import Timer
 
@@ -30,6 +33,15 @@ from vispy.app import Timer
 # Objects that can share a mesh: [ALL atoms, arrows depicting moments of equal length, unit cell edges]
 #
 # [ ] Implement objects picking. For that I might need to add descriptions to instancedmesh.
+
+def atom_to_vispyTransform(atom: 'Atom', sw: 'SpinW') ->MatrixTransform:
+    # rotate scale translate
+    mm = MatrixTransform()
+    g_xyz = sw.crystal.A @ atom._gen_symop.matrix @ np.linalg.inv(sw.crystal.A)
+
+    mm.matrix[:3,:3] = g_xyz
+    mm.translate(sw.crystal.A @ atom.r)
+    return mm
 
 
 class OptionsManager(object):
@@ -80,6 +92,7 @@ class OptionsManager(object):
         ('coordinates_uvw_position', 4),
         ('coordinates_uvw_offset_x', 88),
         ('coordinates_uvw_offset_y', -66),
+        ('shading_cycle', cycle(['flat', None, 'smooth'])),
     ]
     def __init__(self, options: dict[str, Any]={}):
         # Logger
@@ -297,7 +310,7 @@ class AdvancedVispySupercellPlotter(object):
 
     _atoms: visuals.InstancedMesh = None
     _atom_descriptions: list[str] = []
-    _shaders: list[ShadingFilter] = []
+    _shaders: dict[str, ShadingFilter] = {}
 
     def __init__(self, sws: 'SpinW', config: dict={}):
         # This is too long
@@ -347,14 +360,37 @@ class AdvancedVispySupercellPlotter(object):
         self.timer = Timer(interval=1./60)
         self.timer.connect(self.update_frame)
 
+        #### Convention
+        # How about making a hard coded list of objects.
+        # It would be very convenient to store the shading filters and instancedMesh visuals 
+        # in a dictionary and access the mwhen needed.
+        # - Atoms and moments according to unique atoms
+        # - couplings according to unique couplings
+        # - UC edges
+        # - compass_XYZ
+        # - compass_ABC
 
         # self._atoms = list()
         # self._atom_descriptions = list()
-        self._shaders = list()
-        self._prepare_meshes()
 
-        self.draw_supercell()
+        # We plot atoms, their moments, couplings, cell edges
+        base_meshes_names = {'edge': 'tube', 'compass_XYZ': 'arrow', 'compass_ABC': 'arrow'}
+        for a in sws.crystal.atoms_unique:
+            base_meshes_names.update({f"atom_{a.label}": getattr(a, 'atom_mesh', 'sphere')})
+            if a.is_mag:
+                base_meshes_names.update({f"moment_{a.label}": getattr(a, 'moment_mesh', 'arrow')})
+
+        for cpl in sws.couplings:
+            base_meshes_names.update({f"coupling_{cpl.label}": getattr(cpl, 'mesh', 'spring')})
+
+        self._base_visuals = self._prepare_meshes(base_meshes_names)
+
+
+        print('CONSTRUCTOR: ', self._shaders)
+
+        # Draw the main objects
         self.draw_coordinate_system()
+        self.draw_supercell()
 
     def plot(self, plot_options: dict[str, Any]):
         self.config.set(**plot_options)
@@ -372,10 +408,17 @@ class AdvancedVispySupercellPlotter(object):
         
         self.canvas.app.run()
     
-    def default_shading_filter(self):
-        sf = ShadingFilter(shading='smooth', shininess=20, ambient_coefficient=(0,0,0,0))
+    def attach_shadingFilter(self, object, object_key: str, instanced: bool=False):
+        '''Attach shading filter to the base object.'''
+        if instanced:
+            sf = InstancedShadingFilter(shading='smooth', shininess=20, ambient_coefficient=(0,0,0,0))
+        else:
+            sf = ShadingFilter(shading='smooth', shininess=20, ambient_coefficient=(0,0,0,0))
+        
+        object.attach(sf)
+        self._shaders[object_key] = sf
+
         sf.light_dir = self.config.light_dir[:3]
-        self._shaders.append(sf)
 
         return sf
         
@@ -386,13 +429,17 @@ class AdvancedVispySupercellPlotter(object):
         atoms, edges = self.get_objects_in_supercell()
 
         np.random.seed(42)  # For reproducibility
-        eigenvector = 0.2*( np.random.rand(len(atoms), 3) - 0.5 )  # Random polarization vectors
-        frequency = 3.8  # Frequency [Hz]
+        eigenvector = 0.3*( np.random.rand(999, 3) - 0.5 )  # Random polarization vectors
+        frequency = 2  # Frequency [Hz]
 
 
-        pos_new = self.crystal.uvw2xyz([atom.r for atom in atoms]) + eigenvector*np.sin(2*np.pi*time*frequency)
-        self._atoms_visual.instance_positions = pos_new
-        self._moments_visual.instance_positions = pos_new
+
+        for label, visual in self._base_visuals.items():
+            if label.startswith('atom'):
+                vis_name = label.split('_')[1]
+                atom_positions = [atom.r for atom in atoms if vis_name in atom.label]
+                pos_new = self.crystal.uvw2xyz(atom_positions) + eigenvector[:len(atom_positions)]*np.sin(2*np.pi*time*frequency)
+                visual.instance_positions = pos_new
 
         # pos = self.crystal.uvw2xyz([atom.r for atom in atoms])
         # sizes = np.array([atom.radius for atom in atoms]) * self.config.scale_atom_radius
@@ -421,7 +468,7 @@ class AdvancedVispySupercellPlotter(object):
             self._light_dir_inv = self._light_transform.imap(self.config.light_dir)
             self._update_shaders_with_headlight()
         else:
-            for sf in self._shaders:
+            for sf in self._shaders.values():
                 sf.light_dir = self.config.light_dir[:3]
 
         self.canvas.scene.update()
@@ -432,14 +479,14 @@ class AdvancedVispySupercellPlotter(object):
             self._update_shaders_with_headlight()
         else:
             self.view.scene.transform.changed.disconnect(self._update_shaders_with_headlight)
-            for sf in self._shaders:
+            for sf in self._shaders.values():
                 sf.light_dir = self.config.light_dir[:3]
 
         self.canvas.scene.update()
 
     def _update_shaders_with_headlight(self, event=None):
         transform = self.view.camera.transform
-        for sf in self._shaders:
+        for sf in self._shaders.values():
             sf.light_dir = transform.map(self._light_dir_inv)[:3]
 
     ### MAIN REDRAWING FUNCTION
@@ -447,62 +494,106 @@ class AdvancedVispySupercellPlotter(object):
         '''Draw the supercell with all atoms, edges and moments.'''
         # TODO  magnetic moment length scale
         atoms, edges = self.get_objects_in_supercell()
+
+        visuals_transforms = {label:dict(pos=[], rot=[], col=[]) for label in self._base_visuals}
+
+        def label_to_base(label):
+            '''Find the first visual that matches the `label`.'''
+            return next(v for k,v in visuals_transforms.items() if label.startswith(k))
           
         ### Atoms
-        pos = self.crystal.uvw2xyz([atom.r for atom in atoms])
-        sizes = np.array([atom.radius for atom in atoms]) * self.config.scale_atom_radius
-        transforms = [np.diag([ss,ss,ss]) for ss in sizes]
-        colors = np.array([atom.color for atom in atoms])
-
-        rotations = []
         for atom in atoms:
-            rotation = np.power(atom.s, 0.3) * np.linalg.inv(self.spinw.rot_Rprime(atom.m)) # Scale arro lengths arbitrarily
-            rotations.append(rotation)
+            atom_transforms_dict = label_to_base(f"atom_{atom.label}")
+            atom_transform = atom_to_vispyTransform(atom, self.spinw).matrix
+            atom_transforms_dict['pos'].append( atom_transform[3,:3] )
+            atom_transforms_dict['rot'].append( atom_transform[:3,:3]*atom.radius/2 )
+            atom_transforms_dict['col'].append( atom.color/256 )
+
+            moment_transforms_dict = label_to_base(f"moment_{atom.label}")
+            moment_transform = atom_to_vispyTransform(atom, self.spinw).matrix
+            moment_transforms_dict['pos'].append( moment_transform[3,:3] )
+            moment_transforms_dict['rot'].append( moment_transform[:3,:3] * atom._gen_symop.time_reversal )
+            moment_transforms_dict['col'].append( atom.color/256 )
+
 
         ### Cell edges
         edges = self.crystal.uvw2xyz(edges)
         edge_dir = edges[:,1,:] - edges[:,0,:]
         edge_pos = 0.5*(edges[:,1,:] + edges[:,0,:])
         edge_rot = RfromZ(edge_dir)
-        edge_transforms = [np.diag([0.1,0.1,ll]) for ll in np.linalg.norm(edge_dir, axis=-1)]
-        edge_colors = np.repeat([colors[0]], len(edge_pos), axis=0)
+        edge_transforms = [eR @ np.diag([0.1,0.1,ll]) for ll, eR in zip(np.linalg.norm(edge_dir, axis=-1), edge_rot)]
+        edge_colors = np.repeat([[0.5,0.5,0.5]], len(edge_pos), axis=0)
 
+        visuals_transforms['edge']['pos'] = edge_pos
+        visuals_transforms['edge']['rot'] = edge_transforms
+        visuals_transforms['edge']['col'] = edge_colors
+
+
+        # Apply transforms
         try:
-            # Need to block updating until all positions/transforms/colors are set
-            with self._atoms_visual.events.data_updated.blocker():
-                self._atoms_visual.instance_positions = pos
-                self._atoms_visual.instance_transforms = transforms
-                self._atoms_visual.instance_colors = np.array(colors)/256.0
+            atoms_pos = []
+            for name, instanced_mesh_visual in self._base_visuals.items():
+                transforms = visuals_transforms[name]
 
-                self._atoms_visual.unfreeze()
-                self._atoms_visual.instance_descriptions = atoms
-                self._atoms_visual.freeze()
+                if not len(transforms["pos"]):
+                    continue
 
-            self._atoms_visual.events.data_updated()
+                # Need to block updating until all positions/transforms/colors are set
+                with instanced_mesh_visual.events.data_updated.blocker():
+                    shading_filter = self._shaders[name]
+                    instanced_mesh_visual.detach(shading_filter)
 
-            # Magnetic moments
-            with self._moments_visual.events.data_updated.blocker():
-                self._moments_visual.instance_positions = pos
-                self._moments_visual.instance_transforms = rotations
-                self._moments_visual.instance_colors = np.array(colors)/256.0
+                    instanced_mesh_visual.instance_positions = transforms["pos"]
+                    instanced_mesh_visual.instance_transforms = transforms["rot"]
+                    instanced_mesh_visual.instance_colors = transforms["col"]
 
-            self._moments_visual.events.data_updated()
+                    # instanced_mesh_visual.unfreeze()
+                    # instanced_mesh_visual.instance_descriptions = atoms
+                    # instanced_mesh_visual.freeze()
 
-            # Celle edges
-            with self._edge_visual.events.data_updated.blocker():
-                self._edge_visual.instance_positions = edge_pos
-                self._edge_visual.instance_transforms = edge_transforms
-                self._edge_visual.instance_colors = np.array(edge_colors)/256.0
+                    instanced_mesh_visual.attach(shading_filter)
+    
+                instanced_mesh_visual.events.data_updated()
 
-                self._edge_visual.unfreeze()
-                self._edge_visual.instance_descriptions = atoms
-                self._edge_visual.freeze()
+                if name.startswith("atom_"):
+                    atoms_pos.append(transforms["pos"])
 
-            self._edge_visual.events.data_updated()
+
+
+            # with self._atoms_visual.events.data_updated.blocker():
+            #     self._atoms_visual.instance_positions = pos
+            #     self._atoms_visual.instance_transforms = transforms
+            #     self._atoms_visual.instance_colors = np.array(colors)/256.0
+
+            #     self._atoms_visual.unfreeze()
+            #     self._atoms_visual.instance_descriptions = atoms
+            #     self._atoms_visual.freeze()
+
+            # self._atoms_visual.events.data_updated()
+
+            # # Magnetic moments
+            # with self._moments_visual.events.data_updated.blocker():
+            #     self._moments_visual.instance_positions = pos
+            #     self._moments_visual.instance_transforms = rotations
+            #     self._moments_visual.instance_colors = np.array(colors)/256.0
+
+            # self._moments_visual.events.data_updated()
+
+            # # Celle edges
+            # with self._edge_visual.events.data_updated.blocker():
+            #     self._edge_visual.instance_positions = edge_pos
+            #     self._edge_visual.instance_transforms = edge_transforms
+            #     self._edge_visual.instance_colors = np.array(edge_colors)/256.0
+
+            #     self._edge_visual.unfreeze()
+            #     self._edge_visual.instance_descriptions = atoms
+            #     self._edge_visual.freeze()
+
+            # self._edge_visual.events.data_updated()
         
 
-            self._structure_center = np.average(pos, axis=0)
-            self._largest_distance = np.abs(pos-self._structure_center).max()
+            self._structure_center = np.average(np.concatenate(atoms_pos, axis=0), axis=0)
+            self._largest_distance = np.abs(np.concatenate(atoms_pos, axis=0) - self._structure_center).max()
 
         except Exception as e:
             self.logger.error(traceback.format_exc())
@@ -511,7 +602,7 @@ class AdvancedVispySupercellPlotter(object):
         ### Edges
 
 
-        return self._atoms_visual, self._moments_visual
+        return self._base_visuals
 
     def draw_coordinate_system(self) -> dict[str, visuals.Compound]:
         '''Draw and handle coordinate systems.'''
@@ -519,6 +610,9 @@ class AdvancedVispySupercellPlotter(object):
         axes_XYZ = self.plot_arrows(positions=np.zeros((3,3)), directions=np.eye(3), colors=np.zeros((3,3)))    # black XYZ
         axes_UVW = self.plot_arrows(positions=np.zeros((3,3)), directions=self.crystal.A.T, colors=np.eye(3))   # rgb ABC
         axes = {'xyz': axes_XYZ, 'uvw': axes_UVW}
+
+        self.attach_shadingFilter(axes_XYZ, "compass_XYZ", instanced=False)
+        self.attach_shadingFilter(axes_UVW, "compass_ABC", instanced=False)
 
 
         def get_translation_scale(axis_name: str):
@@ -617,6 +711,14 @@ class AdvancedVispySupercellPlotter(object):
 
             # Update distance to keep the same size of the structure
             self.view.camera.distance *= np.tan(np.radians(fov_before)/2) / np.tan(np.radians(self.view.camera.fov)/2)
+
+        ### SHADING FILTER
+        
+        if event.key == 's':
+            new_shading = next(self.config.shading_cycle)
+            for shading_filter in self._shaders.values():
+                shading_filter.shading = new_shading
+                self.canvas.update()
 
         ### BOUNDARIES
         if (event.key == 'x'):
@@ -770,86 +872,136 @@ class AdvancedVispySupercellPlotter(object):
 
         return atoms, edges
     
-    def _prepare_meshes(self, names: list[str]=[]):        
+    def _prepare_meshes(self, meshes_names: dict[str, str]) -> dict[str, visuals.InstancedMesh]:        
         '''Prepare base visuals that will be used to depict the crystal.
         
         '''
         # So now the main deal is that we will have just one mesh,
         # and atoms positions and their size will be in the multiple transforms
 
-        ### ATOMS ###
+        # Needs to implement
+        # [x] tube
+        # [x] sphere
+        # [x] arrow
+        # [] spring
+        # [x] spot
 
+        ### Meshes ###
 
-        # Base mesh is dinosaur
-        # from vispy.io import imread, load_data_file, read_mesh
+        def _prepare_spot():
+            from vispy.io import imread, load_data_file, read_mesh
 
-        # mesh_path = load_data_file('spot/spot.obj.gz')
-        # texture_path = load_data_file('spot/spot.png')
-        # vertices, faces, normals, texcoords = read_mesh(mesh_path)
-        # vertices *= 2  # Scale the mesh to make it larger
-        # ### The texture needs to be attached to the Instanced mesh
-        # texture = np.flipud(imread(texture_path))
-        # texture_filter = TextureFilter(texture, texcoords)
-
-        # Base mesh is sphere
-        N = 8
-        sphere = visuals.Sphere(radius=1, method='latitude', cols=N, rows=N)
-        mesh = sphere._mesh.mesh_data
-        vertices, faces = mesh.get_vertices(), mesh.get_faces()
-
-        self._atoms_visual = visuals.InstancedMesh(vertices=vertices, faces=faces,
-                                        instance_positions = [0,0,0],
-                                        instance_transforms = np.eye(3),
-                                        instance_colors= [1,1,1],
-                                        parent=self.view.scene)
+            mesh_path = load_data_file('spot/spot.obj.gz')
+            texture_path = load_data_file('spot/spot.png')
+            vertices, faces, normals, texcoords = read_mesh(mesh_path)
+            # visuals.Mesh()
+            ### The texture needs to be attached to the Instanced mesh
+            texture = np.flipud(imread(texture_path))
+            texture_filter = TextureFilter(texture, texcoords)
         
-        self._atoms_visual.interactive = True
-        # self._atoms_visual.attach(Alpha(0.75))
-        self._atoms_visual.attach( self.default_shading_filter() )
-        # self._atoms_visual.attach(texture_filter)
+            return vertices, faces, texture_filter
 
-        ### MAGNETIC MOMENTS ###
-        self.spin_scale = 1
-        self.arrow_width = 0.1
-        self.arrow_head_size = 3
+        def _prepare_sphere():
+            N = 16
+            sphere = visuals.Sphere(radius=1, method='latitude', cols=N, rows=N)
+            mesh = sphere._mesh.mesh_data
+            return mesh.get_vertices(), mesh.get_faces()
 
-        tail_width = 0.1
-        head_width = 3*tail_width
+        def _prepare_arrow():
+            self.spin_scale = 1
+            self.arrow_width = 0.1
+            self.arrow_head_size = 3
 
-        cap_res = 1
-        ang_res = 32
-        # Length of the arrows is such that they stick out of the atoms
-        # length = max([1.5*atom.radius/atom.s for atom in self.crystal.atoms_unique if atom.is_mag])
-        points, radii = self._arrow_points(length=1.5, 
-                                            tail_width=tail_width, 
-                                            head_length=0.5, head_width=head_width, 
-                                            overhang=-0.05, 
-                                            cap_res=cap_res, head_res=16)
-        arrow = visuals.Tube(points=points, radius=radii, tube_points=ang_res)
-        mesh = arrow.mesh_data
-        self._moments_visual = visuals.InstancedMesh(vertices=mesh.get_vertices(), faces=mesh.get_faces(),
-                                                     instance_positions = [0,0,0],
-                                                     instance_transforms = np.eye(3),
-                                                     instance_colors= [1,1,1],
-                                                     parent=self.view.scene)
-                
-        self._moments_visual.interactive = True
-        self._moments_visual.attach(self.default_shading_filter())
+            tail_width = 0.1
+            head_width = 3*tail_width
 
-        ### CELL EDGES ###
-        edge = visuals.Tube(points=[[0,0,-1e-3], [0,0,0], [0,0,1], [0,0,1+1e-3]], radius=[0,1,1,0], tube_points=ang_res)
-        mesh = edge.mesh_data
-        self._edge_visual = visuals.InstancedMesh(vertices=mesh.get_vertices(), faces=mesh.get_faces(),
-                                                     instance_positions = [0,0,0],
-                                                     instance_transforms = np.eye(3),
-                                                     instance_colors= [1,1,1],
-                                                     parent=self.view.scene)
-                
-        self._edge_visual.attach(self.default_shading_filter())
-
-        ### BONDS ###
+            cap_res = 1
+            ang_res = 32
+            # Length of the arrows is such that they stick out of the atoms
+            # length = max([1.5*atom.radius/atom.s for atom in self.crystal.atoms_unique if atom.is_mag])
+            points, radii = self._arrow_points(length=1.5, 
+                                                tail_width=tail_width, 
+                                                head_length=0.5, head_width=head_width, 
+                                                overhang=-0.05, 
+                                                cap_res=cap_res, head_res=16)
+            arrow = visuals.Tube(points=points, radius=radii, tube_points=ang_res)
+            
+            return arrow.mesh_data.get_vertices(), arrow.mesh_data.get_faces()
         
-        return
+
+        def _prepare_tube():
+            '''Tube length is 1, radius is 1, position is in the middle, orientation along z.'''
+            cap_res = 8
+            ang_res = 32
+            cap_width = 0.025
+
+            # Points of the cap axtend from 0 to cap_width/2
+            points_cap = np.sin(np.linspace([0,0,-np.pi/2], [0,0,0], cap_res+1))*cap_width/2
+            points_cap1 =  points_cap       - [0,0, 0.5]
+            points_cap2 = -points_cap[::-1] + [0,0, 0.5]
+
+            radii_cap1 = np.sin(np.linspace(0, np.pi/2, cap_res+1))
+            radii_cap2 = radii_cap1[::-1]
+
+            tube = visuals.Tube(points=list(points_cap1)+list(points_cap2), radius=list(radii_cap1)+list(radii_cap2), tube_points=ang_res)
+            # tube = visuals.Tube(points=[[0,0,-0.5], [0,0,0.5]], radius=[1,1], tube_points=ang_res)
+
+            return tube.mesh_data.get_vertices(), tube.mesh_data.get_faces()
+
+        ### Prepare instanced meshes ###
+        base_visuals = {}
+        gen_funs = dict(sphere=_prepare_sphere, spot=_prepare_spot,
+                        tube=_prepare_tube, arrow=_prepare_arrow,
+                        spring=_prepare_sphere)
+
+        for label, mesh_name in meshes_names.items():
+            if mesh_name not in gen_funs:
+                raise NotImplementedError(f"Requested mesh `{mesh_name}` is not implemented.")
+            
+            mesh = gen_funs[mesh_name]()
+
+            vertices = mesh[0]
+            faces = mesh[1]
+
+            visual = visuals.InstancedMesh(
+                vertices=vertices, faces=faces,
+                instance_positions = [0,0,0],
+                instance_transforms = np.eye(3),
+                instance_colors = [0.5, 0.5, 0.5],
+                face_colors = np.ones((len(faces), 3)),
+                parent=self.view.scene)
+            
+            self.attach_shadingFilter(visual, label, instanced=True)
+
+            if label.startswith('atom') or label.startswith('coupling'):
+                visual.interactive = True
+
+            if len(mesh) == 3:
+                texture_filter = mesh[2]
+                visual.attach(texture_filter)
+                
+            base_visuals.update({label: visual})
+
+        
+
+
+        # ### CELL EDGES ###
+        # edge = visuals.Tube(points=[[0,0,-1e-3], [0,0,0], [0,0,1], [0,0,1+1e-3]], radius=[0,1,1,0], tube_points=ang_res)
+        # mesh = edge.mesh_data
+        # self._edge_visual = visuals.InstancedMesh(vertices=mesh.get_vertices(), faces=mesh.get_faces(),
+        #                                              instance_positions = [0,0,0],
+        #                                              instance_transforms = np.eye(3),
+        #                                              instance_colors= [1,1,1],
+        #                                              parent=self.view.scene)
+                
+        # self._edge_visual.attach(self.default_shading_filter())
+
+        # ### BONDS ###
+
+        print('INITIATED MESHES')
+        print(base_visuals)
+        
+        return base_visuals
         
     def plot_labels(self,
                     positions: np.ndarray,
@@ -873,6 +1025,8 @@ class AdvancedVispySupercellPlotter(object):
     def _arrow_points(length, tail_width, head_length, head_width, 
                       overhang=0.05, head_Bezier_control=[[0.4], [0.8]],
                       cap_res=1, head_res=16) -> tuple[np.ndarray, np.ndarray]:
+        '''Helper function that calculates the (z,r) coordinates of an arrow
+        in cylindrical coordinates.'''
         points_cap = [[0,0, (1-np.cos(th))*tail_width/2] for th in np.linspace(0, np.pi/2, cap_res+1)]
         points_tail = [[0,0,length-head_length+overhang]]
 
@@ -931,7 +1085,7 @@ class AdvancedVispySupercellPlotter(object):
             mesh_rot = (m2.matrix @ m1.matrix)[:3,:3] @ mesh.get_vertices().T
             mesh.set_vertices(mesh_rot.T)
             obj = visuals.Mesh(vertices=mesh.get_vertices(), faces=mesh.get_faces(), color=color)
-            obj.attach(self.default_shading_filter())
+
             
             # m2.translate(position)
             # obj.transform = m2 * m1
