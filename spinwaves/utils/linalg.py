@@ -149,10 +149,11 @@ def cartesian2spherical(xyz) -> list[float, float, float]:
 
     phi in (-pi : pi)
     '''
-    xy = xyz[0]**2 + xyz[1]**2
-    r = norm(xyz)
-    theta = np.arctan2(np.sqrt(xy), xyz[2])
-    phi = np.arctan2(xyz[1], xyz[0])
+    xyz = np.array(xyz)
+    xy = xyz[...,0]**2 + xyz[...,1]**2
+    r = np.linalg.norm(xyz, axis=-1)
+    theta = np.arctan2(np.sqrt(xy), xyz[...,2])
+    phi = np.arctan2(xyz[...,1], xyz[...,0])
     return [r,theta,phi]
     
 def norm(x, **kwargs):
