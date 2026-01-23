@@ -25,7 +25,16 @@
   - https://mediapipe-studio.webapps.google.com/studio/demo/face_landmarker for gesture recognition and 3D navigation
 
 
-## Installation
+## Managing project with uv
+
+Moved the project to uv. In the new uv project include the following to install `spinwaves` in editable mode.
+
+```
+uv add path_to_spinwaves
+uv pip install -e add path_to_spinwaves
+```
+
+### Installation
 1. Create an empty virtual environment with the python version specified in `setup.py: python-version`
 2. Install `mikibox` locally with `python setup.py develop` or `pip install -e .`. The `develop`/`-e` option allows to modify the source files and adapt to current needs. If you want to install extra packages for full development utilities do `pip install -e .[dev]`.
 

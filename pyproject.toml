@@ -1,0 +1,33 @@
+[project]
+name = "spinwaves"
+version = "0.2.0"
+description = "Linear spin wave theory in python as in SpinW"
+authors = [
+    {name = 'Michal Stekiel', email = 'michal.stekiel@gmail.com'},
+    ]
+readme = "README.md"
+requires-python = ">=3.10,<3.11"
+dependencies = [
+    'numpy==1.23.5',
+    'matplotlib==3.5.2',
+    'scipy==1.9.1',
+    'vispy==0.12.1',
+    "pytest>=9.0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    'sphinx==5.0.2', 
+    'pandas==1.4.4'
+    ]
+
+
+
+[build-system]
+requires = ["uv_build>=0.9.18,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "spinwaves"
+module-root = ""
+
