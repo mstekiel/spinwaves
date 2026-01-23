@@ -8,6 +8,7 @@ spinwaves.egg*
 
 # Dirty tests
 pyopengl.py
+profile*
 
 # Some examples should be hidden
 LuFeO3/

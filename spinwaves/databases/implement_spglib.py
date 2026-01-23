@@ -3,14 +3,14 @@ Load various databases into a common interface.
 '''
 from ctypes.wintypes import RGB
 from dataclasses import dataclass
-import os
+from pathlib import Path
 import numpy as np
 
 from .database import db_entry, Database
 
 import spglib
 
-PATH = os.path.split(os.path.dirname(__file__))[0]
+SW_PATH = Path(__file__).parent.parent
 
 ####################################################################################################
 
@@ -48,7 +48,7 @@ class Database_SG(Database):
     Wrapper over the `spglib` library.
     '''
 
-    source_filename = PATH+'\\..\\data_tables\\spglib_SGnames.dat'
+    source_filename = SW_PATH / 'data_tables/spglib_SGnames.dat'
     entry_type = SG_entry
     header = ''
     entries = {}
@@ -99,7 +99,7 @@ class Database_MSG(Database):
     Wrapper over the `spglib` library.
     '''
 
-    source_filename = PATH+'\\..\\data_tables\\spglib_MSGnames.dat'
+    source_filename = SW_PATH / 'data_tables/spglib_MSGnames.dat'
     entry_type = MSG_entry
     header = ''
     entries = {}

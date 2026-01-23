@@ -2,14 +2,14 @@
 Load various databases into a common interface.
 '''
 from dataclasses import dataclass
-import os
+from pathlib import Path
 import numpy as np
 
 from .database import db_entry, Database
 
 ##################################################################
 # Path where spinwaves is installed
-PATH = os.path.split(os.path.dirname(__file__))[0]
+SW_PATH = Path(__file__).parent.parent
 
 ##################################################################
 # atom.dat
@@ -39,7 +39,7 @@ class atom_entry(db_entry):
 class Database_atom(Database):
     '''Database of atomic properties used for plotting.'''
 
-    source_filename = PATH+'\\..\\data_tables\\atom.dat'
+    source_filename = SW_PATH / 'data_tables/atom.dat'
     entry_type = atom_entry
     header = ''
     entries = {}
@@ -83,7 +83,7 @@ class isotope_entry(db_entry):
 class Database_isotope(Database):
     '''Database of atomic isotopes properties for neutron scattering.'''
 
-    source_filename = PATH+'\\..\\data_tables\\isotope.dat'
+    source_filename = SW_PATH / 'data_tables/isotope.dat'
     entry_type = isotope_entry
     header = ''
     entries = {}
@@ -123,7 +123,7 @@ class magion_entry(db_entry):
 class Database_magion(Database):
     '''Database of magnetic ions properties utilized in neutron scattering.'''
 
-    source_filename = PATH+'\\..\\data_tables\\magion.dat'
+    source_filename = SW_PATH / 'data_tables/magion.dat'
     entry_type = magion_entry
     header = ''
     entries = {}
@@ -158,7 +158,7 @@ class color_entry(db_entry):
 class Database_color(Database):
     '''Database of color RGB values.'''
 
-    source_filename: str = PATH+'\\..\\data_tables\\color.dat'
+    source_filename: str = SW_PATH / 'data_tables/color.dat'
     entry_type = color_entry
     header = ''
     entries = {}
@@ -201,7 +201,7 @@ class xrayion_entry(db_entry):
 class Database_xrayion(Database):
     '''Database of ionic form factors for Xray scattering'''
 
-    source_filename: str = PATH+'\\..\\data_tables\\xrayion.dat'
+    source_filename: str = SW_PATH / 'data_tables/xrayion.dat'
     entry_type = xrayion_entry
     header = ''
     entries = {}

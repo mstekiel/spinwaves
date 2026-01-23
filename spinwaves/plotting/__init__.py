@@ -43,7 +43,6 @@ def plot_structure( sws: 'SpinW',
         from .supercell_plotter_qtgraph import QtgraphSupercellPlotter as SCPlotter
 
     # Run chosen application to render the structure
-    plotter = SCPlotter(sws)
-    plotter.plot(plot_options)
+    plotter = SCPlotter(sws, plot_options=plot_options)
     
     return plotter.deploy()
