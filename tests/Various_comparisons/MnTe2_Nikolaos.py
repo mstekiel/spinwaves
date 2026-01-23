@@ -5,12 +5,13 @@ from spinwaves import Crystal, MSG, Atom, Coupling, SpinW
 from spinwaves.plotting import plot_structure   # this takes some serious time
 
 from pathlib import Path
+
+from spinwaves.utils.linalg import DMI
 PATH_PLOTS = Path(r'C:\Users\Stekiel\Documents\GitHub\spinwaves\tests\Various_comparisons')
 
 
-
 def reproduce_MnTe2_Nikolaos():
-    """Spin wave spectrum of the CrSb altermagnet measured with RIXS"""
+    """Spin wave spectrum of MnTe2 antialtermagnet?"""
 
     ### SETUP
     P63ommc = MSG.from_xyz_strings(generators=[
@@ -28,32 +29,38 @@ def reproduce_MnTe2_Nikolaos():
         'n':(0,0,1)
     }
 
-    K = -0.5
-    J1, J2 = 0.5, -1
+    K = -1
+    J1, J2, J3 = 2, -1, -1
+    J4, J5 = -0.5, 0.3
     J7AA = -3
     couplings = [
-        Coupling(label='K', id1=0, id2=1, n_uvw=[0,0,0], J=K*np.eye(3,3) + np.diag([0.3,0,0.5])),
+        Coupling(label='K', id1=0, id2=0, n_uvw=[0,0,0], J=K*np.eye(3,3)),
         Coupling(label='J1', id1=0, id2=3, n_uvw=[0,0,0], J=J1*np.eye(3,3)),
+        # Coupling(label='J1', id1=0, id2=3, n_uvw=[0,0,0], J=J1*np.eye(3,3)-0.1*DMI([0,0,1])),
         Coupling(label='J2', id1=0, id2=0, n_uvw=[1,0,0], J=J2*np.eye(3,3)),
+        Coupling(label='J3', id1=0, id2=0, n_uvw=[1,1,0], J=J3*np.eye(3,3)),
+        Coupling(label='J4', id1=0, id2=3, n_uvw=[0,0,1], J=J4*np.eye(3,3)),
+        # Coupling(label='J5', id1=0, id2=0, n_uvw=[1,1,1], J=J5*np.eye(3,3)),
         # Coupling(label='J7AA', id1=0, id2=0, n_uvw=[1,-1,1], J=J7AA*np.eye(3,3)),
     ]
 
     ### CALCULATIONS
     sw = SpinW(crystal=crystal, magnetic_modulation=magnetic_modulation, couplings=couplings)
 
-    print(sw.couplings_all)
+    # print(sw.couplings_all)
 
     show_struct = False
     if show_struct:
     #     plot_opts = dict(boundaries=([-0.5, 1.5],[-0.5,1.5],[-0.5,1]), coupling_colors={'J1a2': 'Cyan'})
-        plot_opts = dict(boundaries=([-1.1, 1.1],[-1.1,1.1],[-1.1,1.1]), 
-                         coupling_colors={'J1': 'Green', 'Jdd':'Black', 'Jaa':'Gray', 'J2b':'Red', 'J2d':'Blue'},
+        plot_opts = dict(boundaries=([-0.1, 1.1],[-0.1,1.1],[-0.1,1.1]), 
+                         coupling_colors={'J1': 'Green', 'J2':'Orange', 'J3':'Yellow', 'J4':'Red', 'J5':'Blue'},
                          spin_scale=2)
         plot_structure(sw, engine='vispy', plot_options=plot_opts)
 
 
     N = 100
     Qpath, Qinc = sw.crystal.make_qPath([[0,0,1], [0,0,1.5], [1,1,0], [1.5,1.5,0], [1,1,1], [1.5,1.5,1.5]], N, return_Qinc=True)
+    Qpath, Qinc = sw.crystal.make_qPath([[0,0,1], [0,0,1.5], [0,0.5,1.5], [0,0,1], [0.5, 0.5, 1.5], [0,0,1.5], [0,0.5,1.5], [0.5, 0.5, 1.5]], N, return_Qinc=True)
 
     excitations = sw.calculate_excitations(Qhkl = Qpath)
 
@@ -64,7 +71,7 @@ def reproduce_MnTe2_Nikolaos():
     fig.suptitle('MnTe2 Biniskos')
 
     xticks = Qinc[::N]
-    xticklabels = ['$\Gamma$', 'R', 'M', '$\Gamma$', 'M', '?']
+    xticklabels = '$\Gamma$ X M $\Gamma$ R X M R'.split()
 
     ylim = (0, 80)
     titles = ['dispersions', f'$Re(S_{{xx}}+S_{{yy}}+S_{{zz}})$', '$Im(S_{{xy}}-S_{{yx}})$']
@@ -86,8 +93,8 @@ def reproduce_MnTe2_Nikolaos():
     pcm = axes[2].pcolormesh(Qinc, Erange, spectrum, cmap='RdBu')
     cbar = fig.colorbar(pcm, ax=axes[2], orientation='vertical', extend='max', label='intensity (a.u.)')
 
-
-    fig.savefig(f'{PATH_PLOTS}\CrSb_Biniskos2025.png')
+    print('Saving MnTe2_Nikolaos.png')
+    fig.savefig(PATH_PLOTS / "MnTe2_Nikolaos.png")
     
     return
 
