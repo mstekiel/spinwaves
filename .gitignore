@@ -13,6 +13,7 @@ uv.lock
 # Dirty tests
 pyopengl.py
 profile*
+dirty/
 
 # Some examples should be hidden
 LuFeO3/

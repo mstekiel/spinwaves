@@ -1,3 +1,4 @@
+from collections import defaultdict
 from copy import deepcopy
 from itertools import cycle
 import logging
@@ -8,10 +9,12 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..spinw import SpinW
+    from ..coupling import Coupling
     from ..crystal import Atom, Crystal
     from ..symmetry import mSymOp
 
-from ..utils.linalg import cartesian2spherical, RfromZ
+from ..utils.linalg import cartesian2spherical, RfromZ, Ry
+from ..databases import color_data
 
 from vispy.scene import SceneCanvas
 from vispy.scene.widgets import ViewBox
@@ -26,24 +29,49 @@ from vispy.app import Timer
 
 
 # DEV NOTES
-# [ ] Check out InstancedMech visual. It stores the same mesh for multiple objects.
+# [X] Check out InstancedMech visual. It stores the same mesh for multiple objects.
 # InstancedMeshdef.__init__(self, *args, instance_positions, instance_transforms, instance_colors=None, **kwargs)
 # So objects can be at different positions and be rescaled and rotated, and have various colors.
 # Apparently can vasty speed up rendering.
 # Objects that can share a mesh: [ALL atoms, arrows depicting moments of equal length, unit cell edges]
 #
 # [ ] Implement objects picking. For that I might need to add descriptions to instancedmesh.
+# [] Deal with inversion properly when drawing meshes
 
 def atom_to_vispyTransform(atom: 'Atom', sw: 'SpinW') ->MatrixTransform:
+    '''Determine MatrixTransform that describes how the `atom` position
+    and orientation relates by symmetry to the base atom.'''
     # rotate scale translate
     mm = MatrixTransform()
+
     g_xyz = sw.crystal.A @ atom._gen_symop.matrix @ np.linalg.inv(sw.crystal.A)
+
+    # -1 involved, sip it and fix the g_xyz
+    # if  np.linalg.det(atom._gen_symop.matrix) == -1:
+        # M = M @ Ry(np.pi)
+        # g_xyz *= -1
 
     mm.matrix[:3,:3] = g_xyz
     mm.translate(sw.crystal.A @ atom.r)
     return mm
 
+def moment_to_vispyTransform(atom: 'Atom', sw: 'SpinW') ->MatrixTransform:
+    '''Vispy transforms by m = m @ M. So new transforms com on the left and transposed,
+    meaning we stack everything on the right and transpose final result'''
+    # rotate scale translate
+    mm = MatrixTransform()
 
+    Mz = RfromZ(atom.m)
+    mm.matrix[:3,:3] = np.transpose(Mz)
+    mm.translate(sw.crystal.A @ atom.r)
+
+    return mm
+
+# The options should be grouped:
+# - scene
+#   - light, boundaries
+# - objects:
+#   - compasXYZ, compasUVW, atoms, moments, edges
 class OptionsManager(object):
     '''Interface for the plotter options. 
     
@@ -84,15 +112,16 @@ class OptionsManager(object):
         ('boundaries_v3_lim_2', 1.0),
         ('scale_atom_radius', 1.0),
         ('scale_moment_length', 1.0),
-        ('coordinates_xyz_scale', 33),
-        ('coordinates_xyz_position', 3),
-        ('coordinates_xyz_offset_x', -88),
-        ('coordinates_xyz_offset_y', -66),
-        ('coordinates_uvw_scale', 11),
-        ('coordinates_uvw_position', 4),
-        ('coordinates_uvw_offset_x', 88),
-        ('coordinates_uvw_offset_y', -66),
+        ('compass_XYZ_scale', 22),
+        ('compass_XYZ_position', 3),
+        ('compass_XYZ_offset_x', -88),
+        ('compass_XYZ_offset_y', -66),
+        ('compass_UVW_scale', 22),
+        ('compass_UVW_position', 4),
+        ('compass_UVW_offset_x', 88),
+        ('compass_UVW_offset_y', -66),
         ('shading_cycle', cycle(['flat', None, 'smooth'])),
+        ('mesh_opts', dict())
     ]
     def __init__(self, options: dict[str, Any]={}):
         # Logger
@@ -312,7 +341,7 @@ class AdvancedVispySupercellPlotter(object):
     _atom_descriptions: list[str] = []
     _shaders: dict[str, ShadingFilter] = {}
 
-    def __init__(self, sws: 'SpinW', config: dict={}):
+    def __init__(self, sws: 'SpinW', plot_options: dict={}):
         # This is too long
         from vispy import use
 
@@ -334,7 +363,7 @@ class AdvancedVispySupercellPlotter(object):
         # self.view.camera = TurntableCamera()
         ##############################################################################################
         #### Configuration file
-        self.config = OptionsManager()
+        self.config = OptionsManager(plot_options)
 
         ### Light configuration
         self._light_transform = deepcopy(self.view.camera.transform) 
@@ -346,15 +375,15 @@ class AdvancedVispySupercellPlotter(object):
         self.update_headlight() # Need to activate the headlight on the launch
 
         ### Boundaries configuration
-        self.config.events.boundaries.connect(self.draw_supercell)
-        self.config.events.scale.connect(self.draw_supercell)
+        self.config.events.boundaries.connect(self.fill_boundaries)
+        self.config.events.scale.connect(self.fill_boundaries)
 
         # Enable object picking
         self.selector = SelectionManager()
-        self.selector.events.cleared.connect(self.draw_supercell)
+        self.selector.events.cleared.connect(self.fill_boundaries)
 
         # Pressing events
-        self.canvas.events.mouse_press.connect(self.on_mouse_press)
+        # self.canvas.events.mouse_press.connect(self.on_mouse_press)   # Disable for now
         self.canvas.events.key_press.connect(self.on_key_press)
 
         self.timer = Timer(interval=1./60)
@@ -369,44 +398,181 @@ class AdvancedVispySupercellPlotter(object):
         # - UC edges
         # - compass_XYZ
         # - compass_ABC
+        #
+        ### Yes and extend the above
+        # Add functionality to traverse the scene graph. Either natively by going
+        # through scene nodes or make a separate dictionary that contains basic meshes
+        # and their transformations, positions, colors.
 
-        # self._atoms = list()
-        # self._atom_descriptions = list()
+        # Lookup table for the objects rendered in the view
+        self.view_objects: dict[str, visuals.visuals.BaseVisual] = dict()
 
-        # We plot atoms, their moments, couplings, cell edges
-        base_meshes_names = {'edge': 'tube', 'compass_XYZ': 'arrow', 'compass_ABC': 'arrow'}
-        for a in sws.crystal.atoms_unique:
-            base_meshes_names.update({f"atom_{a.label}": getattr(a, 'atom_mesh', 'sphere')})
-            if a.is_mag:
-                base_meshes_names.update({f"moment_{a.label}": getattr(a, 'moment_mesh', 'arrow')})
+        # Will prepare atoms, moments, couplings and edges of the unit cell
+        # fill the view_objects table but not plot the items, i.e. will not assign parent
+        UC_objects, UC_transforms = self.prepare_unit_cell()
+        self.UC_transforms = UC_transforms
+        self.view_objects.update(UC_objects)
 
-        for cpl in sws.couplings:
-            base_meshes_names.update({f"coupling_{cpl.label}": getattr(cpl, 'mesh', 'spring')})
+        # Will prepare compasses
+        compasses = self.draw_compasses()
+        self.view_objects.update(compasses)
 
-        self._base_visuals = self._prepare_meshes(base_meshes_names)
+        self.logger.info('Plotter initiated with folowing objects: '+self.view_objects.__repr__())
 
+        # This goes through the objects positions and will extend
+        # or reduce the positions array, and plot them, i.e. assig parent scene
+        self.fill_boundaries()
 
-        print('CONSTRUCTOR: ', self._shaders)
+    def fill_boundaries(self, *args, **kwargs):
+        '''Fill the supercell. Takes the objects from the unit cell and applies translations
+        with the boundaries of the unit cell.
+        '''
+        self.logger.warning(f"With args? {args}")
+        self.logger.warning(f"With kwargs? {kwargs}")
 
-        # Draw the main objects
-        self.draw_coordinate_system()
-        self.draw_supercell()
-
-    def plot(self, plot_options: dict[str, Any]):
-        self.config.set(**plot_options)
-        return self.draw_supercell()
-    
-    def deploy(self):
-        return self.launch()
-
-    def launch(self, plot_options: dict={}):
-        # Update the scene in this functions, so it triggers all connected events
-        self.view.camera.center = self._structure_center
-        self.view.camera.distance = 2*self._largest_distance / np.tan(np.radians(self.view.camera.fov)/2)
-        self.logger.warning(f'Center = {self._structure_center}')
-        self.logger.warning(f'Distance = {self._largest_distance}')
+        UC_translations_UVW = np.mgrid[
+            self.config.boundaries_v1_lim_1:self.config.boundaries_v1_lim_2+1,
+            self.config.boundaries_v2_lim_1:self.config.boundaries_v2_lim_2+1,
+            self.config.boundaries_v3_lim_1:self.config.boundaries_v3_lim_2+1
+            ].reshape((3,-1))       # Now this is gonna be shape (3, Ncells)
         
-        self.canvas.app.run()
+        UC_translations_XYZ = np.dot(self.crystal.A, UC_translations_UVW).T
+        largest_distance = 1
+        for label, UC_transforms in self.UC_transforms.items():
+            # Need to make sure those repeat and reshape operations will
+            # keep the same order
+            visual = self.view_objects[label]
+            transforms = np.array([tt.matrix for tt in UC_transforms])
+
+            positions = transforms[:,3,:3][:,None,:] + UC_translations_XYZ[None,:,:]
+            instance_positions = positions.reshape((-1,3))
+            
+            instance_transforms = transforms[:,:3,:3].repeat(len(UC_translations_XYZ), axis=0)
+
+            color = visual.instance_colors[0]
+            instance_colors = np.repeat([color], len(instance_positions), axis=0)
+
+
+
+            # Need to block updating until all positions/transforms/colors are set
+            with visual.events.data_updated.blocker():
+                shading_filter = self._shaders[label]
+                visual.detach(shading_filter)
+
+                visual.instance_positions = instance_positions
+                visual.instance_transforms = instance_transforms
+                visual.instance_colors = instance_colors          
+
+                # instanced_mesh_visual.unfreeze()
+                # instanced_mesh_visual.instance_descriptions = atoms
+                # instanced_mesh_visual.freeze()
+
+                visual.attach(shading_filter)
+
+            # visual.events.data_updated()
+            visual.mesh_data_changed()
+            # visual.parent = self.view
+
+            largest_distance = np.max([largest_distance, np.linalg.norm(instance_positions, axis=1).max()])
+
+        # TODO Enable different modes of operation: center on boundaries center, UC center, ...
+        self.view.camera.center = np.dot(self.crystal.A, [0.5,0.5,0.5])
+        self.view.camera.distance = largest_distance / np.tan(np.radians(self.view.camera.fov)/2)
+        # self.logger.warning(f'Center = {self._structure_center}')
+        # self.logger.warning(f'Distance = {self._largest_distance}')
+
+
+
+        return
+
+    def prepare_unit_cell(self) -> tuple[dict[str, list[MatrixTransform]], dict[str, visuals.visuals.BaseVisual]]:
+        '''Defines objects, their positions and orientation within the unit cell.
+        Helper function to work in tandem with `fill_supercell`, such that the latter
+        will just translate the content of the UC to make SC.'''
+
+        UC_objects = dict()
+
+        ### ATOMS and MOMENTS
+        # Prepare base mesh for unique atoms
+        # _prepare_mesh should make instance_* empty tables
+        atom_labels = []
+        for atom in self.crystal.atoms_unique:
+            atom_labels.append(atom.label)
+
+            # Make default
+            atom_mesh_opts =  dict(
+                type = 'sphere',
+                color = atom.color
+            ).update(self.config.mesh_opts[atom.label])
+
+
+            mesh = self._prepare_mesh(f'atom_{atom.label}', atom_mesh_opts)
+            UC_objects[f'atom_{atom.label}'] = mesh
+
+            if atom.is_mag:
+                moment_mesh_opts =  dict(
+                    type = 'arrow',
+                    color = atom_mesh_opts['color']
+                )
+                mesh = self._prepare_mesh(f'moment_{atom.label}', moment_mesh_opts)
+                UC_objects[f'moment_{atom.label}'] = mesh
+
+        # Make transformations according to the symmetry
+        UC_transforms = defaultdict(list)
+        for atom in self.crystal.atoms_all:
+            label_unique = next(al for al in atom_labels if atom.label.startswith(al))
+
+            mt = atom_to_vispyTransform(atom, self.spinw)
+            UC_transforms[f"atom_{label_unique}"].append(mt)
+
+            if atom.is_mag:
+                mt = moment_to_vispyTransform(atom, self.spinw)
+                UC_transforms[f"moment_{label_unique}"].append(mt)
+
+
+        ### COUPLINGS
+        # TODO
+
+        ### EDGES
+        edges_mesh_opts =  dict(
+                    type = 'tube',
+                    color = 'gray'
+                ).update(self.config.mesh_opts['edges'])
+
+        mesh = self._prepare_mesh(f'edges', edges_mesh_opts)
+        edges = [[[0,0,0], dir] for dir in np.eye(3)]
+        edges = self.crystal.uvw2xyz(edges)
+        edge_dir = edges[:,1,:] - edges[:,0,:]
+        edge_pos = 0.5*(edges[:,1,:] + edges[:,0,:])
+        edge_rot = RfromZ(edge_dir)
+
+        UC_objects['edges'] = mesh
+
+        for eP, eR in zip(edge_pos, edge_rot):
+            length = 2*np.linalg.norm(eP)
+            mm = MatrixTransform()
+            mm.matrix[:3,:3] = eR @ np.diag([0.1,0.1,length])
+            mm.translate(eP)
+            UC_transforms["edges"].append(mm)
+
+
+        
+        # # The following snippet should prepare the meshes according to options
+        # # and fill the view_objects accordingly
+        # for label, opts in self.config.mesh_opts.items():
+        #     if label in [a.label for a in self.crystal.atoms_unique]:
+        #         print(f"Setting atom {label} opts with:", opts)
+        #         self.draw_atom(opts)
+        #     if label in [cpl.label for cpl in self.spinw.couplings]:
+        #         print(f"Setting coupling {label} opts with:", opts)
+        #         self.draw_coupling(opts)
+
+        return UC_objects, UC_transforms
+    
+    
+    def deploy(self):      
+        return self.canvas.app.run()
+        
     
     def attach_shadingFilter(self, object, object_key: str, instanced: bool=False):
         '''Attach shading filter to the base object.'''
@@ -464,6 +630,7 @@ class AdvancedVispySupercellPlotter(object):
     
     ### LIGHT HANDLING
     def update_light_dir(self, event=None):
+        '''Update the light direction in the scene, including whether the headlight is on.'''
         if self.config.light_headlight_on:
             self._light_dir_inv = self._light_transform.imap(self.config.light_dir)
             self._update_shaders_with_headlight()
@@ -474,6 +641,7 @@ class AdvancedVispySupercellPlotter(object):
         self.canvas.scene.update()
 
     def update_headlight(self, event=None):
+        '''Change the light state between `headlight` and `static` according to the config.'''
         if self.config.light_headlight_on:
             self.view.scene.transform.changed.connect(self._update_shaders_with_headlight)
             self._update_shaders_with_headlight()
@@ -485,6 +653,8 @@ class AdvancedVispySupercellPlotter(object):
         self.canvas.scene.update()
 
     def _update_shaders_with_headlight(self, event=None):
+        '''Go through all registered shaders and update light direction
+        according to the viewing direction.'''
         transform = self.view.camera.transform
         for sf in self._shaders.values():
             sf.light_dir = transform.map(self._light_dir_inv)[:3]
@@ -492,14 +662,49 @@ class AdvancedVispySupercellPlotter(object):
     ### MAIN REDRAWING FUNCTION
     def draw_supercell(self, event=None):
         '''Draw the supercell with all atoms, edges and moments.'''
+        print('### DRAWING SUPERCELL ###')
+
+        object_meshes_names = {}
+        object_meshes_opts = {}
+        print('MESH_OPTS:', self.config.mesh_opts)
+        for a in self.spinw.crystal.atoms_unique:
+            a_opts = self.config.mesh_opts[a.label]
+            object_meshes_names.update({f"atom_{a.label}": a_opts.get('type', 'sphere')})
+            object_meshes_opts.update({f"atom_{a.label}": a_opts})
+            if a.is_mag:
+                # object_meshes_names.update({f"moment_{a.label}": getattr(a, 'moment_mesh', 'arrow')})
+                # object_meshes_names.update({f"moment_{a.label}": getattr(self.config.mesh_opts[a.label], 'type', 'sphere')})
+                object_meshes_names.update({f"moment_{a.label}": 'arrow'})
+                object_meshes_opts.update({f"moment_{a.label}": {}})
+
+        # object_meshes_names.update({"coupling": 'spring'})
+        for cpl in self.spinw.couplings:
+            cpl_opts =  self.config.mesh_opts[cpl.label]
+            object_meshes_names.update({f"coupling_{cpl.label}": cpl_opts.get('type', 'spring')})
+            object_meshes_opts.update({f"coupling_{cpl.label}": cpl_opts})
+        
+        
+        # object_visuals = self._prepare_meshes(object_meshes_names, object_meshes_opts)
+
+        object_visuals = dict()
+        for label in object_meshes_names:
+            mesh_opts = object_meshes_opts[label]
+            mesh_opts.update(dict(type=object_meshes_names[label]))
+            visual = self._prepare_mesh(mesh_opts)
+            object_visuals[label] = visual
+
+
+
         # TODO  magnetic moment length scale
         atoms, edges = self.get_objects_in_supercell()
 
-        visuals_transforms = {label:dict(pos=[], rot=[], col=[]) for label in self._base_visuals}
+        object_visuals_transforms = {label:dict(pos=[], rot=[], col=[]) for label in object_visuals}
 
-        def label_to_base(label):
+        def label_to_base(label, from_dict=None):
             '''Find the first visual that matches the `label`.'''
-            return next(v for k,v in visuals_transforms.items() if label.startswith(k))
+            if from_dict is None:
+                from_dict = object_visuals_transforms
+            return next(v for k,v in from_dict.items() if label.startswith(k))
           
         ### Atoms
         for atom in atoms:
@@ -509,39 +714,63 @@ class AdvancedVispySupercellPlotter(object):
             atom_transforms_dict['rot'].append( atom_transform[:3,:3]*atom.radius/2 )
             atom_transforms_dict['col'].append( atom.color/256 )
 
+            # Time reversal is problematic as it inverses coordinates, and mesh normals.
             moment_transforms_dict = label_to_base(f"moment_{atom.label}")
-            moment_transform = atom_to_vispyTransform(atom, self.spinw).matrix
+            moment_transform = moment_to_vispyTransform(atom, self.spinw).matrix
             moment_transforms_dict['pos'].append( moment_transform[3,:3] )
-            moment_transforms_dict['rot'].append( moment_transform[:3,:3] * atom._gen_symop.time_reversal )
+            moment_transforms_dict['rot'].append( moment_transform[:3,:3] )
             moment_transforms_dict['col'].append( atom.color/256 )
 
+        ### Couplings
+        # For each coupling find positions of end and beginning
+        # Then just use the edge plotting method
+        for cpl in self.spinw.couplings_all:
+            cpl_transforms_dict = label_to_base(f"coupling_{cpl.label}")
+
+            cpl_atom_r1 = self.crystal.uvw2xyz(self.spinw.magnetic_atoms[cpl.id1].r)
+            cpl_atom_r2 = self.crystal.uvw2xyz(self.spinw.magnetic_atoms[cpl.id2].r + cpl.n_uvw)
+
+            cpl_dir = cpl_atom_r2 - cpl_atom_r1
+            cpl_pos = 0.5*(cpl_atom_r2 + cpl_atom_r1)
+            cpl_rot = RfromZ(cpl_dir)
+            cpl_transforms = cpl_rot @ np.diag([1,1,np.linalg.norm(cpl_dir)])
+
+            cpl_opts_dict = label_to_base(f"coupling_{cpl.label}", object_meshes_opts)
+            cpl_color = cpl_opts_dict.get('color', 'Red')
+            cpl_color = color_data[cpl_color.capitalize()].RGB / 256
+
+            cpl_transforms_dict['pos'].append(cpl_pos)
+            cpl_transforms_dict['rot'].append(cpl_transforms)
+            cpl_transforms_dict['col'].append(cpl_color)
 
         ### Cell edges
+        base_visuals_transforms = {label:dict(pos=[], rot=[], col=[]) for label in object_visuals}
         edges = self.crystal.uvw2xyz(edges)
         edge_dir = edges[:,1,:] - edges[:,0,:]
         edge_pos = 0.5*(edges[:,1,:] + edges[:,0,:])
         edge_rot = RfromZ(edge_dir)
-        edge_transforms = [eR @ np.diag([0.1,0.1,ll]) for ll, eR in zip(np.linalg.norm(edge_dir, axis=-1), edge_rot)]
+        edge_transforms = [eR @ np.diag([0.02,0.02,ll]) for ll, eR in zip(np.linalg.norm(edge_dir, axis=-1), edge_rot)]
         edge_colors = np.repeat([[0.5,0.5,0.5]], len(edge_pos), axis=0)
 
-        visuals_transforms['edge']['pos'] = edge_pos
-        visuals_transforms['edge']['rot'] = edge_transforms
-        visuals_transforms['edge']['col'] = edge_colors
-
+        # base_visuals_transforms['edge']['pos'] = edge_pos
+        # base_visuals_transforms['edge']['rot'] = edge_transforms
+        # base_visuals_transforms['edge']['col'] = edge_colors
 
         # Apply transforms
         try:
             atoms_pos = []
-            for name, instanced_mesh_visual in self._base_visuals.items():
-                transforms = visuals_transforms[name]
+            for name, instanced_mesh_visual in object_visuals.items():
+                
+                transforms = object_visuals_transforms[name]
 
                 if not len(transforms["pos"]):
                     continue
 
                 # Need to block updating until all positions/transforms/colors are set
                 with instanced_mesh_visual.events.data_updated.blocker():
-                    shading_filter = self._shaders[name]
-                    instanced_mesh_visual.detach(shading_filter)
+                    print('### UPDATING INSTANCES')
+                    # shading_filter = self._shaders[name]
+                    # instanced_mesh_visual.detach(shading_filter)
 
                     instanced_mesh_visual.instance_positions = transforms["pos"]
                     instanced_mesh_visual.instance_transforms = transforms["rot"]
@@ -551,13 +780,39 @@ class AdvancedVispySupercellPlotter(object):
                     # instanced_mesh_visual.instance_descriptions = atoms
                     # instanced_mesh_visual.freeze()
 
-                    instanced_mesh_visual.attach(shading_filter)
+                    # instanced_mesh_visual.attach(shading_filter)
     
                 instanced_mesh_visual.events.data_updated()
 
                 if name.startswith("atom_"):
                     atoms_pos.append(transforms["pos"])
 
+            # for name, instanced_mesh_visual in self._base_visuals.items():
+                
+            #     transforms = base_visuals_transforms[name]
+
+            #     if not len(transforms["pos"]):
+            #         continue
+
+            #     # Need to block updating until all positions/transforms/colors are set
+            #     with instanced_mesh_visual.events.data_updated.blocker():
+            #         shading_filter = self._shaders[name]
+            #         instanced_mesh_visual.detach(shading_filter)
+
+            #         instanced_mesh_visual.instance_positions = transforms["pos"]
+            #         instanced_mesh_visual.instance_transforms = transforms["rot"]
+            #         instanced_mesh_visual.instance_colors = transforms["col"]
+
+            #         # instanced_mesh_visual.unfreeze()
+            #         # instanced_mesh_visual.instance_descriptions = atoms
+            #         # instanced_mesh_visual.freeze()
+
+            #         instanced_mesh_visual.attach(shading_filter)
+    
+            #     instanced_mesh_visual.events.data_updated()
+
+            #     if name.startswith("atom_"):
+            #         atoms_pos.append(transforms["pos"])
 
 
             # with self._atoms_visual.events.data_updated.blocker():
@@ -602,25 +857,30 @@ class AdvancedVispySupercellPlotter(object):
         ### Edges
 
 
-        return self._base_visuals
+        return object_visuals
 
-    def draw_coordinate_system(self) -> dict[str, visuals.Compound]:
+    def draw_compasses(self) -> dict[str, visuals.Compound]:
         '''Draw and handle coordinate systems.'''
 
-        axes_XYZ = self.plot_arrows(positions=np.zeros((3,3)), directions=np.eye(3), colors=np.zeros((3,3)))    # black XYZ
-        axes_UVW = self.plot_arrows(positions=np.zeros((3,3)), directions=self.crystal.A.T, colors=np.eye(3))   # rgb ABC
-        axes = {'xyz': axes_XYZ, 'uvw': axes_UVW}
+        UVW = 4*self.crystal.A.T / max(self.crystal.abc)
+        compass_UVW = self.plot_arrows(positions=np.zeros((3,3)), directions=UVW, colors=np.eye(3))   # rgb ABC
+        compass_XYZ = self.plot_arrows(positions=np.zeros((3,3)), directions=np.eye(3), colors=np.zeros((3,3)))    # black XYZ
+        compasses = {'compass_XYZ': compass_XYZ, 'compass_UVW': compass_UVW}
 
-        self.attach_shadingFilter(axes_XYZ, "compass_XYZ", instanced=False)
-        self.attach_shadingFilter(axes_UVW, "compass_ABC", instanced=False)
+        # The shaders are tricky, because the yshouldnt get the same light as the scene
+        compass_sf = ShadingFilter(shading='flat', shininess=20, ambient_coefficient=(0,0,0,0))
+        # sf.light_dir = self.config.light_dir[:3]
+        
+        compass_XYZ.attach(compass_sf)
+        compass_UVW.attach(compass_sf)
 
 
-        def get_translation_scale(axis_name: str):
-            '''axis_name: xyz, uvw'''
-            pos_code = self.config.__getattribute__('coordinates_'+axis_name+'_position')
-            offset_x = self.config.__getattribute__('coordinates_'+axis_name+'_offset_x')
-            offset_y = self.config.__getattribute__('coordinates_'+axis_name+'_offset_y')
-            scale = self.config.__getattribute__(f'coordinates_{axis_name}_scale')
+        def get_translation_scale(compass_name: str):
+            '''compass_name: xyz, uvw'''
+            pos_code = self.config.__getattribute__(compass_name+'_position')
+            offset_x = self.config.__getattribute__(compass_name+'_offset_x')
+            offset_y = self.config.__getattribute__(compass_name+'_offset_y')
+            scale    = self.config.__getattribute__(compass_name+'_scale')
 
             ww, wh = self.canvas.size
             codes_mapping = {
@@ -635,7 +895,7 @@ class AdvancedVispySupercellPlotter(object):
             return position, scale
 
         # add shaders of axes to self._shaders to update light direction
-        for ax_name, ax in axes.items():
+        for ax_name, ax in compasses.items():
             ax.parent = self.view
 
             tr, ss = get_translation_scale(ax_name)
@@ -644,14 +904,22 @@ class AdvancedVispySupercellPlotter(object):
             # add shader to list?
 
 
-        def position_reference_system(event = None):
+        def transform_compass(event = None):
+            '''Update the compass position, orientation and light direction
+            according to the camera position and window size.'''
             cam = self.view.camera
-            for ax_name, ax in axes.items():
+            for ax_name, ax in compasses.items():
+                transform = self.view.camera.transform
+                compass_sf.light_dir = transform.map(self._light_dir_inv)[:3]
+
+
                 ax.transform.reset()
+
+                print(f'{cam.roll=} {cam.elevation=} {cam.azimuth=}')
 
                 ax.transform.rotate(cam.roll, (0, 0, 1))
                 ax.transform.rotate(cam.elevation, (1, 0, 0))
-                ax.transform.rotate(cam.azimuth, (0, 1, 0))
+                ax.transform.rotate(-cam.azimuth, (0, 1, 0))
 
                 tr, ss = get_translation_scale(ax_name)
                 ax.transform.scale((ss, ss, 1e-5))    # Why does this translation is 3-tuple now? Why `z`has to ba small but non-zero?
@@ -659,10 +927,10 @@ class AdvancedVispySupercellPlotter(object):
 
                 ax.update()
 
-        self.view.scene.transform.changed.connect(position_reference_system)
-        self.canvas.events.resize.connect(position_reference_system)
+        self.view.scene.transform.changed.connect(transform_compass)
+        self.canvas.events.resize.connect(transform_compass)
 
-        return axes
+        return compasses
     
     def on_key_press(self, event):
         print(event.__repr__())
@@ -799,7 +1067,7 @@ class AdvancedVispySupercellPlotter(object):
 
     ##########################################################
 
-    def get_objects_in_supercell(self) -> tuple[list['Atom'], np.ndarray]:
+    def get_objects_in_supercell(self) -> tuple[list['Atom'], list['Coupling'], np.ndarray]:
         '''Find all objects that fit within the boundaries
         
         Returns
@@ -811,12 +1079,13 @@ class AdvancedVispySupercellPlotter(object):
         EPS = 1e-8
         bbox = self.config.get_bbox()
 
-        # TODO take boundaries vectors into account
-        # -> Take corners of the polyhedron defined by the boundaries vectors
-        #    and treat them as limits, then make a np.ndarray covering that
-        #    region and find where the unit cell fits.
-        # -> Change paradigm, as bbox is really defined by abc,
-        #    and add funcionality of clipping planes.
+        # take boundaries vectors into account
+        # Take corners of the polyhedron defined by the boundaries vectors
+        # and treat them as limits, then make a np.ndarray covering that
+        # region and find where the unit cell fits.
+        #
+        # Change paradigm, as bbox is really defined by abc,
+        # and add funcionality of clipping planes.
         # Atoms have to be taken in negative cells as well
         ext_atoms = np.floor(bbox).astype(int)
         # Edges only for full cells
@@ -863,19 +1132,10 @@ class AdvancedVispySupercellPlotter(object):
                         if all(atom_candidate.r > low_bound) and all(atom_candidate.r < high_bound):
                             atoms.append(atom_candidate)
 
-                    # atoms_pos_supercell[icell*natoms:(icell+1)*natoms,:] = atoms_pos_unit_cell + np.array([xcen, ycen, zcen])
-
-
-                    # atoms_mom_supercell[icell*natoms:(icell+1)*natoms,:] = rotated_spins.T
-
-                    # icell += 1
-
         return atoms, edges
     
-    def _prepare_meshes(self, meshes_names: dict[str, str]) -> dict[str, visuals.InstancedMesh]:        
-        '''Prepare base visuals that will be used to depict the crystal.
-        
-        '''
+    def _prepare_mesh(self, label: str, config: dict[str, dict] = {}) -> visuals.InstancedMesh:
+        '''Prepare base visuals that will be used to depict the crystal.'''
         # So now the main deal is that we will have just one mesh,
         # and atoms positions and their size will be in the multiple transforms
 
@@ -883,12 +1143,27 @@ class AdvancedVispySupercellPlotter(object):
         # [x] tube
         # [x] sphere
         # [x] arrow
-        # [] spring
+        # [x] spring
         # [x] spot
+        # [x] triceratops
+
+        print(f'PREPARING MESHES: {label}')
+        print(config)
+
+        mesh_opts = deepcopy(config)
+        mesh_type = mesh_opts.pop('type')
 
         ### Meshes ###
 
-        def _prepare_spot():
+        def _prepare_tric(opts=None):
+            from vispy.io import load_data_file, read_mesh
+
+            mesh_path = load_data_file('orig/triceratops.obj.gz')
+            vertices, faces, _normals, _texcoords = read_mesh(mesh_path)
+
+            return 2*vertices, faces
+
+        def _prepare_spot(opts=None):
             from vispy.io import imread, load_data_file, read_mesh
 
             mesh_path = load_data_file('spot/spot.obj.gz')
@@ -901,13 +1176,13 @@ class AdvancedVispySupercellPlotter(object):
         
             return vertices, faces, texture_filter
 
-        def _prepare_sphere():
-            N = 16
+        def _prepare_sphere(opts=None):
+            N = opts.get('resolution', 16)
             sphere = visuals.Sphere(radius=1, method='latitude', cols=N, rows=N)
             mesh = sphere._mesh.mesh_data
             return mesh.get_vertices(), mesh.get_faces()
 
-        def _prepare_arrow():
+        def _prepare_arrow(opts=None):
             self.spin_scale = 1
             self.arrow_width = 0.1
             self.arrow_head_size = 3
@@ -928,8 +1203,7 @@ class AdvancedVispySupercellPlotter(object):
             
             return arrow.mesh_data.get_vertices(), arrow.mesh_data.get_faces()
         
-
-        def _prepare_tube():
+        def _prepare_tube(opts=None):
             '''Tube length is 1, radius is 1, position is in the middle, orientation along z.'''
             cap_res = 8
             ang_res = 32
@@ -947,61 +1221,63 @@ class AdvancedVispySupercellPlotter(object):
             # tube = visuals.Tube(points=[[0,0,-0.5], [0,0,0.5]], radius=[1,1], tube_points=ang_res)
 
             return tube.mesh_data.get_vertices(), tube.mesh_data.get_faces()
+        
+        def _prepare_spring(opts={}):
+            print('SPRING:', opts)
 
-        ### Prepare instanced meshes ###
-        base_visuals = {}
-        gen_funs = dict(sphere=_prepare_sphere, spot=_prepare_spot,
+            n_turns = opts.get('n_turns', 7)
+            turn_radius = opts.get('turn_radius', [0,0,0.3,0,0])
+            spring_thickness = opts.get('spring_thickness', 0.03)
+
+            r1 = np.array([0, 0, -0.5])
+            r2 = np.array([0, 0, 0.5])
+
+            points, radii = self._spring_points(r1, r2, n_turns=n_turns, 
+                                                turn_radius=turn_radius, spring_thickness=spring_thickness,
+                                                spring_resolution=64)
+            spring = visuals.Tube(points=points, radius=radii, tube_points=16)
+            
+            return spring.mesh_data.get_vertices(), spring.mesh_data.get_faces()
+
+
+
+        ### Prepare instanced mesh ###
+        gen_funs = dict(sphere=_prepare_sphere, spot=_prepare_spot, tric=_prepare_tric,
                         tube=_prepare_tube, arrow=_prepare_arrow,
-                        spring=_prepare_sphere)
+                        spring=_prepare_spring)
 
-        for label, mesh_name in meshes_names.items():
-            if mesh_name not in gen_funs:
-                raise NotImplementedError(f"Requested mesh `{mesh_name}` is not implemented.")
-            
-            mesh = gen_funs[mesh_name]()
-
-            vertices = mesh[0]
-            faces = mesh[1]
-
-            visual = visuals.InstancedMesh(
-                vertices=vertices, faces=faces,
-                instance_positions = [0,0,0],
-                instance_transforms = np.eye(3),
-                instance_colors = [0.5, 0.5, 0.5],
-                face_colors = np.ones((len(faces), 3)),
-                parent=self.view.scene)
-            
-            self.attach_shadingFilter(visual, label, instanced=True)
-
-            if label.startswith('atom') or label.startswith('coupling'):
-                visual.interactive = True
-
-            if len(mesh) == 3:
-                texture_filter = mesh[2]
-                visual.attach(texture_filter)
-                
-            base_visuals.update({label: visual})
-
+        if mesh_type not in gen_funs:
+            raise NotImplementedError(f"Requested mesh `{mesh_type}` is not implemented.")
         
 
+        mesh = gen_funs[mesh_type](opts=mesh_opts)
 
-        # ### CELL EDGES ###
-        # edge = visuals.Tube(points=[[0,0,-1e-3], [0,0,0], [0,0,1], [0,0,1+1e-3]], radius=[0,1,1,0], tube_points=ang_res)
-        # mesh = edge.mesh_data
-        # self._edge_visual = visuals.InstancedMesh(vertices=mesh.get_vertices(), faces=mesh.get_faces(),
-        #                                              instance_positions = [0,0,0],
-        #                                              instance_transforms = np.eye(3),
-        #                                              instance_colors= [1,1,1],
-        #                                              parent=self.view.scene)
-                
-        # self._edge_visual.attach(self.default_shading_filter())
+        vertices = mesh[0]
+        faces = mesh[1]
 
-        # ### BONDS ###
+        visual = visuals.InstancedMesh(
+            vertices=vertices, faces=faces,
+            instance_positions = [[0,0,0]],
+            instance_transforms = [np.eye(3)],
+            instance_colors = [mesh_opts['color']],
+            face_colors = np.ones((len(faces), 3)),
+            parent= self.view.scene
+            )
 
-        print('INITIATED MESHES')
-        print(base_visuals)
         
-        return base_visuals
+        # sf = InstancedShadingFilter(shading='smooth', shininess=20, ambient_coefficient=(0,0,0,0))
+        # sf = ShadingFilter(shading='smooth', shininess=20, ambient_coefficient=(0,0,0,0))
+        # visual.attach(sf)
+        self.attach_shadingFilter(visual, label, instanced=True)
+
+        if len(mesh) == 3:
+            texture_filter = mesh[2]
+            visual.attach(texture_filter)
+            
+        # visual.interactive = True
+
+        
+        return visual
         
     def plot_labels(self,
                     positions: np.ndarray,
@@ -1020,6 +1296,31 @@ class AdvancedVispySupercellPlotter(object):
 
         self._objects.append(obj)
         return obj
+    
+    @staticmethod
+    def _spring_points(r1, r2, n_turns=10, spring_thickness=0.5, turn_radius = 1,
+                  spring_resolution: int=32) -> tuple[np.ndarray, np.ndarray]:
+        '''
+        Returns points and radii of a spring.
+        '''
+
+        spring_length = np.linalg.norm(r2 - r1)
+        t = np.linspace(0, n_turns, n_turns*spring_resolution)
+
+        if isinstance(turn_radius, list):
+            turn_radius = np.interp(t, n_turns*np.linspace(0,1,len(turn_radius)), turn_radius)
+        if isinstance(spring_thickness, list):
+            spring_thickness = np.interp(t, n_turns*np.linspace(0,1,len(spring_thickness)), spring_thickness)
+
+        x = turn_radius * np.cos(2*np.pi*t)
+        y = turn_radius * np.sin(2*np.pi*t)
+        z = (t/n_turns-0.5)*spring_length  # Linear increase in height
+
+        points = np.array([x, y, z]).T
+        radii = spring_thickness*np.ones(len(t))
+
+        return points, radii
+
 
     @staticmethod
     def _arrow_points(length, tail_width, head_length, head_width, 
