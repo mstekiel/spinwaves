@@ -80,6 +80,11 @@ class Crystal(Lattice):
         # MSG
         self._MSG = MSG
 
+        atom_labels = [atom.label for atom in atoms]
+        if len(set(atom_labels)) != len(atom_labels):
+            raise KeyError(f"Each atom must have a unique label: {atom_labels} "
+                           "Add indices to atoms with the same element.")
+
         # Should I ensure the provided list of atoms contains unique atoms? YES
         # Constructor should also check if provided magnetic moment respects the symmetry
         for atom in atoms:
@@ -99,6 +104,8 @@ class Crystal(Lattice):
 
             return atom_new
         
+        # Are atoms made above and assigned _gen_symop = id
+        # going to survive with that operation?
         atoms_all = []
         for atom in self._atoms_unique:
             atoms_symmetrized = MSG.symmetrize(atom, transform_atom, check_attrs=['r', 'm'])
