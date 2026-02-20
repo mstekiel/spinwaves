@@ -29,7 +29,7 @@ class Atom:
         s: float = 0
             Spin number, int of half-int.
             
-        gtensor_mat: np.ndarray = None
+        g_tensor: np.ndarray = None
             Matrix representing the magnetic g-tensor.
         aniso_mat: np.ndarray = None
             Matrix representing the anisotropic displacement parameters.
@@ -61,7 +61,7 @@ class Atom:
     _r: tuple[Fraction]
     _m: np.ndarray[float]
     _s: float
-    gtensor_mat: np.ndarray = None
+    g_tensor: np.ndarray = None
     aniso_mat: np.ndarray = None
     occupation: float = 1
     # is_mag: bool = False
@@ -77,7 +77,7 @@ class Atom:
     color: np.ndarray[int] = None
 
     def __init__(self, r: Sequence, m: Sequence = [0,0,0], s: float = 0,
-                 gtensor_mat = None, aniso_mat = None, occupation = 1,
+                 g_tensor: Sequence = [[-2,0,0],[0,-2,0],[0,0,-2]], aniso_mat = None, occupation = 1,
                  label: str='atom', element_symbol: str='',
                  color: Sequence=[], radius: float=0, 
                  atom_mesh: str='sphere', moment_mesh: str='arrow'):
@@ -96,6 +96,7 @@ class Atom:
         self.r = r
         self.m = m
         self.s = s
+        self.g_tensor = g_tensor
 
 
         # Label
@@ -161,6 +162,17 @@ class Atom:
     @s.setter
     def s(self, s_new: Sequence):
         self._s = Fraction(s_new).limit_denominator(config['MAX_DENOMINATOR'])
+
+    @property
+    def g_tensor(self) -> np.ndarray[float]:
+        '''g-tensor of the ion, such that the Zeeman term is `H_Zeeman = mu_B * S * g_tensor * Hfield`'''
+        return self._g_tensor
+    
+    @g_tensor.setter
+    @ensure_shape(g_tensor_new=(3,3))
+    def g_tensor(self, g_tensor_new: Sequence):
+        self._g_tensor = np.array(g_tensor_new, dtype=float)
+
 
     @property
     def is_mag(self) -> bool:

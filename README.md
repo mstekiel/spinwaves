@@ -8,6 +8,9 @@
 
 - Core
   - [ ] Implement magnetic field
+    - [x] implement
+    - [ ] test -> sign convention unclear
+    - [ ] SpinW -> only obscuretutorials found
   - [ ] Implement primitive/reduced cell such that the calculation is on smaller cell=matrix=faster, while the setup is in the coordinates of the main cell, which are easier to interpret
 
 - Usage

@@ -19,13 +19,13 @@ import logging
 # Internal
 from .crystal import Crystal
 from .coupling import Coupling
-from .utils.arrays import ensure_shape, make_exc_dtype
+from .utils.arrays import ensure_shape, match_shape, make_exc_dtype
 from .utils.physics import bose_occupation
 from .utils.linalg import rot_Rn, RfromZ, rot_Rodrigues_complex
 from .utils.functions import gauss_bkg
 
 # Typing
-from typing import Callable, List, Dict, TYPE_CHECKING, Union
+from typing import Callable, List, Dict, TYPE_CHECKING, Union, Sequence
 if TYPE_CHECKING:
     from .symmetry.magnetic_symmetry import mSymOp
     from .crystal import Crystal
@@ -80,7 +80,7 @@ class SpinW:
     - understand total moment sum rule
     '''
     def __init__(self, crystal: 'Crystal', magnetic_modulation: Dict, couplings: List[Coupling],
-                 temperature: float=0):
+                 temperature: float=0, Hfield: Sequence=None):
         '''Create the instance of the LSW calculator.
 
         Parameters
@@ -91,16 +91,30 @@ class SpinW:
             Dictionary holding information on propagation vector `k` and normal vector defining rotation plane `n`.
         couplings: list['Coupling']
             List of unique couplings defining interactions between magnetic atoms.
+        Hfield: float
+            External magnetic field value in units of meV, the direction is set along `n`,
+            global rotation axis to avoid umklapp terms in the Hamiltonian.
         '''
         self.crystal = crystal
         self.magnetic_atoms = crystal.atoms_magnetic
-        self.magnetic_modulation = magnetic_modulation
+        self.magnetic_modulation = magnetic_modulation  # check dimensionns?
 
         # Ensure input couplings are unique, otherwise symmetrization doesn't work well
         self.couplings = couplings
         self.couplings_all =  self.symmetrize_couplings(couplings)
 
         self.temperature = temperature
+
+        # Check that all atoms have g-tensor defeined
+        self.Hfield = None
+        if Hfield is not None:
+            if not all([atom.g_tensor is not None for atom in self.magnetic_atoms]):
+                raise ValueError('Applied magnetic field requires definition of g-tensor for all magnetic atoms.')
+
+            self.Hfield = np.asarray(Hfield, dtype=float)
+
+            
+
 
     def symmetrize_couplings(self, couplings: list['Coupling']) -> list['Coupling']:
         '''Generalize the couplings according to the symmetry of the crystal.
@@ -347,7 +361,7 @@ class SpinW:
             v[atom_i, :] = Rp_i[:,2]
 
         # [SpinW] eq 26
-        # Indinces `ij` are magnetic atoms, `pq` are cartesian directions
+        # Indices `ij` are magnetic atoms, `pq` are cartesian directions
         # I know that tensordot can be faster here
         JpofmK = np.conj(JpofK)
         SiSj = np.sqrt(np.einsum('i,j->ij', S, S))
@@ -355,6 +369,18 @@ class SpinW:
         A2 = 0.5*np.conj(np.einsum('ij,ip,...ijpq,jq->...ij', SiSj, u, JpofK, np.conj(u)))
         B = 0.5*np.einsum('ij,ip,...ijpq,jq->...ij', SiSj, u, JpofmK, u)
         C = np.diag(np.einsum('l,ip,ilpq,lq->i', S, v, Jp0, v))
+
+        # [SpinW] eq 28
+        # Zeeman term, added to A in the [SpinW] here it is supplied to A1 and A2
+        # Hfield must be along n, to avoid umklapp terms
+        # as per [SpinW] text between eq. (27) and (28)
+        if self.Hfield is not None:
+            gi = np.asarray([atom.g_tensor for atom in self.magnetic_atoms])    # shape=(M,3,3)
+            aZ = np.einsum('p,ipq,iq->i', self.Hfield, gi, v) # shape=(M)
+            AZ = -0.5*np.diag(aZ)   # shape=(M,M)
+
+            A1 += AZ
+            A2 += AZ
 
         # Now we assemble the h Frankenstein
         # [SpinW] eq 27
@@ -813,7 +839,6 @@ class SpinW:
 
         *shape, three = np.shape(Qhkl)
         shape = tuple(shape)
-        assert three == 3, f'Last dimension of Qhkl must be 3, is {np.shape(Qhkl)=}'
         M = len(self.magnetic_atoms)
 
         # [SpinW] eq 21 and 14
@@ -822,7 +847,6 @@ class SpinW:
             # According to [SpinW] eq 21: Jp = Rm @ J @ Rn,
             # where n,m index unit cells, but m=0 in this notation so is omitted.
             Rn = rot_Rn(cpl.n_uvw, Qhkl, self.magnetic_modulation['n'])   # (...,3,3)
-
 
             # We will be dealing with shape = (shape, 3,3)
             Jp[...,cpl.id1, cpl.id2, :,:] += cpl.J @ Rn
