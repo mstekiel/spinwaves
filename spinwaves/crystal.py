@@ -82,8 +82,9 @@ class Crystal(Lattice):
 
         atom_labels = [atom.label for atom in atoms]
         if len(set(atom_labels)) != len(atom_labels):
-            raise KeyError(f"Each atom must have a unique label: {atom_labels} "
-                           "Add indices to atoms with the same element.")
+            # self.logger.warning('Provided atoms have non-unique labels. Adding unique suffixes to all atoms.')
+            for n,atom in enumerate(atoms):
+                atom.label = f'{atom.label}_{n}'
 
         # Should I ensure the provided list of atoms contains unique atoms? YES
         # Constructor should also check if provided magnetic moment respects the symmetry
@@ -191,7 +192,7 @@ class Crystal(Lattice):
 
         return clens[id_sorting]
     
-    def get_atom_sw_id(self, position: np.ndarray) -> int:
+    def get_magatom_id(self, position: np.ndarray) -> int:
         '''Find the index of the potential magnetic atom at `position`.
         The integer part of the position, i.e. allocation to specific unit cell, is ignored.
         
