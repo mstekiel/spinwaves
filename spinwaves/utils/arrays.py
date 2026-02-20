@@ -5,7 +5,7 @@ import numpy as np
 
 ##################################################################################################
 # Data types
-def make_exc_dtype(Etype: type=np.float64, Stype: type=np.complex128) -> 'np.dtype':
+def make_exc_dtype(Etype: type=np.float64, Stype: type=np.complex128) -> 'np.dtype[np.void]':
     """Create a structured dtype with:
     - E: scalar of real type `Etype`
     - Sperp: scalar of real type `Etype`

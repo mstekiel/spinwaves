@@ -1,6 +1,6 @@
 import numpy as np
 
-# Exchange interaction matrices
+### Exchange interaction matrices
 def DMI(v: tuple[float,float,float]) -> np.ndarray:
     '''
     Antisymmetric exchange interaction = Dzialoshinskii-Moriya interaction matrix.
@@ -14,8 +14,31 @@ def DMI(v: tuple[float,float,float]) -> np.ndarray:
 
     return np.array([ [  0,  dz,-dy], [-dz,   0, dx], [dy, -dx,  0] ], dtype=float)
 
+def dipolar(r: np.ndarray[float]) -> np.ndarray:
+    '''Interaction matrix for the dipolar interaction between two magnetic moments.
 
-# Rotations
+    Magnetic dipolar interaction:
+    H_dip = -mu_0*g_i*g_j*hbar^2/(4pi) [ 3(S_i . r) * (S_j . r) - S_i.S_j) / |r|^3
+
+    Can be rewritten as:
+    H_dip = S_i . Jdip_ij . S_j
+
+    In case ions are the same their spin numbers S, and gyromagnetic factors g are the same
+    and can be factored out
+    
+    Jdip_ij = [r_i r_j - delta_ij |r|^2 ] / |r|^5
+
+    Returns
+    -------
+    Jdip_ij : ndarray
+        3x3 interaction matrix for dipolar interaction between two magnetic moments
+    '''
+    Jdd =  r[:, None] * r[None, :] - np.eye(3)*np.linalg.norm(r)**2
+    # print('DEBUG:', r, r[:, None] * r[None, :], - np.eye(3)*np.linalg.norm(r)**2, Jdd)
+    return Jdd/ np.linalg.norm(r)**3
+
+
+#### Rotations
 # All of them are right-handed
 def rotate(n, angle: np.ndarray[float]):
     '''
