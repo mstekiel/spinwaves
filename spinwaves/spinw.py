@@ -150,11 +150,11 @@ class SpinW:
 
                 r1 = g.transform_position(atom1.r)
                 n_uvw1 = np.floor(r1)
-                new_id1 = self.crystal.get_atom_sw_id(r1)
+                new_id1 = self.crystal.get_magatom_id(r1)
 
                 r2 = g.transform_position(atom2.r+cpl.n_uvw)
                 n_uvw2 = np.floor(r2)
-                new_id2 = self.crystal.get_atom_sw_id(r2)
+                new_id2 = self.crystal.get_magatom_id(r2)
 
                 new_n_uvw_12 = n_uvw2 - n_uvw1
 
@@ -207,11 +207,11 @@ class SpinW:
             for n,g in enumerate(self.crystal.MSG):
                 r1 = g.transform_position(atom1.r)
                 n_uvw1 = np.floor(r1)
-                new_id1 = self.crystal.get_atom_sw_id(r1)
+                new_id1 = self.crystal.get_magatom_id(r1)
 
                 r2 = g.transform_position(atom2.r+cpl.n_uvw)
                 n_uvw2 = np.floor(r2)
-                new_id2 = self.crystal.get_atom_sw_id(r2)
+                new_id2 = self.crystal.get_magatom_id(r2)
 
                 new_n_uvw_12 = n_uvw2 - n_uvw1
 

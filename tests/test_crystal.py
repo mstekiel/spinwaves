@@ -33,25 +33,28 @@ def test_crystal_constructor():
 
 
 def test_get_atom_index():
-    atoms = [ Atom(r=[0,0,1/4]), Atom(r=[1/3, 2/3, 3/4])]
+    atoms = [ 
+        Atom(label='A1', r=[0,0,1/4], m=[0,0,1], s=1/2),
+        Atom(label='A2', r=[1/3, 2/3, 3/4], m=[0,0,1], s=1/2)
+        ]
     P_194 = MSG.from_xyz_strings(generators=[
         '-y,x-y,z, +1',
-        '-x,-y,z+1/2, +1',
+        '-x,-y,z+1/2, -1',
         'y,x,-z, +1',
-        '-x,-y,-z, +1',
+        '-x,-y,-z, -1',
     ])
 
-    graphite = Crystal(lattice_parameters=[3.6,3.6,12, 90,90,120],
+    mag_graphite = Crystal(lattice_parameters=[3.6,3.6,12, 90,90,120],
                       atoms=atoms,
-                      MSG=P_194)
+                      MSG=P_194)   
 
-    assert graphite.get_atom_sw_id([0, 0, 0.25]) == 0
-    assert graphite.get_atom_sw_id([0, 0, 0.75]) == 1
-    assert graphite.get_atom_sw_id([1/3, 2/3, 0.75]) == 2
-    assert graphite.get_atom_sw_id([2/3, 1/3, 0.25]) == 3
+    assert mag_graphite.get_magatom_id([0, 0, 0.25]) == 0
+    assert mag_graphite.get_magatom_id([0, 0, 0.75]) == 1
+    assert mag_graphite.get_magatom_id([1/3, 2/3, 0.75]) == 2
+    assert mag_graphite.get_magatom_id([2/3, 1/3, 0.25]) == 3
 
     with pytest.raises(LookupError) as e_info:
-        graphite.get_atom_sw_id([1/3, 1/3, 0.25]) == 3
+        mag_graphite.get_magatom_id([1/3, 1/3, 0.25]) == 3
 
 
 def test_constructor_validators():
@@ -74,11 +77,11 @@ def test_crystal_couplings():
     
     print(crystal.MSG.get_point_symmetry([0.1,0.1,0]))
     
-    D1 = DMI(2,2,0)
+    D1 = DMI([2,2,0])
     DMI_appropriate = Coupling(label='D1', id1=0, id2=2, n_uvw=[0,0,0], J=D1)
     assert crystal.is_respectful_DMI(DMI_appropriate)
 
-    D2 = DMI(0.5,0.05,0.005)
+    D2 = DMI([0.5,0.05,0.005])
     DMI_inappropriate = Coupling(label='D2', id1=0, id2=2, n_uvw=[0,0,0], J=D2)
     inappropriate, D2_symmetrized = crystal.is_respectful_DMI(DMI_inappropriate, return_symmetrized=True)
     
