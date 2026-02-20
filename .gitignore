@@ -6,6 +6,10 @@ debug*.py
 spinwaves.egg*
 .vscode/
 
+# Local env
+.venv
+uv.lock
+
 # Dirty tests
 pyopengl.py
 profile*
