@@ -14,7 +14,7 @@ from spinwaves.utils.linalg import DMI
 
 
 from pathlib import Path
-PATH_PLOTS = Path(r'C:\Users\Stekiel\Documents\GitHub\spinwaves\tests\SpinW_comparisons')
+PATH_PLOTS = Path(__file__).parent
 
 ### BASICS
 def reproduce_tutorial_1(Qsamples: float=10000):
@@ -41,7 +41,8 @@ def reproduce_tutorial_1(Qsamples: float=10000):
     ]
 
     ### CALCULATIONS
-    sw = SpinW(crystal=crystal, magnetic_modulation=magnetic_modulation, couplings=couplings)
+    sw = SpinW(crystal=crystal, couplings=couplings, 
+               magnetic_modulation=magnetic_modulation)
 
 
     Egs = sw.calculate_ground_state(Qhkl=[0,0,0])
@@ -140,7 +141,7 @@ def reproduce_tutorial_2():
     ylims = [(-2.5, 2.5), (-4, 4)]
 
     for n,ax in enumerate(axes):
-        ax.set(title=titles[n], ylabel=ylabels[n], ylim=ylims[n],
+        ax.set(title=titles[n], ylabel=ylabels[n], #ylim=ylims[n],
                xlabel='L in (00L) (a.u.)', xlim=(0,1))
 
         ax.plot(Qpath[:,0], yvals[n])
@@ -825,9 +826,9 @@ def reproduce_tutorial_12():
     exc = sw.calculate_excitations(Qhkl = Qpath)
 
     ### PLOTTING
-    fig, axes = plt.subplots(nrows=2, figsize=(4, 6), tight_layout=True)
+    fig, axes = plt.subplots(nrows=3, figsize=(4, 9), tight_layout=True)
 
-    fig.suptitle('SpinW tutorial 8\nk=0 Kagome antiferromagnet with DM interaction')
+    fig.suptitle('SpinW tutorial 12\nk=0 triangular lattice AF with easy plane anisotropy')
 
     axes[0].set(title='Dispersion relations', 
                 xlabel='Qinc (A-1)',
@@ -836,13 +837,25 @@ def reproduce_tutorial_12():
     axes[0].plot(Qinc, exc.E)
 
     Erange = np.linspace(*Elims, 500)
-    spectrum = sw.calculate_spectrum(Erange, 0.4)
 
     for ax in axes:
-        ax.set(ylabel='energy', xlabel='Momentum')
+        ax.set(xlabel='Momentum', xlim=(0,1),
+               ylabel='energy', ylim=Elims)
     
+    spectrum = sw.calculate_spectrum(Erange, 0.4)
     pcm = axes[1].pcolormesh(Qinc, Erange, spectrum, cmap='afmhot_r', vmax=4)
     cbar = fig.colorbar(pcm, ax=axes[1], orientation='vertical', extend='max', label='intensity (a.u.)')
+
+
+    spectrum_xy = sw.calculate_spectrum(Erange, 0.9, spectral_weight=(exc.Sxx+exc.Syy).real)
+    spectrum_zz = sw.calculate_spectrum(Erange, 0.9, spectral_weight=exc.Szz.real)
+    # the trick to plot both spectra is to glue the other one on negative scale
+    # and keep the scale symmetric against zero
+    spectrum = spectrum_xy - 2*spectrum_zz
+    v = 8
+    axes[2].plot(Qinc, exc.E, c='black', lw=0.5, zorder=10)
+    pcm = axes[2].pcolormesh(Qinc, Erange, spectrum, cmap='RdBu', vmin=-v, vmax=v)
+    cbar = fig.colorbar(pcm, ax=axes[2], orientation='vertical', extend='max', label='intensity (a.u.)')
 
 
     fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_12.png')
@@ -1178,10 +1191,10 @@ if __name__ == "__main__":
     # reproduce_tutorial_9(Qsamples)
 
     # reproduce_tutorial_11()
-    # reproduce_tutorial_12()
+    reproduce_tutorial_12()
 
     # reproduce_tutorial_19()
-    reproduce_tutorial_20()
+    # reproduce_tutorial_20()
     # reproduce_tutorial_21()
 
     # test_new_functionalities()
