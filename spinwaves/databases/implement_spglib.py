@@ -10,7 +10,7 @@ from .database import db_entry, Database
 
 import spglib
 
-SW_PATH = Path(__file__).parent.parent
+SW_PATH = Path(__file__).parent
 
 ####################################################################################################
 
@@ -99,7 +99,7 @@ class Database_MSG(Database):
     Wrapper over the `spglib` library.
     '''
 
-    source_filename = SW_PATH / 'data_tables/spglib_MSGnames.dat'
+    source_filename = SW_PATH / 'spinwaves/data_tables/spglib_MSGnames.dat'
     entry_type = MSG_entry
     header = ''
     entries = {}
