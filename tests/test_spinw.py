@@ -10,6 +10,8 @@ from spinwaves import Crystal, MSG, Atom, Coupling, SpinW
 from spinwaves.plotting import plot_structure   # this takes some serious time
 from spinwaves.utils.linalg import DMI
 
+'''
+# Some depracated test, maybe useful in the future
 def test_matrices():
     """Test how the characteristic matrices are calculated"""
 
@@ -40,7 +42,7 @@ def test_matrices():
     
     S = sw.determine_matrices(q_hkl = [0.1, 0.1, 0])
     print(S)
-
+'''
 
 def test_coupling_symmetrization_tetr():
     """Test symmetrization of the couplings in hexagonal system"""
@@ -66,7 +68,7 @@ def test_coupling_symmetrization_tetr():
     J2 = Coupling(label='K_Fe', id1=0, id2=0, n_uvw=[0,0,0],
                   J=np.array([[-0.2,0,0], [0,-0.2,0], [0,0,0]]))
     J3 = Coupling(label='D1', id1=0, id2=3, n_uvw=[0,0,0],
-                  J=5*np.eye(3,3) + DMI(0,0,0.1))
+                  J=5*np.eye(3,3) + DMI([0,0,0.1]))
 
     sw = SpinW(crystal=crystal, magnetic_modulation=magnetic_modulation, couplings=[J1, J2, J3])
     print(sw)
@@ -108,7 +110,7 @@ def test_coupling_symmetrization_hex():
 
     ds = 0.01
     J1 = Coupling(label='D1', id1=0, id2=1, n_uvw=[0,0,0],
-                  J=3*np.eye(3,3) + DMI(0, 0, ds))
+                  J=3*np.eye(3,3) + DMI([0, 0, ds]))
     
     print(J1)
     is_DMI, Dvec = crystal.is_respectful_DMI(J1, return_symmetrized=True)
@@ -126,7 +128,8 @@ def test_coupling_symmetrization_hex():
     
 if __name__ == "__main__":
     # pytest.main()
-    test_matrices()
+    pass
+    # test_matrices()
 
     ### Quick tests
     # import time

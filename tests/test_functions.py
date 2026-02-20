@@ -6,29 +6,29 @@ import numpy as np
 from fractions import Fraction
 import pytest
 
-import spinwaves.utils.functions as funs_sw
+import spinwaves.utils.linalg as sw_linalg
 
 def test_main_rotations():
     """Test principal rotations"""
-    assert np.allclose(funs_sw.Rx(0), np.eye(3,3))
-    assert np.allclose(funs_sw.Ry(0), np.eye(3,3))
-    assert np.allclose(funs_sw.Rz(0), np.eye(3,3))
+    assert np.allclose(sw_linalg.Rx(0), np.eye(3,3))
+    assert np.allclose(sw_linalg.Ry(0), np.eye(3,3))
+    assert np.allclose(sw_linalg.Rz(0), np.eye(3,3))
 
 def test_Rprime():
     """Test rotation matrix"""
 
-    assert np.allclose( funs_sw.RtoZ([0,0,1]), np.eye(3,3))
-    assert np.allclose( funs_sw.RtoZ([1,0,0]), funs_sw.Ry(-np.pi/2))
+    assert np.allclose( sw_linalg.RtoZ([0,0,1]), np.eye(3,3))
+    assert np.allclose( sw_linalg.RtoZ([1,0,0]), sw_linalg.Ry(-np.pi/2))
 
     v = [0.3, -0.2, 0.4]
-    assert np.allclose( funs_sw.RtoZ(v) @ v, [0, 0, funs_sw.norm(v)])
+    assert np.allclose( sw_linalg.RtoZ(v) @ v, [0, 0, sw_linalg.norm(v)])
     v = [-np.sqrt(2), 1e5, -np.pi]
-    assert np.allclose( funs_sw.RtoZ(v) @ v, [0, 0, funs_sw.norm(v)])
+    assert np.allclose( sw_linalg.RtoZ(v) @ v, [0, 0, sw_linalg.norm(v)])
     v = [1, 1, 1]
-    assert np.allclose( funs_sw.RtoZ(v) @ v, [0, 0, funs_sw.norm(v)])
+    assert np.allclose( sw_linalg.RtoZ(v) @ v, [0, 0, sw_linalg.norm(v)])
 
 def test_Rodrigues_complex():
-    R1, R2 = funs_sw.rot_Rodrigues_complex([0,0,1])
+    R1, R2 = sw_linalg.rot_Rodrigues_complex([0,0,1])
 
     pass
 

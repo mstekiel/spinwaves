@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 from spinwaves import Crystal, MSG, Atom, Coupling, SpinW
 from spinwaves.plotting import plot_structure   # this takes some serious time
-from spinwaves.utils.functions import DMI
+from spinwaves.utils.linalg import DMI
 
 
 from pathlib import Path
@@ -934,8 +934,112 @@ def reproduce_tutorial_19():
     
     return
 
+def reproduce_tutorial_20():
+    '''Spin wave spectrum of Yb2Ti2O7 in magnetic field
+    https://www.sciencedirect.com/science/article/abs/pii/002245969090182W?via%3Dihub
+    '''
+
+    ### SETUP
+    Fdm3m = MSG.from_xyz_strings(generators=[
+        '-z, y+3/4, x+3/4, +1', # 1
+        'z+3/4, -y, x+3/4, +1', # 1
+        'z+3/4, y+3/4, -x, +1', # 1
+        'y+3/4, x+3/4, -z, +1', # 1
+        'x+3/4, -z, y+3/4, +1', # 1
+        '-z, x+3/4, y+3/4, +1', # 1
+    ])
+    atoms = [
+        Atom(label='Yb', r=(1/2, 1/2, 1/2), m=(1,-1,0), s=1/2),
+    ]
+    a = 10.037
+    crystal = Crystal(lattice_parameters=[a,a,a, 90,90,90], MSG=Fdm3m, atoms=atoms)
+
+    # The magnetic structure does not respect the symmetry of the gray MSG from SG,
+    # it is further complicated by field, so set moments by hand.
+    for atom in crystal.atoms_magnetic:
+        atom.m = np.array([1,-1,0])
+
+    magnetic_modulation = {
+        'k':(0, 0, 0),
+        'n':(0,0,1)
+    }
+
+    J1, J2, J3, J4 = -0.09, -0.22, -0.29, 0.01
+    J = np.array([
+        [J1, J4, J4],
+        [-J4, J2, J3],
+        [-J4, J3, J2]
+    ])
+    couplings = [
+        Coupling(label='Jmn', id1=0, id2=1, n_uvw=[0,0,0], J=J)
+    ]
+
+    sw = SpinW(crystal=crystal, magnetic_modulation=magnetic_modulation, 
+               couplings=couplings, temperature=1e-5)
+    
+    show_struct = False
+    if show_struct:
+        print(crystal)
+    #     plot_opts = dict(boundaries=([-0.5, 1.5],[-0.5,1.5],[-0.5,1]), coupling_colors={'J1a2': 'Cyan'})
+        plot_opts = dict(boundaries=([-0.1, 1.1],[-0.1,1.1],[-0.1,1.02]), 
+                             coupling_colors={'Jmn': 'Pink', 'J2':'Black', 'J3':'Gray', 'J4':'Red', 'J2d':'Blue'})
+        plot_structure(sw, engine='vispy', plot_options=plot_opts)
+  
+
+    ### CALCULATIONS AND PLOTS
+    mosaic = [ ['B1_Q1', 'B1_Q2'], 
+               ['B2_Q1', 'B2_Q2']]
+    layout = dict()
+    fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(8, 6), layout='tight', gridspec_kw=layout)
+
+
+    Npath = 101
+    energy = np.linspace(0, 1, 50)
+
+
+    Qs = dict(
+        Q1 = [[0,0,0], [1,0,0]],
+        Q2 = [[0,0,0], [1,1,0]],
+    )
+
+    pmesh_plot_kwargs = {}
+
+
+    def plot_spectrum(Qchoice):
+        print(f'Calculate spectrum `{Qchoice}`...')
+
+        # axs[Qchoice+'_spec'].set_title(Qchoice)
+
+        qPath = sw.crystal.make_qPath(main_qs=[Qs[Qchoice][0], Qs[Qchoice][1]], Nqs=101)
+        
+        excitations = sw.calculate_excitations(qPath)
+        spectrum = sw.calculate_spectrum(energy, resolution=0.05)
+
+        id_x = np.argmax(np.abs(qPath[-1] - qPath[0]))
+
+        Q, E = np.meshgrid(qPath[:,id_x], energy)
+        # np.save(f'{EXPORT_PATH}/{PREFIX}-{label}.npy', (Q, E, spectrum))
+
+
+        axs[f'B1_{Qchoice}'].pcolormesh(Q, E, spectrum, **pmesh_plot_kwargs)
+
+    plot_spectrum('Q1')
+    plot_spectrum('Q2')
+
+    fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_20.png')
+
+    return
+    
+
 def reproduce_tutorial_21():
-    """Spin wave spectrum of YIG"""
+    """Spin wave spectrum of YIG 
+    https://doi.org/10.1038/s41535-017-0067-y
+    https://doi.org/10.1103/PhysRevLett.117.217201
+
+    Very problematic setup as the magnetic space group is trigonal:
+    https://www.sciencedirect.com/science/article/abs/pii/002245969090182W?via%3Dihub
+    while structural is cubic
+    """
 
     ### SETUP
     P1 = MSG.from_xyz_strings(generators=[
@@ -946,8 +1050,8 @@ def reproduce_tutorial_21():
         'x+1/2, y+1/2, z+1/2, +1'
     ])
     atoms = [
-        Atom(label='Fe_a', r=(0,0,0), m=(0,0,1), s=0.2),
-        Atom(label='Fe_d', r=(0.375,0,0.25), m=(0,0,1), s=0.2),
+        Atom(label='Fe_a', r=(0,0,0), m=(0,0,1), s=5/2),
+        Atom(label='Fe_d', r=(0.375,0,0.25), m=(0,0,1), s=3/2),
     ]
     crystal = Crystal(lattice_parameters=[12.3563, 12.3563, 12.3563, 90,90,90], MSG=P1, atoms=atoms)
 
@@ -1062,7 +1166,7 @@ if __name__ == "__main__":
 
     ### Basics
     # reproduce_tutorial_1(Qsamples)
-    reproduce_tutorial_2()
+    # reproduce_tutorial_2()
     # reproduce_tutorial_3()
     # reproduce_tutorial_4()
 
@@ -1077,6 +1181,7 @@ if __name__ == "__main__":
     # reproduce_tutorial_12()
 
     # reproduce_tutorial_19()
+    reproduce_tutorial_20()
     # reproduce_tutorial_21()
 
     # test_new_functionalities()

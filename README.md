@@ -6,6 +6,10 @@
 
 ## TODO
 
+- Core
+  - [ ] Implement magnetic field
+  - [ ] Implement primitive/reduced cell such that the calculation is on smaller cell=matrix=faster, while the setup is in the coordinates of the main cell, which are easier to interpret
+
 - Usage
   - [ ] Plotting of unit cell edges.
   - [x] coordinate systems.
