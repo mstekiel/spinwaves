@@ -105,17 +105,22 @@ def ensure_shape(**shapes):
             for name, expected_shape in shapes.items():
                 if name not in bound.arguments:
                     raise ValueError(f"Parameter '{name}' not found in function arguments")
+                
+                val = bound.arguments.get(name)
+                if val is None:
+                    continue
 
-                arr_shape = np.shape(bound.arguments[name])
+                arr_shape = np.shape(val)
                 if not match_shape(arr_shape, expected_shape):
                     raise ValueError(
-                        f"Parameter '{name}' expected shape {expected_shape}, "
-                        f"got {arr_shape}"
+                        f"[{func.__name__}] Parameter '{name}': "
+                        f"expected shape {expected_shape}, got {arr_shape}"
                     )
 
             return func(*args, **kwargs)
 
         return wrapper
+    
     return decorator
 
 ##################################################################################################
