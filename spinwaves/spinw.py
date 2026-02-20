@@ -8,7 +8,7 @@ heavy checks.
 '''
 # Core
 # from scipy.linalg import schur, cholesky
-from copy import deepcopy
+# from copy import deepcopy
 import scipy
 import numpy as np
 
@@ -852,7 +852,7 @@ class SpinW:
     #   point like, powder_Sperp, and full Sab should be available.
 
     def calculate_excitations(self, Qhkl: np.ndarray,
-                              omit_SS: bool=False, silent: bool=True) -> np.ndarray[float]:
+                              omit_SS: bool=False, silent: bool=True) -> np.recarray[np.void]:
         '''Calculate excitation spectrum on `qPath`.
         
         Parameters
@@ -940,6 +940,8 @@ class SpinW:
             with signature f(E, E0) -> float, where E is the energy at which the resolution is calculated
             and E0 is the energy of the excitation. E0 is provided to simulate variable resolution with E0.
             The resolution is peaked at zero.
+        spectral_weight: (len(self._qPath), M) ndarray, optional
+            Spectral weight to use instead of the calculated `self.excitations.Sperp`
             
         Returns
         -------
@@ -1095,7 +1097,7 @@ class SpinW:
             # Flatten objects for plotting
             x = x_arg.repeat(2*len(self.magnetic_atoms))
             y = Es.flatten()
-            z = Is.flatten()
+            # z = Is.flatten()
 
             ax.scatter(x, y, s=s, c=c, cmap='magma_r', **plot_kwargs)    # 0 branch
             ret_data = [x, y, s]
@@ -1112,13 +1114,13 @@ class SpinW:
 
             Erange = np.linspace(0, 100, 400)
             Es, Is = self.excitations
-            for E, I in zip(Es, Is):
-                Egrid.append(yvals(Erange, E, I))
+            for En, In in zip(Es, Is):
+                Egrid.append(yvals(Erange, En, In))
 
             Egrid = np.transpose(Egrid)
 
 
-            cmap = ax.pcolormesh(x_arg, Erange, Egrid, cmap=plot_kwargs['cmap'], vmax=plot_kwargs['vmax'])
+            ax.pcolormesh(x_arg, Erange, Egrid, cmap=plot_kwargs['cmap'], vmax=plot_kwargs['vmax'])
             ret_data = [x_arg, Erange, Egrid]
         else:
             raise KeyError(f"Unknown plot_type {plot_type!r}")

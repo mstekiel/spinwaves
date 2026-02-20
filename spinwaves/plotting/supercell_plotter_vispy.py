@@ -35,7 +35,7 @@ class VispySupercellPlotter(SupercellPlotter):
     _descriptions: list[str]
     _shaders: list[ShadingFilter]
 
-    def __init__(self, sws: SpinW, show: bool=True):
+    def __init__(self, sws: SpinW, show: bool=True, plot_options: dict={}):
         super().__init__(sws=sws)
 
         self.logger.setLevel('INFO')
@@ -45,6 +45,8 @@ class VispySupercellPlotter(SupercellPlotter):
         # self.spin_scale = 2
         # self.arrow_width = 0.1
         # self.arrow_head_size = 3
+
+        self.plot_options = plot_options
 
 
         # Init vispy objects
@@ -86,6 +88,8 @@ class VispySupercellPlotter(SupercellPlotter):
     def deploy(self) -> 'SceneCanvas':
         self.attach_headlight()
         # self.enable_picking_objects()
+
+        self.plot(self.plot_options)
 
         self.view.camera.center = self._structure_center
         self.view.camera.distance = 2*self._largest_distance / np.tan(np.radians(self.view.camera.fov)/2)
@@ -274,12 +278,12 @@ class VispySupercellPlotter(SupercellPlotter):
     def plot_lines(self,
                    lines: np.ndarray,
                    colors: np.ndarray,
-                   width: float=0.05,
+                   width: float=0.2,
                    alpha: float=1):
         '''
         width in px
         '''
-        colors = colors/255.
+        colors = colors/256
         ang_res = 32
         for line, color in zip(lines, colors):
             ### With tube
@@ -290,8 +294,8 @@ class VispySupercellPlotter(SupercellPlotter):
             # l = visuals.Tube(points=points, radius=[1e-10,width,width,1e-10], tube_points=ang_res, shading='flat')
 
             ### With line
-            obj = visuals.Line(line, width=width, color=color, antialias=True)
-            obj.interactive = True
+            obj = visuals.Line(line, width=width, color=color, antialias=True, parent=self.view)
+            # obj.interactive = True
             
             self.view.add(obj)
             self._objects.append(obj)

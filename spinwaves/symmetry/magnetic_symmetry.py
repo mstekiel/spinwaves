@@ -145,7 +145,7 @@ class mSymOp():
     def time_reversal(self) -> int:
         '''Time reversal of symmetry operation.
         1 means time reversal is not involved
-        -1 means time revelrsal is involved'''
+        -1 means time reversal is involved'''
         return self._time_reversal
     
     @property

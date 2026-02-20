@@ -298,10 +298,13 @@ class SupercellPlotter(ABC):
             # interatomic coupling as line
             couplings_lines.append([l1,l2])
             # TODO handle colors properly
-            if 'coupling_colors' in plot_options:               
+            if 'coupling_colors' in plot_options:
                 # couplings_colors.append(find_matching_label_color(cpl.label, plot_options['coupling_colors']))
                 color_name = plot_options['coupling_colors'].get(cpl.label.split('_')[0], 'Gray')
-                couplings_colors.append(color_data[color_name].RGB)
+            else:
+                color_name = 'Gray'     
+
+            couplings_colors.append(color_data[color_name].RGB)
 
             # DMI arrow
             if not np.allclose(cpl.DMI_vector, np.zeros(3)):
@@ -319,6 +322,7 @@ class SupercellPlotter(ABC):
             self.logger.error(traceback.format_exc())
 
         # Plot interatomic couplings
+        self.logger.info(f"Plotting couplings: {couplings_lines}")
         try:
             couplings_lines = np.array(couplings_lines)
             couplings_colors = np.array(couplings_colors)
