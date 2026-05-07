@@ -4,13 +4,21 @@ import numpy as np
 from spinwaves.spinw import make_exc_dtype
 
 def test_exc_dtype():
+    Qhkltype = np.float64
     Etype = np.float64
     Stype = np.complex128
 
-    dt = make_exc_dtype(Etype, Stype)
+    dt = make_exc_dtype(Qhkltype, Etype, Stype)
 
     # Create small array
     arr = np.zeros(3, dtype=dt)
+
+    # --- Test Qhkl ---
+    arr["Qhkl"][0] = [1.0, 2.0, 3.0]
+    np.testing.assert_array_equal(arr["Qhkl"][0], [1.0, 2.0, 3.0])
+    assert np.allclose(arr["E"], 0)
+    assert np.allclose(arr["Sperp"], 0)
+    assert np.allclose(arr["S"], 0)
 
     # --- Test E ---
     arr["E"][0] = 42.0
@@ -51,24 +59,32 @@ def test_exc_dtype():
     assert arr["S"][0, 0, 0] == -99 + 1j
 
     # --- Test dtype offsets correctness ---
+    qsize = np.dtype(Qhkltype).itemsize
+    esize = np.dtype(Etype).itemsize
     ssize = np.dtype(Stype).itemsize
+    assert dt.fields["Qhkl"][1] == 0
+    assert dt.fields["E"][1] == 3 * qsize
+    assert dt.fields["Sperp"][1] == 3 * qsize + esize
     base_offset = dt.fields["S"][1]
+    assert base_offset == 3 * qsize + 2 * esize
     assert dt.fields["Sxx"][1] == base_offset + 0 * ssize
     assert dt.fields["Syy"][1] == base_offset + 4 * ssize
     assert dt.fields["Szz"][1] == base_offset + 8 * ssize
 
 def test_exc_array():
-    shape = (3,4)
+    shape = (3, 4)
     exc_dtype = make_exc_dtype()
     excitations = np.rec.array(np.full(shape=shape, fill_value=0, dtype=exc_dtype))
 
+    excitations.Qhkl = np.ones((*shape, 3))
     excitations.Sxx = 1
     excitations.Syy = 2
     excitations.Szz = 3
 
+    assert np.allclose(excitations.Qhkl, 1)
     assert np.allclose(excitations.E, 0)
     assert np.allclose(excitations.Sperp, 0)
-    assert np.allclose(excitations.S[0,0], np.diag([1,2,3]))
+    assert np.allclose(excitations.S[0, 0], np.diag([1, 2, 3]))
 
 
 

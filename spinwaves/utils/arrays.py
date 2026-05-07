@@ -5,19 +5,23 @@ import numpy as np
 
 ##################################################################################################
 # Data types
-def make_exc_dtype(Etype: type=np.float64, Stype: type=np.complex128) -> 'np.dtype[np.void]':
+def make_exc_dtype(Qhkltype: type=np.float64, Etype: type=np.float64, Stype: type=np.complex128) -> 'np.dtype[np.void]':
     """Create a structured dtype with:
+    - Qhkl: 3D vector of real type `Qhkltype`
     - E: scalar of real type `Etype`
     - Sperp: scalar of real type `Etype`
     - S: 3x3 matrix of complex type `Stype`
     - Sxx...Szz: aliases into S elements
 
+    `Qhkl` is momentum transfer vector for which the excitations are calculated,
     `E` represents the energy of the excitation, `S` the spin-spin correlation matrix,
     `Sperp` is the perpendicular component of S to the momentum transfer Q,
     `Sij` with i,j in [x,y,z] are aliases into the S matrix.
 
     Parameters
     ----------
+    Qhkltype: type, optional
+        Data type for the momentum transfer vector, default np.float64
     Etype: type, optional
         Data type for the energy and Sperp scalars, default np.float64
     Stype: type, optional
@@ -27,22 +31,18 @@ def make_exc_dtype(Etype: type=np.float64, Stype: type=np.complex128) -> 'np.dty
     -------
     Numpy datatype storing information about excitation's energy and spin-spin correlation matrix (S)
     with feasible shortcuts for S elements.
-
-    Notes
-    -----
-    ChatGPT made it. I am not sure the offset calculations are correct,
-    in particular, that the S matrix is aligned properly with its components.
-    Test it properly.
     """
     # Sizes in bytes
+    qsize = np.dtype(Qhkltype).itemsize
     esize = np.dtype(Etype).itemsize
     ssize = np.dtype(Stype).itemsize
 
     # Build names, formats, and offsets
-    offset_S = 2*esize
-    names = ["E", "Sperp", "S"]
-    formats = [Etype, Etype, (Stype, (3, 3))]
-    offsets = [0, esize, offset_S]
+    offset_E = 3*qsize
+    offset_S = offset_E + 2*esize
+    names = ["Qhkl", "E", "Sperp", "S"]
+    formats = [(Qhkltype, (3,)), Etype, Etype, (Stype, (3, 3))]
+    offsets = [0, offset_E, offset_E + esize, offset_S]
 
     # Add aliases for each element of S
     labels = ["x", "y", "z"]
@@ -126,8 +126,24 @@ def ensure_shape(**shapes):
 ##################################################################################################
 # Array creation
 
-def create_mesh(v1: Iterable, v2: Iterable, v3: Iterable):
-    '''Create an array mesh of shape=(...,3) from the input arrays.'''
+def create_mesh(*vs: Iterable) -> np.ndarray:
+    '''Create a coordinate mesh from N arrays or scalars.
 
-    X, Y, Z = np.meshgrid(v1,v2,v3)
-    return np.stack((X,Y,Z), axis=-1).squeeze()
+    Each input can be a 1D array or a scalar. Returns an array of shape
+    `(*sizes, N)` where `result[i, j, ..., :]` holds the coordinates
+    of that grid point. Scalar inputs are broadcast and squeezed out of
+    the spatial dimensions.
+    
+    >>> m = create_mesh([1,2], [3,4], 0)
+    array([[[1, 3, 0],
+            [1, 4, 0]],
+
+           [[2, 3, 0],
+            [2, 4, 0]]])
+    >>> m.shape
+    (2, 2, 3)
+    '''
+
+    arrays = [np.atleast_1d(v) for v in vs]
+    grids = np.meshgrid(*arrays, indexing='ij')
+    return np.stack(grids, axis=-1).squeeze()
