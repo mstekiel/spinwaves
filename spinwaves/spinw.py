@@ -92,8 +92,9 @@ class SpinW:
         couplings: list['Coupling']
             List of unique couplings defining interactions between magnetic atoms.
         Hfield: float
-            External magnetic field value in units of meV, the direction is set along `n`,
-            global rotation axis to avoid umklapp terms in the Hamiltonian.
+            External magnetic field value in units of meV, such that it describes
+            the term `mu_B H` and can match the `J` units.
+
         '''
         self.crystal = crystal
         self.magnetic_atoms = crystal.atoms_magnetic
@@ -105,7 +106,7 @@ class SpinW:
 
         self.temperature = temperature
 
-        # Check that all atoms have g-tensor defeined
+        # Check that all atoms have g-tensor defined
         self.Hfield = None
         if Hfield is not None:
             if not all([atom.g_tensor is not None for atom in self.magnetic_atoms]):
@@ -890,12 +891,11 @@ class SpinW:
             
         Returns
         -------
-        energies: (..., 3M/M) ndarray
-            Array of energies of excitations along `qPath`, where N is the number of q-points
-            and M is the number of magnetic atoms.
-        intensities: (..., 3M/M) ndarray, optional
-            Array of intensities of excitations along `qPath`, where N is the number of q-points
-            and M is the number of magnetic atoms. Only returned if `omit_SS` is False.
+        excitations:
+            Record array with fields corresponding to the calculated excitations.
+            Contains at least the field `E` for energies, and optionally `S` for spin-spin correlation function.
+            If `S` is present also `Sperp` is calculated, as well as individual components of `S`-> `Sij`
+            for cartesian ij. 
 
         Notes
         -----
@@ -930,18 +930,11 @@ class SpinW:
             Q2m1 = np.zeros(shape)
             Q2m1 = np.divide(1, Q2, out=Q2m1, where=(Q2!=0))
             P = np.eye(3) - np.einsum('...i,...j,...->...ij', Qxyz, Qxyz, Q2m1)
-            # For stability, where Q=0 we take P from the neighbouring Q
 
             Sperp = P[..., None, :, :] @ excitations.S.real
-            # print(f'{P.shape=} {excitations.S.real.shape=} {Sperp.shape=}')
-            excitations.Sperp = np.trace(Sperp, axis1=-2, axis2=-1)
-
-            # Intensity should have also kf/ki f^2(Q) exp(-W)
-            # I = [np.trace(Si.real) for Si in S]
-            # TODO check perpendicular projection operator
-            # I = np.trace(funs_sw.perp_matrix(q_hkl) @ np.array([Si.real for Si in S]), axis1=-2, axis2=-1)
-            # intensity = [np.trace(funs_sw.perp_matrix(q_hkl) @ Si.real) for Si in S]
-            # self._intensities.append(intensity)
+            # TODO I had cases where Sperp resulted in large negative values.
+            # I put abs on it then, but is it physical?
+            excitations.Sperp = np.abs(np.trace(Sperp, axis1=-2, axis2=-1))
 
 
         self.excitations = excitations
@@ -1006,6 +999,9 @@ class SpinW:
     
     def calculate_powder_spectrum(self, Qrange, NQ, Erange, resolution):
         '''Calculate powder-averaged spectrum over given Q and E ranges.
+
+        Notes:
+        Now take random points in a sphere and digitizes them.
         
         Ideas:
         Calculate only in a single BZ and then extend it over all directions.
@@ -1045,7 +1041,7 @@ class SpinW:
         return staggered_spectrum.T * len(Qrange)/len(Q_ball)
 
 
-    def plot_dispersion(self, ax: 'plt.Axes', xaxis: np.ndarray=None, 
+    def plot_dispersion(self, ax: 'plt.Axes', xaxis: np.ndarray, qPath: np.ndarray,
                         plot_type: str='dispersion', plot_kwargs: dict={},
                         ret_data: bool=False) -> 'plt.Axes':
         '''
@@ -1072,11 +1068,11 @@ class SpinW:
             If `ret_data` is True, return the data used for plotting.
         '''
 
-        plot_kwargs.setdefault('cmap', 'jet')
+        plot_kwargs.setdefault('cmap', 'afmhot_r')
         plot_kwargs.setdefault('vmax', None)
 
         # Nice property of this array is that for any change in direction it will keep the same value
-        Qinc = np.concatenate(([0], np.linalg.norm( self.qPath[:-1] - self.qPath[1:], axis=1)))
+        Qinc = np.concatenate(([0], np.linalg.norm( qPath[:-1] - qPath[1:], axis=1)))
 
         if xaxis is not None:
             x_arg = xaxis
@@ -1093,24 +1089,25 @@ class SpinW:
         it2 = np.zeros(len(Qinc), dtype=bool)
         it2[0] = it2[-1] = True
 
-        it3 = (np.linalg.norm(self.qPath - self.qPath.round(), axis=1) == 0)
+        it3 = (np.linalg.norm(qPath - qPath.round(), axis=1) == 0)
 
         xticks_it = it1 | it2 | it3
         xticks = x_arg[xticks_it]
-        xtickslabels = ['\n'.join([f'{x:.2f}' for x in q]) for q in self.qPath[xticks_it]]
+        xtickslabels = ['\n'.join([f'{x:.2f}' for x in q]) for q in qPath[xticks_it]]
         ax.set_xticks(xticks, labels=xtickslabels)
 
 
         ### Plot type
         if plot_type == 'dispersion':
-            Es, Is = self.excitations
+            Es = self.excitations.E
             x = x_arg.repeat(2*len(self.magnetic_atoms))
 
             ax.scatter(x, Es, **plot_kwargs)    # 0 branch
 
             ret_data = [x_arg, Es]
         elif plot_type == 'dispersion_scaled':
-            Es, Is = self.excitations
+            Es = self.excitations.E
+            Is = self.excitations.Sperp
             Is -= Is.min()
 
             s = 10 + 100*Is/Is.max()
@@ -1137,14 +1134,16 @@ class SpinW:
                 return y
 
             Erange = np.linspace(0, 100, 400)
-            Es, Is = self.excitations
+            Es = self.excitations.E
+            Is = self.excitations.Sperp
             for En, In in zip(Es, Is):
                 Egrid.append(yvals(Erange, En, In))
 
             Egrid = np.transpose(Egrid)
 
+            cmap = plot_kwargs.pop('cmap', 'RdBu')
 
-            ax.pcolormesh(x_arg, Erange, Egrid, cmap=plot_kwargs['cmap'], vmax=plot_kwargs['vmax'])
+            ax.pcolormesh(x_arg, Erange, Egrid, cmap=cmap, vmax=plot_kwargs['vmax'])
             ret_data = [x_arg, Erange, Egrid]
         else:
             raise KeyError(f"Unknown plot_type {plot_type!r}")

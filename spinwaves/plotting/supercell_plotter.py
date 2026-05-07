@@ -195,6 +195,7 @@ class SupercellPlotter(ABC):
             boundaries = plot_options['boundaries']
 
         self.atom_alpha = plot_options.pop('atom_alpha', 0.8)
+        self.atom_scale = plot_options.pop('atom_scale', 1)
         self.spin_scale = plot_options.pop('spin_scale', 1)
         self.arrow_width = plot_options.pop('arrow_width', 0.1)
         self.arrow_head_size = plot_options.pop('arrow_head_size', 3)
@@ -211,7 +212,7 @@ class SupercellPlotter(ABC):
         sizes = np.array([atom.radius for atom in atoms])
         colors = np.array([atom.color for atom in atoms])
         try:
-            self.plot_balls(positions=pos, sizes=sizes, colors=colors)
+            self.plot_balls(positions=pos, sizes=sizes*self.atom_scale, colors=colors)
         except Exception as e:
             self.logger.error(traceback.format_exc())
 
@@ -224,7 +225,7 @@ class SupercellPlotter(ABC):
         # Magnetic moments
         magnetic_atoms = [atom for atom in atoms if atom.is_mag]
         ma_r = self.crystal.uvw2xyz([atom.r for atom in magnetic_atoms])
-        ma_m = np.array([atom.m*atom.s for atom in magnetic_atoms])
+        ma_m = np.array([atom.m*atom.s*self.spin_scale for atom in magnetic_atoms])
         ma_colors = np.array([atom.color for atom in magnetic_atoms])
         # ma_colors = np.array([[255,0,0] for atom in magnetic_atoms])
         try:
