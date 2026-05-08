@@ -37,7 +37,7 @@ class SymOp(ABC):
     def __mul__(self, other: 'SymOp') -> 'SymOp': ...
 
     @abstractmethod
-    def to_str(self) -> str: ...
+    def to_string(self) -> str: ...
 
     @classmethod
     @abstractmethod
@@ -119,15 +119,21 @@ class Group(Generic[T]):
         return len(self._operations)
 
     ##########################################################################################################
-    # Methods
+    # Basic methods
     def index_of(self, g: T) -> int:
         '''Index of the group element, as stored in `self.operations`.'''
         return self._index_of[g]
+    
+    def __iter__(self):
+        '''Iterate over the group elements.'''
+        return iter(self._operations)
 
     def __repr__(self) -> str:
         gen_str = ", ".join([g.__repr__() for g in self._generators])
         return f"<{self.__class__.__name__}={self._name}, order={self.order}, gens=[{gen_str}]>"
     
+    ##########################################################################################################
+    # Advanced methods
     def symmetrize(self, obj: A, transform_func: Callable[[T], T], check_attrs: list[str]=[]) -> list[T]:
         '''Symmetrize the `object` of arbitrary type according to the `transform_func`
         within the symmetry of the `Group`.
@@ -155,12 +161,16 @@ class Group(Generic[T]):
         '''
 
         # This implementation assumes good hashing of the symmetrized objects
-        obj_to_uid:       dict[A, int] = {}
-        objs_unique:      list[A]      = []
-        objs_symmetrized: list[A]      = []
-        id_inverse:       list[int]    = []
+        objs_unique:      list[A]           = []
+        objs_symmetrized: list[A]           = []
 
-        for g in self.operations:
+        # helper dict to assign unique ids to the symmetrized objects
+        obj_to_uid:       dict[A, int]      = {}
+        # helper dict to group the symmetry operations that produce 
+        # the same symmetrized object, used for checking the symmetry conditions
+        uid_to_eq_ids:    defaultdict[int, list[int]] = defaultdict(list)   
+
+        for idx, g in enumerate(self.operations):
             obj_new = transform_func(g, obj)
             objs_symmetrized.append(obj_new)
 
@@ -168,31 +178,26 @@ class Group(Generic[T]):
                 obj_to_uid[obj_new] = len(objs_unique)
                 objs_unique.append(obj_new)
 
-            id_inverse.append(obj_to_uid[obj_new])
+            uid = obj_to_uid[obj_new]
+            uid_to_eq_ids[uid].append(idx)
 
-        # objs_unique, id_inverse = np.unique(objs_symmetrized, return_inverse=True)
+        if check_attrs:
+            for id_unique, obj_unique in enumerate(objs_unique):
+                id_equivalent = uid_to_eq_ids[id_unique]
 
-        # Check symmetry condidtion
-        # [ ] Which symmetry elements do not produce compatible attributes?
-        for id_unique, obj_unique in enumerate(objs_unique):
-            id_equivalent = np.where(id_inverse==id_unique)[0]
+                for check_field in check_attrs:
+                    field_eq      = [getattr(objs_symmetrized[i], check_field) for i in id_equivalent]
+                    field_averaged = np.average(field_eq, axis=0)
+                    field_unique   = getattr(obj_unique, check_field)
 
-            for check_field in check_attrs:
-                field_eq = [objs_symmetrized[id].__getattribute__(check_field) for id in id_equivalent]
-                field_averaged = np.average(field_eq, axis=0)
-
-                field_unique = obj_unique.__getattribute__(check_field)
-                if not np.allclose(field_unique, field_averaged):
-                    warning_message = f'The following object property does not respect the symmetry\n\t{obj_unique}\n'
-                    warning_message+= f'\tSet value        : {check_field}={field_unique}\n'
-                    warning_message+= f'\tSymmetrized value: {check_field}={field_averaged}\n'
-
-                    for id in id_equivalent:
-                        warning_message += f'\t{self.operations[id]}\t-> {check_field}={objs_symmetrized[id].__getattribute__(check_field)}\n'
-
-                    warning_message+=  'You better know what you are doing.'
-
-                    logger.warning(warning_message)
+                    if not np.allclose(field_unique, field_averaged):
+                        msg  = f'Object property {check_field!r} does not respect symmetry:\n\t{obj_unique}\n'
+                        msg += f'\tStored value     : {field_unique}\n'
+                        msg += f'\tSymmetrized value: {field_averaged}\n'
+                        for i in id_equivalent:
+                            msg += f'\t{self.operations[i]}\t-> {check_field}={getattr(objs_symmetrized[i], check_field)}\n'
+                        msg += 'You better know what you are doing.'
+                        logger.warning(msg)
 
         return objs_unique
 
