@@ -605,7 +605,7 @@ def reproduce_tutorial_8(Qsamples: float=10000):
 
 def reproduce_tutorial_9(Qsamples: float=10000):
     """k=0 Kagome antiferromagnet with DM interaction"""
-    print('Reproducing SpinW tutorial 8')
+    print('Reproducing SpinW tutorial 9')
 
     ### SETUP
     Pm3 = MSG.from_xyz_strings(generators=[
@@ -657,7 +657,7 @@ def reproduce_tutorial_9(Qsamples: float=10000):
     ### PLOTTING
     fig, axes = plt.subplots(nrows=3, figsize=(4, 9), tight_layout=True)
 
-    fig.suptitle('SpinW tutorial 8\nk=0 Kagome antiferromagnet with DM interaction')
+    fig.suptitle('SpinW tutorial 9\nk=0 Kagome antiferromagnet with DM interaction')
 
     axes[0].set(title='Dispersion relations', 
                 xlabel='Qinc (A-1)',
@@ -684,7 +684,7 @@ def reproduce_tutorial_9(Qsamples: float=10000):
     axes[2].set(title='Powder spectrum', 
                 xlabel='Q (A-1)',
                 ylabel='energy transfer (meV)', ylim=(0,3))
-    pcm = axes[2].pcolormesh(Qrange, Erange, I, vmax=5)
+    pcm = axes[2].pcolormesh(Qrange, Erange, I, vmax=3)
     cbar = fig.colorbar(pcm, ax=axes[2], orientation='vertical', extend='max', label='intensity (a.u.)')
 
 
@@ -776,8 +776,7 @@ def reproduce_tutorial_11():
     return
 
 def reproduce_tutorial_12():
-    """Triangular lattice AF with easy plane anisotropy
-"""
+    """Triangular lattice AF with easy plane anisotropy"""
     print('Reproducing SpinW tutorial 12')
 
     ### SETUP
@@ -855,7 +854,7 @@ def reproduce_tutorial_12():
     v = 8
     axes[2].plot(Qinc, exc.E, c='black', lw=0.5, zorder=10)
     pcm = axes[2].pcolormesh(Qinc, Erange, spectrum, cmap='RdBu', vmin=-v, vmax=v)
-    cbar = fig.colorbar(pcm, ax=axes[2], orientation='vertical', extend='max', label='intensity (a.u.)')
+    cbar = fig.colorbar(pcm, ax=axes[2], orientation='vertical', extend='both', label='intensity (a.u.)')
 
 
     fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_12.png')
@@ -1175,7 +1174,7 @@ def test_new_functionalities():
 if __name__ == "__main__":
     # pytest.main()
 
-    Qsamples = 3000
+    Qsamples = 100000
 
     ### Basics
     # reproduce_tutorial_1(Qsamples)
@@ -1188,10 +1187,10 @@ if __name__ == "__main__":
     # reproduce_tutorial_6(Qsamples)
     # reproduce_tutorial_7(Qsamples)
     # reproduce_tutorial_8(Qsamples)
-    # reproduce_tutorial_9(Qsamples)
+    reproduce_tutorial_9(Qsamples)
 
     # reproduce_tutorial_11()
-    reproduce_tutorial_12()
+    # reproduce_tutorial_12()
 
     # reproduce_tutorial_19()
     # reproduce_tutorial_20()

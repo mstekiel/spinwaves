@@ -14,13 +14,13 @@
   - [ ] Implement primitive/reduced cell such that the calculation is on smaller cell=matrix=faster, while the setup is in the coordinates of the main cell, which are easier to interpret
   - [ ] standard paths of lattices doi.org/10.1016/j.commatsci.2010.05.010
   - [x] MSG should inherit from Group
-  - [ ] crystallographic SG should also inherit from Group
+  - [x] crystallographic SG should also inherit from Group
 
 - Future
   - [ ] Lot of core functionalities rely on hashing the objects for unique identifiers:
     -  `SymOps` do it from string for unique elements finding
-    -  `Atom` sam, for unique position finding
-    Is there a sturdy way ti implement hashing?
+    -  `Atom` same, for unique position finding
+    Is there a sturdy way to implement hashing?
 
 - Usage
   - [ ] Plotting of unit cell edges.

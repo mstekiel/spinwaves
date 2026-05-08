@@ -87,19 +87,19 @@ def test_MSG_construction():
     #     'x+1/4, -z+1/4, y+3/4, -1'
     #     ])
 
+@pytest.mark.skip(reason="Not implemented yet")
 def test_subgroups():
-    pass 
-    # Imm3 = MSG.from_xyz_strings(generators=[
-    #     'z, x, y, +1',    # 3_111
-    #     'x+1/2, y+1/2, z+1/2, +1', # I centering
-    #     '-x, -y, z, +1',    # 2_110
-    #     '-x, -y, -z, +1',   # -1
-    #     ])
-    # # This groups has order 48, check only orders of subgroups
+    Imm3 = MSG.from_xyz_strings(generators=[
+        'z, x, y, +1',    # 3_111
+        'x+1/2, y+1/2, z+1/2, +1', # I centering
+        '-x, -y, z, +1',    # 2_110
+        '-x, -y, -z, +1',   # -1
+        ])
+    # This groups has order 48, check only orders of subgroups
 
-    # subgroups_order = [2,4,4,4,6,8,8,8,12,16,24]
-    # subgroups = Imm3.get_subgroups()
-    # assert subgroups_order==[Gsub.order for Gsub in subgroups]
+    subgroups_order = [2,4,4,4,6,8,8,8,12,16,24]
+    subgroups = Imm3.get_subgroups()
+    assert sorted(subgroups_order) == sorted([Gsub.order for Gsub in subgroups])
 
 def test_orbits():
     P4_32_12 = MSG.from_xyz_strings(generators=[

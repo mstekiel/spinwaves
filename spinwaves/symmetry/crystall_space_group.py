@@ -115,7 +115,7 @@ class cSymOp(SymOp):
         return cSymOp(matrix = new_matrix, 
                       translation = new_translation)
     
-    def to_str(self) -> str:
+    def to_string(self) -> str:
         '''Represent symmetry operation as xyz string.
         I assume the xyz_string==self._str is a unique identifier
         of the symmetry operation.
@@ -160,7 +160,7 @@ class cSymOp(SymOp):
     
     def __hash__(self) -> int:
         '''Hash of the function, based on the string representation.'''
-        return hash(self.to_str())
+        return hash(self.to_string())
     
     def __eq__(self, other) -> bool:
         t1 =  (self._matrix==other._matrix).all()
@@ -196,7 +196,7 @@ class cSymOp(SymOp):
     ##############################################################################
     # Methods
     def __repr__(self) -> str:
-        return f'<cSymOp `{self.to_str()}`>'
+        return f'<cSymOp `{self.to_string()}`>'
     
     def transform_atom(self, atom: 'Atom'):
         pass
