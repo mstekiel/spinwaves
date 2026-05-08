@@ -6,24 +6,24 @@ For example, I call the group elements operations, more natural in crystallograp
 Also, each element has its inverse.
 '''
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 import logging
 import numpy as np
 from collections import deque, defaultdict
-from typing import Any, Callable, Dict, List, Tuple, TypeVar
+from typing import Any, Callable, Dict, Generic, List, Tuple, TypeVar
 
-T = TypeVar('T')
+T = TypeVar('T', bound='SymOp')     # Holder for descendadts of SymOp
+A = TypeVar('A')                    # Holder for arbitrary objects to be symmetrized
+
 logger = logging.getLogger('Symmetry')
 
 
 MAX_GROUP_ORDER = 1024
 
-class SymOp(object):
+class SymOp(ABC):
     '''Abstract class of symmetry operations as members of the crystallographic (SG) and magnetic space groups (MSG).
     Enforces to contain the implementation of functions required to form a SG or MSG:
     - multiplication: `__mul__`
-    - hashability: `__hash__`
-    - equality: `__eq__`
     - string casting for hash: `to_str()`
     - identity element: `identity`
     - inverse element: `inv`
@@ -34,23 +34,19 @@ class SymOp(object):
     '''
 
     @abstractmethod
-    def __mul__(self, other: 'SymOp') -> 'SymOp':
-        pass
+    def __mul__(self, other: 'SymOp') -> 'SymOp': ...
 
     @abstractmethod
-    def to_str(self) -> str:
-        pass
+    def to_str(self) -> str: ...
 
     @classmethod
     @abstractmethod
-    def identity(self) -> 'SymOp':
-        pass
+    def identity() -> 'SymOp': ...
 
     @abstractmethod
-    def inverse(self) -> 'SymOp':
-        pass
+    def inv(self) -> 'SymOp': ...
 
-class Group(object):
+class Group(Generic[T]):
     '''Represent group, holder of group elemets `g` with functionalities.
     
     Attributes
@@ -69,20 +65,26 @@ class Group(object):
     ----
     [ ] The constructor assumes the generators are unique, i.e. are not repeated
     '''
+    _name: str
+    _generators: tuple[T]
+    _operations: list[T]
+    _mult_table: Dict[Tuple[T, T], T]
+    _adjacency: Dict[T, List[Tuple[str, T]]]
+    _index_of:  Dict[T, int]
 
-    def __init__(self, generators: list[SymOp], name='Group'):
+    def __init__(self, generators: list[T], name='Group'):
 
         # Name
         self._name = name
 
-        # Ensure only unique elements and no identity
-        # form the generators
-        generators = set(generators) - {generators[0].identity()}
+        # Capture identity before stripping so type is always available
+        identity = generators[0].identity()
+        generators = set(generators) - {identity}
         self._generators = tuple(generators)
 
         # Generate few attributes of the group that can be done in single loop
         # and thus enhances the speed and clarity.
-        (operations, mult_table, adjacency, index_of) = self.build_group_cayley(generators=self._generators)
+        (operations, mult_table, adjacency, index_of) = self.build_group_cayley(generators=self._generators, identity=identity)
 
         self._operations = operations
         self._mult_table = mult_table
@@ -94,13 +96,20 @@ class Group(object):
         self._adjacency_tensor = mats
 
         # Uncolored directed adjacency (counts parallel edges)
-        self._adjacency_matrix = np.add.reduce([mat for mat in mats.values()]).astype(int)
+        n = len(operations)
+        mat_list = [mat for mat in mats.values()]
+        self._adjacency_matrix = np.add.reduce(mat_list).astype(int) if mat_list else np.zeros((n, n), dtype=int)
 
     ##########################################################################################################
     # Properties
 
     @property
-    def operations(self) -> list['SymOp']:
+    def generators(self) -> list[T]:
+        '''List of all symmetry operations of the group.'''
+        return self._generators
+
+    @property
+    def operations(self) -> list[T]:
         '''List of all symmetry operations of the group.'''
         return self._operations
 
@@ -111,7 +120,7 @@ class Group(object):
 
     ##########################################################################################################
     # Methods
-    def index_of(self, g: 'SymOp') -> int:
+    def index_of(self, g: T) -> int:
         '''Index of the group element, as stored in `self.operations`.'''
         return self._index_of[g]
 
@@ -119,7 +128,7 @@ class Group(object):
         gen_str = ", ".join([g.__repr__() for g in self._generators])
         return f"<{self.__class__.__name__}={self._name}, order={self.order}, gens=[{gen_str}]>"
     
-    def symmetrize(self, object: T, transform_func: Callable[['SymOp', T], T], check_attrs: list[str]=[]) -> list[T]:
+    def symmetrize(self, obj: A, transform_func: Callable[[T], T], check_attrs: list[str]=[]) -> list[T]:
         '''Symmetrize the `object` of arbitrary type according to the `transform_func`
         within the symmetry of the `Group`.
         In other words, will apply each symmetry operation of the `Group` to the `object`,
@@ -142,17 +151,29 @@ class Group(object):
         Returns
         -------
         list[T]
-            List of objects created by applyin symmetry operations of the `MSG`.
+            List of objects created by applying symmetry operations of the `MSG`.
         '''
-        objs_symmetrized = []
+
+        # This implementation assumes good hashing of the symmetrized objects
+        obj_to_uid:       dict[A, int] = {}
+        objs_unique:      list[A]      = []
+        objs_symmetrized: list[A]      = []
+        id_inverse:       list[int]    = []
+
         for g in self.operations:
-            objs_symmetrized.append(transform_func(g, object))
+            obj_new = transform_func(g, obj)
+            objs_symmetrized.append(obj_new)
 
-        objs_unique, id_inverse = np.unique(objs_symmetrized, return_inverse=True)
+            if obj_new not in obj_to_uid:
+                obj_to_uid[obj_new] = len(objs_unique)
+                objs_unique.append(obj_new)
 
+            id_inverse.append(obj_to_uid[obj_new])
+
+        # objs_unique, id_inverse = np.unique(objs_symmetrized, return_inverse=True)
 
         # Check symmetry condidtion
-        # [ ] Which symmetry elements to not produce compatible attributes?
+        # [ ] Which symmetry elements do not produce compatible attributes?
         for id_unique, obj_unique in enumerate(objs_unique):
             id_equivalent = np.where(id_inverse==id_unique)[0]
 
@@ -173,19 +194,20 @@ class Group(object):
 
                     logger.warning(warning_message)
 
-
         return objs_unique
 
     @staticmethod
-    def build_group_cayley(generators: tuple[SymOp]) -> tuple:
+    def build_group_cayley(generators: tuple[T], identity: T) -> tuple:
         """
         Generate the group from generators using a Cayley-graph Breadth-First Search algorithm BFS,
         build the full multiplication table, and construct the Cayley graph.
 
         Parameters
         ----------
-        generators: list[SymOp]
+        generators: tuple[T]
             List of group generators (identity NOT included)
+        identity: T
+            Identity element of the group
 
         Returns
         -------
@@ -196,8 +218,6 @@ class Group(object):
         - index_of   : map operation -> index to address rows/cols of the table
         """
         gens_inv = tuple([g.inv() for g in generators])
-        gType = type(generators[0])
-        identity = gType.identity()
         
         # use Spm as the generating set for BFS
         steps_bfs = set(generators + gens_inv) - {identity}
@@ -260,10 +280,10 @@ class Group(object):
     
     @staticmethod
     def adjacency_tensor(
-        generators: List["SymOp"],
-        operations: List["SymOp"],
-        adjacency: Dict["SymOp", List[Tuple[str, "SymOp"]]],
-    ) -> Dict["SymOp", np.ndarray]:
+        generators: List[T],
+        operations: List[T],
+        adjacency: Dict[T, List[Tuple[str, T]]],
+    ) -> Dict[T, np.ndarray]:
         """
         Build a per-generator adjacency tensor for the Cayley diagram of the group.
 
@@ -273,23 +293,23 @@ class Group(object):
 
         Parameters
         ----------
-        generators : Iterable[SymOp]
+        generators : Iterable[T]
             The base generating set S (identity excluded). The tensor is indexed by these objects.
-        operations : list[SymOp]
+        operations : list[T]
             All group elements, their order will define the row/column order of the matrices.
-        adjacency : Dict[SymOp, List[Tuple[str, SymOp]]]
+        adjacency : Dict[T, List[Tuple[str, T]]]
             Directed, labeled edges of the Cayley graph: u -> [(label, v), ...]
 
         Returns
         -------
-        Dict[SymOp, np.ndarray]
+        Dict[T, np.ndarray]
             One n*n matrix per generator g in S. Edges labeled by g or g^{-1} are folded into A_g.
         """
         n = len(operations)
         idx = {g: i for i, g in enumerate(operations)}
 
-        mats: Dict["SymOp", np.ndarray] = {g: np.zeros((n, n), dtype=int) 
-                                           for g in generators}
+        mats: Dict[T, np.ndarray] = {g: np.zeros((n, n), dtype=int) 
+                                     for g in generators}
 
         for g1, connections in adjacency.items():
             for gc,g2 in connections:

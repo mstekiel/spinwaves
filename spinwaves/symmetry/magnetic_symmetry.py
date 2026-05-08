@@ -5,6 +5,8 @@ import logging
 from copy import deepcopy
 from itertools import chain, combinations
 
+from .group import SymOp, Group
+
 
 from typing import Any, Callable, TypeVar, Union, TYPE_CHECKING
 if TYPE_CHECKING:
@@ -19,7 +21,7 @@ logger = logging.getLogger('Magnetic Symmetry')
 # - [ ] check the names and definitions against the dictionary for Crystallography
 # - [ ] Does the mSymOp.inversion() does not involve touching the translation?
 
-class mSymOp():
+class mSymOp(SymOp):
     '''Magnetic space group symmetry operation.
     
     Attributes
@@ -174,7 +176,7 @@ class mSymOp():
     def identity() -> 'mSymOp':
         return mSymOp.from_string("x, y, z, +1")
 
-    def to_string(self) -> str:
+    def to_str(self) -> str:
         '''Represent symmetry operation as xyz string.
         
         Conventions
@@ -305,7 +307,7 @@ class mSymOp():
         ret = '<mSymOp\n'
         for field in fields:
             if field not in self.__dict__:
-                Warning(f'{field!r} is not a valid field of the {self.__class__.__name__!r}')
+                logger.warning(f'{field!r} is not a valid field of the {self.__class__.__name__!r}')
 
             value = self.__getattribute__(field)
             if field == 'matrix':
@@ -389,28 +391,12 @@ class mSymOp():
 
 ###########################################################################
 
-class MSG():
+class MSG(Group[mSymOp]):
     '''Magnetic Space Group'''
     _name: str
     _generators: tuple[mSymOp]
     _operations: tuple[mSymOp]
 
-    def __init__(self,
-                 generators: list[mSymOp],
-                 name: str='MSG'):
-        
-        # Name
-        self._name = name
-
-        # Ensure only unique elements and no identity
-        # form the generators
-        generators = set(generators) - {mSymOp.from_string('x, y, z, +1')}
-        self._generators = tuple(sorted(generators))
-
-        # Generate other symmetry operations
-        self._operations = tuple(sorted(self._generate_all_elements(generators)))
-
-        # elements, mult_table, adjacency, index_of = self.build_group_cayley()
 
     ##############################################################################
     # Constructors
@@ -428,131 +414,6 @@ class MSG():
         '''
         return cls(generators = [mSymOp.from_string(xyz_string) for xyz_string in generators])
 
-    def _generate_all_elements(self, generators: list[mSymOp]):
-        '''Generate symmetry elements of magnetic space group from generators.
-        Uses the pairwise closure algorithm. Simple in implementation, not optimal.'''
-        # Algorithm
-        # 1. Multiply all symmetry operators by each other
-        # 2. Find unique symmetry operations in the multiplied list
-        # 3. If the list of unique elements is longer than the
-        #    original symmetry some new operators were created -> GOTO 1
-        # Exit: When no new symmetry operators were created
-        #
-        # The algorithm is O(n*n) and becomes heavy for large n.
-        # We dint have to multiply all elements each time, just the new ones.
-        # Tried some improvements, but subtracted just constant time.
-
-        # Add 1 to generators, to fulfill `while` loop entry condition and ensure its in the group
-        ops_new = list(generators) + [mSymOp.from_string('x, y, z, +1')]
-        ops = generators
-        while len(ops_new) > len(ops):
-            ops = ops_new
-            ops_table = [gi*gj for gi in ops for gj in ops]
-            ops_new = list(set(ops_table))
-
-        return ops
-        
-    ##############################################################################
-    # Properties
-    @property
-    def operations(self) -> tuple['mSymOp']:
-        '''Symmetry operators of the MSG'''
-        return self._operations
-
-    @property
-    def order(self) -> int:
-        return len(self._operations)
-
-    ##############################################################################
-    # Utility operations
-    def __str__(self) -> str:
-        ret = f'<{self._name} order={len(self._operations)}\n'
-        for g in self._generators:
-            ret += f'  {g}\n'
-        ret += '>'
-        return ret
-    
-    def __getitem__(self, index: int) -> 'mSymOp':
-        return self._operations[index]
-    
-    
-    def symmetrize(self, obj: T, transform_func: Callable[['mSymOp', T], T], check_attrs: list[str]=[]) -> list[T]:
-        '''Symmetrize the `object` of arbitrary type according to the `transform_func`
-        within the symmetry of the `MSG`.
-        In other words, will apply each symmetry element of the `MSG` to the `object`,
-        where the symmetry transformation rules are defined within the `transform_func`.
-
-        >>> class A: r=[0,0,0]
-        >>> gen_fun = lambda g, a: A(g.matrix @ a.r)
-        >>> MSG.symmetrize(A([0, 0, 0.5]), gen_fun) 
-        
-        Parameters
-        ----------
-        obj: T
-            Object that will be symmetrized
-        transform_obj: Callable[[T], T]
-            Recipe how the object transforms under symmetry operations.
-        check_attrs: list[str], optional
-            If provided, it will check if the attributes are respecting the symmetry conditions of the MSG.
-
-        Returns
-        -------
-        list[T]
-            List of objects created by applyin symmetry operations of the `MSG`.
-        '''
-        objs_symmetrized = []
-        for g in self.operations:
-            objs_symmetrized.append(transform_func(g, obj))
-
-        objs_unique, id_inverse = np.unique(objs_symmetrized, return_inverse=True)
-
-
-        # Check symmetry condidtion
-        # [ ] Which symmetry elements to not produce compatible attributes?
-        for id_unique, obj_unique in enumerate(objs_unique):
-            id_equivalent = np.where(id_inverse==id_unique)[0]
-
-            for check_field in check_attrs:
-                field_eq = [objs_symmetrized[id].__getattribute__(check_field) for id in id_equivalent]
-                field_averaged = np.average(field_eq, axis=0)
-
-                field_unique = obj_unique.__getattribute__(check_field)
-                if not np.allclose(field_unique, field_averaged):
-                    warning_message = f'The following object property does not respect the symmetry\n\t{obj_unique}\n'
-                    warning_message+= f'\tSet value        : {check_field}={field_unique}\n'
-                    warning_message+= f'\tSymmetrized value: {check_field}={field_averaged}\n'
-
-                    for id in id_equivalent:
-                        warning_message += f'\t{self.operations[id]}\t-> {check_field}={objs_symmetrized[id].__getattribute__(check_field)}\n'
-
-                    warning_message+=  'You better know what you are doing.'
-
-                    logger.warning(warning_message)
-
-
-        return objs_unique
-    
-    def make_cayley_table(self):
-        '''Construct Cayley table of the symmetry group.
-        Indices of the table correspond to the `self._operations` list.'''
-        cayley_table = np.full((self.order, self.order), -1, dtype=int)
-        for id_i, gi in enumerate(self._operations):
-            for id_j, gj in enumerate(self._operations):
-                cayley_table[id_i, id_j] = self._operations.index(gi*gj)
-
-        return cayley_table
-    
-    def get_subgroups(self) -> list['MSG']:
-        '''Determine possible subgroup of the symmetry group.'''
-        # Construction based on the generators of the MSG
-        # s = list(self._operations.index(g) for g in self._generators)
-        
-        # Get combinations of generators
-        s = list(self._generators)
-        gen_subsets = chain.from_iterable(combinations(s, r) for r in range(1, len(s)))
-        # Make groups from different generators
-        subgroups = [MSG(generators=gen) for gen in gen_subsets]
-        return sorted(set(subgroups), key=lambda msg: len(msg._operations))
 
     def get_point_symmetry(self, position: np.ndarray[Any]) -> list[mSymOp]:
         '''Determine the point symmetry of the `position`.
@@ -606,6 +467,8 @@ class MSG():
         To prevent floating point inaccuracies the comparison is done until 5th decimal place.
         WHY? With implementation of fractions, that shouldn't be necessary.
         '''
+
+        # TODO cast `positions_new` to fractions and skip rounding
         positions_new = [g.transform_position(position)%1 for g in self.operations]
         positions, id_unique = np.unique( np.around(positions_new, 5), axis=0, return_index=True)
 
