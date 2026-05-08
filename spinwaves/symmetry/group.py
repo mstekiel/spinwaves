@@ -17,7 +17,6 @@ A = TypeVar('A')                    # Holder for arbitrary objects to be symmetr
 
 logger = logging.getLogger('Symmetry')
 
-
 MAX_GROUP_ORDER = 1024
 
 class SymOp(ABC):

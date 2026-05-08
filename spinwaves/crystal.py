@@ -16,6 +16,9 @@ if TYPE_CHECKING:
 # Internal
 
 from .lattice import Lattice
+
+import logging
+logger = logging.getLogger('Crystal')
         
 class Crystal(Lattice):
     '''Crystal structure class. `Atoms` on a `Lattice` with `SpaceGroup`.

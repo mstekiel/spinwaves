@@ -1,5 +1,7 @@
 import numpy as np
 
+import logging
+logger = logging.getLogger('Coupling')
 
 class Coupling:
     '''Coupling between atoms in the crystal.

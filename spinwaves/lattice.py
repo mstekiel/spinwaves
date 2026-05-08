@@ -19,6 +19,8 @@ from .utils.arrays import ensure_shape
 
 from typing import Sequence, Union
 
+import logging
+logger = logging.getLogger('Lattice')
 
 class Lattice(object):
     """Class to describe a generic lattice system defined by six lattice
@@ -454,7 +456,7 @@ class Lattice(object):
         return 2*np.pi / self.get_Q(hkl)
 
     @ensure_shape(hkl=(...,3))
-    def get_tth(self, hkl: np.ndarray, wavelength: float) -> np.ndarray:
+    def scattering_angle(self, hkl: np.ndarray, wavelength: float) -> np.ndarray:
         u"""Returns the detector angle two-theta [rad] for a given reciprocal
         lattice vector [rlu] and incident wavelength [A].
 
@@ -473,8 +475,36 @@ class Lattice(object):
             Shape follows the input signature with reduced last dimension.
 
         """
+        logger.warning('This method is deprecated. Use `get_tth` instead.')
 
         return 2*np.arcsin( wavelength*self.get_Q(hkl)/4/np.pi )
+    
+    # Coordinate transforms
+    @ensure_shape(hkl=(...,3))
+    def get_tth(self, hkl: Sequence[float], wavelength: float) -> np.ndarray:
+        '''Calculate the scattering angle two-theta for the reciprocal lattice coordinates `hkl`.
+        
+        Parameters
+        ----------
+        hkl : array_like
+            Reciprocal lattice coordinates.
+        wavelength : float
+            Wavelength of the incoming wave in Angstroems.
+                
+        Returns
+        -------
+        tth: ndarray
+            Scattering angles in radians.
+        '''
+        
+        Q_lengths = self.get_Q(hkl)        
+        y = wavelength*Q_lengths/(4*np.pi)
+        try:
+            theta = np.arcsin(y)
+        except RuntimeWarning:
+            raise ValueError('Wavelength too long to be able to reach the selected hkl.')
+            
+        return 2*theta
     
     
     def get_angle_between_planes(self, v1, v2) -> float:
@@ -779,33 +809,6 @@ class LatticeOriented(Lattice):
         return np.einsum('ij,...j', np.linalg.inv(self.UB), xyz)
         
     #################################################################################################
-    # Coordinate transforms
-    @ensure_shape(hkl=(...,3))
-    def scattering_angle(self, hkl: Sequence[float], wavelength: float) -> np.ndarray:
-        '''
-        Calculate the scattering angle two-theta for the reciprocal lattice coordinates `hkl`.
-        
-        Parameters
-        ----------
-        hkl : array_like
-            Reciprocal lattice coordinates.
-        wavelength : float
-            Wavelength of the incoming wave in Angstroems.
-                
-        Returns
-        -------
-        tth: ndarray
-            Scattering angles in radians.
-        '''
-        
-        Q_lengths = self.get_Q(hkl)        
-        y = wavelength*Q_lengths/(4*np.pi)
-        try:
-            theta = np.arcsin(y)
-        except RuntimeWarning:
-            raise ValueError('Wavelength too long to be able to reach the selected hkl.')
-            
-        return 2*theta
         
     @ensure_shape(hkl=(...,3))
     def is_in_scattering_plane(self, hkl: Sequence[float]) -> bool:

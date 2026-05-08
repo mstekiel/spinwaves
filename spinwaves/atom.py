@@ -16,6 +16,9 @@ from .databases import atom_data, color_data
 # config constants
 config = dict(MAX_DENOMINATOR = 1000)
 
+import logging
+logger = logging.getLogger('Atom')
+
 class Atom:
     '''
     Stores informations about the atom.
