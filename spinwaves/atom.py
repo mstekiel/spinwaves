@@ -53,7 +53,8 @@ class Atom:
     Notes
     -----
     - I see no better convention than the mixed notation for r_uvw and m_xyz.
-    - Sorting is based on the position only. So th emixed occupation of the site is not implemented.
+    - Position is always positive and in the [0,1) interval, as it is periodic. This is implemented in the setter.
+    - Sorting is based on the position only. So the mixed occupation of the site is not implemented.
 
     '''
 
@@ -142,7 +143,7 @@ class Atom:
     @r.setter
     @ensure_shape(r_new=(3,))
     def r(self, r_new: Sequence):
-        self._r = tuple([Fraction(x).limit_denominator(config['MAX_DENOMINATOR']) for x in r_new])
+        self._r = tuple([Fraction(x).limit_denominator(config['MAX_DENOMINATOR']) % 1 for x in r_new])
 
     @property
     def m(self) -> np.ndarray[float]:
@@ -180,6 +181,10 @@ class Atom:
         return (np.linalg.norm(self.m) > 1e-10) and (self._s != 0)
 
     ##############################################################################################################
+    def __hash__(self) -> int:
+        '''Hash based on position only.'''
+        return hash(self._r)
+    
     def __lt__(self, other) -> bool:
         '''Implement comparison of atoms for sorting.
         Compares only atomic position.'''
