@@ -53,8 +53,10 @@ class mSymOp(SymOp):
 
     Notes
     -----------
-    1. time_reversal, inversion, naming is bit awkward with int
-    2. Handling the transformations of position with Fractions?
+    - matrix part will always be composed of {-1, 0 1} elements.
+    - translation part is always positive, with denominator limited to 6.
+      Thus, is represented as '[1235]/[2346]'.
+    - time reversal is either +1 or -1, represented as `+1` or `-1` in the xyz string.
     '''
     _str: str
     _matrix: np.ndarray[int]
@@ -76,8 +78,12 @@ class mSymOp(SymOp):
         # Current implementation assumes denominator max 6
         if any([t.denominator>6 for t in translation]):
             raise ValueError(f'{translation!r} Translation part contains denominator >6. This is unnacounted for.')
-        self._translation = translation
+        # Limit translation to [0,1) interval, as it is periodic
+        self._translation = translation % 1
 
+        # Time reversal can only be +1 or -1
+        if time_reversal not in {1, -1}:
+            raise ValueError(f'`time_reversal` must be either +1 or -1, got {time_reversal}')
         self._time_reversal = time_reversal
 
         self._str = self.to_string()
@@ -85,7 +91,7 @@ class mSymOp(SymOp):
     @classmethod
     def from_string(cls, xyz_str: str) -> 'mSymOp':
         '''Construct a magnetic symmetry operation object `mSymOp` from the xyz string.
-        There are some heavy conventions on the xyz string, noted in ???.'''
+        There are some heavy conventions on the xyz string, noted in class header.'''
 
         allowed_chars = set(' /,+-xyz123456')
         if not set(xyz_str).issubset(allowed_chars):
@@ -172,11 +178,20 @@ class mSymOp(SymOp):
     ##############################################################################
     # Utility operations
 
-    @staticmethod
-    def identity() -> 'mSymOp':
-        return mSymOp.from_string("x, y, z, +1")
+    def __hash__(self) -> int:
+        '''Hash based on matrix, translation and time reversal. All are int related,
+        so easily hashable.'''
+        return hash((
+            self._matrix.tobytes(),
+            tuple(self._translation),
+            self._time_reversal
+        ))
 
-    def to_str(self) -> str:
+    @classmethod
+    def identity(cls) -> 'mSymOp':
+        return cls.from_string("x, y, z, +1")
+
+    def to_string(self) -> str:
         '''Represent symmetry operation as xyz string.
         
         Conventions
@@ -242,7 +257,6 @@ class mSymOp(SymOp):
                      np.linalg.norm(other.translation))
 
         return comp_left < comp_right
-        # return self.str < other.str
     
     @property
     def symbol_HM(self) -> str:
@@ -271,15 +285,15 @@ class mSymOp(SymOp):
 
         return ret
     
-    def __eq__(self, other: 'mSymOp') -> bool:
-        # If we truly trust in string, why not?
-        # Because it is not significantly faster and sometimes slower. Also, good to have double check.
-        # return self.str==other.str
-        t1 = (self._matrix==other._matrix).all()
-        t2 = (self._translation==other._translation).all()    # comparing on fractions should be ok?
-        t3 = (self._time_reversal==other._time_reversal)
-
-        return t1 and t2 and t3
+    def __eq__(self, other: object) -> bool:
+        '''Equality based on hashed matrix, translation and time reversal.'''
+        if not isinstance(other, self.__class__):
+            return NotImplemented
+        # t1 = (self._matrix==other._matrix).all()
+        # t2 = (self._translation==other._translation).all()
+        # t3 = (self._time_reversal==other._time_reversal)
+        # return t1 and t2 and t3
+        return hash(self) == hash(other)
 
     def __mul__(self, other: 'mSymOp') -> 'mSymOp':
         # self is LHS, other is RHS operation
@@ -290,9 +304,9 @@ class mSymOp(SymOp):
         new_translation = (self._translation + self._matrix @ other._translation) % 1
         new_time_reversal = self._time_reversal*other._time_reversal
 
-        return mSymOp(matrix = new_matrix, 
-                      translation = new_translation, 
-                      time_reversal = new_time_reversal)
+        return self.__class__(matrix = new_matrix,
+                              translation = new_translation,
+                              time_reversal = new_time_reversal)
 
     def __repr__(self):
         # matrix_str = ', '.join([str(row) for row in self.matrix])
@@ -318,21 +332,19 @@ class mSymOp(SymOp):
         ret += '>'
         return ret
 
-    def __hash__(self) -> str:
-        '''I assume the xyz_string==self._str is a unique identifier
-        of the symmetry operation.'''
-        return hash(self._str)
+
+
     
     def inv(self) -> 'mSymOp':
         '''Inverse of the symmetry operation.'''
-        gm_inv = np.linalg.inv(self.matrix).astype(int)
+        gm_inv = np.linalg.inv(self._matrix).astype(int)
         gtr_new = np.array([Fraction(x).limit_denominator(6) % 1
-                           for x in -gm_inv @ self.translation],
+                           for x in -gm_inv @ self._translation],
                            dtype=Fraction)
-        return mSymOp(
+        return self.__class__(
             matrix = gm_inv,
             translation = gtr_new,
-            time_reversal = self.time_reversal
+            time_reversal = self._time_reversal
         )
 
     def transform_position(self, position: np.ndarray[Any], to_UC: bool=False) -> np.ndarray[Any]:
@@ -369,25 +381,25 @@ class mSymOp(SymOp):
         '''
         return self.time_reversal*np.linalg.det(self.matrix)*self.matrix @ vector
 
-    def transform_atom(self, atom: 'Atom', to_UC: bool=False) -> 'Atom':
-        '''Transform the position and magnetic moment of the atom
-        according to the symmetry operation.
+    # def transform_atom(self, atom: 'Atom', to_UC: bool=False) -> 'Atom':
+    #     '''Transform the position and magnetic moment of the atom
+    #     according to the symmetry operation.
 
-        NOT FULLY USEFUL WITHOUT LATTICE AND MIXED COORDINATES
+    #     NOT FULLY USEFUL WITHOUT LATTICE AND MIXED COORDINATES
         
-        Parameters
-        ----------
-        atom: Atom
-            Object of the transformation
-        to_UC: bool (optional)
-            WHether to shift the atomic position to the firsst unit cell.
-        '''
-        atom_new = deepcopy(atom)
-        atom_new.r = self.transform_position(atom.r, to_UC=to_UC)
-        atom_new.m = self.transform_axial_vec(atom.m)
-        #TODO
-        # aotm_new.gtensor = self.g.matrix @ atom.gtensor @ self.g.inv().matrix
-        return atom_new
+    #     Parameters
+    #     ----------
+    #     atom: Atom
+    #         Object of the transformation
+    #     to_UC: bool (optional)
+    #         WHether to shift the atomic position to the firsst unit cell.
+    #     '''
+    #     atom_new = deepcopy(atom)
+    #     atom_new.r = self.transform_position(atom.r, to_UC=to_UC)
+    #     atom_new.m = self.transform_axial_vec(atom.m)
+    #     #TODO
+    #     # aotm_new.gtensor = self.g.matrix @ atom.gtensor @ self.g.inv().matrix
+    #     return atom_new
 
 ###########################################################################
 
