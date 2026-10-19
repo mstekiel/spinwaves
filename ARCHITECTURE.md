@@ -22,6 +22,8 @@ spinwaves/
 │   └── crystall_space_group.py  # cSymOp(SymOp), SG(Group[cSymOp])
 ├── databases/               # Atomic data: radii, colors, masses, form factors
 ├── plotting/                # plot_structure, plot_dispersion; backends (vispy, matplotlib, qtgraph)
+├── legacy/                  # Deprecated implementations kept for reference, not imported by `spinwaves`
+│   └── spinw_old.py         # Old SpinW methods as functions of `sws`; scipy eigensolver (needs `dev` group)
 ├── utils/
 │   ├── linalg.py            # Rotation matrices, DMI, dipolar, vector ops
 │   ├── arrays.py            # Structured dtypes, shape-validation decorators
@@ -106,7 +108,7 @@ deduplicates by hash/equality, and optionally warns if attributes of equivalent 
 **Rule: `tests/` mirrors `spinwaves/`.** Every module `spinwaves/<pkg>/<module>.py` has its tests in
 `tests/<pkg>/test_<module>.py`; a package `__init__.py` with its own logic is tested in
 `tests/<pkg>/test_init.py`. Modules that only re-export names (`databases/__init__.py`,
-`symmetry/__init__.py`) and `plotting/archive/` have no test file.
+`symmetry/__init__.py`, `legacy/__init__.py`) and `plotting/archive/` have no test file.
 When adding, moving or renaming a module, do the same with its test file. Modules without tests
 yet have a stub file: a docstring listing the objects to cover, no test functions.
 
@@ -118,6 +120,7 @@ tests/
 ├── test_atom.py, test_coupling.py, test_crystal.py, test_lattice.py, test_spinw.py
 ├── databases/                 # test_database.py, test_implement_txt.py, test_implement_spglib.py
 ├── gui/                       # test_init.py, test_gui_vispy.py, test_gui_qtgraph.py, test_gui_plotly.py
+├── legacy/                    # test_spinw_old.py
 ├── plotting/                  # test_init.py (plot_structure, plot_dispersion), test_network_plotter.py,
 │                              # test_supercell_plotter[_mpl|_qtgraph|_vispy|_vispy_advanced].py
 ├── symmetry/

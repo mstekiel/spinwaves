@@ -1,7 +1,7 @@
 '''Checks for the optional `graphics` dependencies.
 
-`spinwaves` is primarily a computational library: `numpy` and `scipy` are the
-only hard dependencies. Plotting and GUI functionalities require additional
+`spinwaves` is primarily a computational library: `numpy` is the only hard
+dependency. Plotting and GUI functionalities require additional
 packages, collected in the `graphics` extra / dependency group.
 '''
 import importlib.util
