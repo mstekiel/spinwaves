@@ -160,18 +160,18 @@ class Group(Generic[T]):
         '''
 
         # This implementation assumes good hashing of the symmetrized objects
-        objs_unique:      list[A]           = []
-        objs_symmetrized: list[A]           = []
+        objs_unique: list[A] = []
+        objs_symmed: list[A] = []
 
         # helper dict to assign unique ids to the symmetrized objects
-        obj_to_uid:       dict[A, int]      = {}
+        obj_to_uid:  dict[A, int] = {}
         # helper dict to group the symmetry operations that produce 
         # the same symmetrized object, used for checking the symmetry conditions
-        uid_to_eq_ids:    defaultdict[int, list[int]] = defaultdict(list)   
+        uid_to_eq_ids: defaultdict[int, list[int]] = defaultdict(list)   
 
         for idx, g in enumerate(self.operations):
             obj_new = transform_func(g, obj)
-            objs_symmetrized.append(obj_new)
+            objs_symmed.append(obj_new)
 
             if obj_new not in obj_to_uid:
                 obj_to_uid[obj_new] = len(objs_unique)
@@ -185,7 +185,7 @@ class Group(Generic[T]):
                 id_equivalent = uid_to_eq_ids[id_unique]
 
                 for check_field in check_attrs:
-                    field_eq      = [getattr(objs_symmetrized[i], check_field) for i in id_equivalent]
+                    field_eq      = [getattr(objs_symmed[i], check_field) for i in id_equivalent]
                     field_averaged = np.average(field_eq, axis=0)
                     field_unique   = getattr(obj_unique, check_field)
 
@@ -194,7 +194,7 @@ class Group(Generic[T]):
                         msg += f'\tStored value     : {field_unique}\n'
                         msg += f'\tSymmetrized value: {field_averaged}\n'
                         for i in id_equivalent:
-                            msg += f'\t{self.operations[i]}\t-> {check_field}={getattr(objs_symmetrized[i], check_field)}\n'
+                            msg += f'\t{self.operations[i]}\t-> {check_field}={getattr(objs_symmed[i], check_field)}\n'
                         msg += 'You better know what you are doing.'
                         logger.warning(msg)
 

@@ -21,7 +21,7 @@ def plot_structure( sws: 'SpinW',
         Spin waves hosting system.
     boundaries: ArrayLike
         Boundaries of the supercell to be plot
-    engine: str
+    engine: str ['vispy', 'vispy+', 'mpl', 'qtgraph']
         Library used to prepare the plot
     plot_options: dict
         Additional options for the plotting

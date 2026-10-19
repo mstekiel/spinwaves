@@ -19,7 +19,7 @@ import logging
 # Internal
 from .crystal import Crystal
 from .coupling import Coupling
-from .utils.arrays import ensure_shape, match_shape, make_exc_dtype
+from .utils.arrays import ensure_shape, make_exc_dtype
 from .utils.physics import bose_occupation
 from .utils.linalg import rot_Rn, RfromZ, rot_Rodrigues_complex
 from .plotting.sw_plotting_mixin import SWPlottingMixin
@@ -434,6 +434,11 @@ class SpinW(SWPlottingMixin):
         def numpy_schur(A):
             '''Performr Schur decomposition of Hermitian matrix A
             using fast numpy implementation.
+
+            Parameters
+            ----------
+            A: (...,N,N) ndarray
+                Hermitian matrix to decompose
             
             Returns
             -------
@@ -444,6 +449,7 @@ class SpinW(SWPlottingMixin):
             Main motivation is that I want the eigenvectors to be orthonormal = 
             Q is unitary, not gauranteed by `numpy.linalg.eigh`. Also,
             `scipy.linalg.schur` is slow for large arrays.
+            TODO double check this function implementation and more importantly its stability
             '''
             ### Slow scipy schur version for comparison
             # T = np.zeros(A.shape)
@@ -910,11 +916,13 @@ class SpinW(SWPlottingMixin):
             E = self.determine_ES(Qhkl, includeS=False)
 
             excitations = np.rec.array(np.full(shape=E.shape, fill_value=np.nan, dtype=exc_dtype))
+            # excitations.Qhkl = Qhkl   # one dim has to be stack M times to match excitations number
             excitations.E = E
         else:
             E, S = self.determine_ES(Qhkl, includeS=True)
 
             excitations = np.rec.array(np.full(shape=E.shape, fill_value=np.nan, dtype=exc_dtype))
+            # excitations.Qhkl = Qhkl   # one dim has to be stack M times to match excitations number
             excitations.E = E
             excitations.S = S
 
