@@ -51,7 +51,6 @@ def test_matrices():
     print(S)
 '''
 
-@needs_vispy
 def test_coupling_symmetrization_tetr():
     """Test symmetrization of the couplings in hexagonal system"""
     # Dice with 5, tetragonal lattice

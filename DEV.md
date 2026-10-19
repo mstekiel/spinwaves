@@ -118,7 +118,7 @@ Example for a minor release; replace `minor` and the versions as needed.
 
    ```bash
    uv run pytest
-   uv run --group graphics pytest --deselect tests/test_spinw.py::test_coupling_symmetrization_tetr
+   uv run --group graphics pytest
    ```
 
 3. Choose the bump according to [Versioning](#versioning) and check the result without writing:

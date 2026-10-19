@@ -1,6 +1,6 @@
 [project]
 name = "spinwaves"
-version = "0.3.0"
+version = "1.0.0"
 description = "Linear spin wave theory in python as in SpinW"
 authors = [
     { name = "Michal Stekiel", email = "michal.stekiel@gmail.com" },
