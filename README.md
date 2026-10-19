@@ -1,54 +1,39 @@
-# spinwaves - SpinW implmentation in python
+# spinwaves
 
-## Bugs
+[![version](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmstekiel%2Fspinwaves%2Fmain%2Fpyproject.toml&query=%24.project.version&label=version&color=blue)](pyproject.toml)
+[![python](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmstekiel%2Fspinwaves%2Fmain%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=python&color=blue)](#compatibility)
+[![numpy](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmstekiel%2Fspinwaves%2Fmain%2Fpyproject.toml&query=%24.project.dependencies%5B0%5D&label=core%20dependency&color=blue)](#compatibility)
+[![tests](https://github.com/mstekiel/spinwaves/actions/workflows/tests.yml/badge.svg)](https://github.com/mstekiel/spinwaves/actions/workflows/tests.yml)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 
- - [ ] There is some warning in `database` module that causes a lot of empty lines printout when warning levels are higher.
+Linear spin wave theory (LSWT) for magnetic crystals in Python, following the formalism of
+[SpinW](https://spinw.org) (S. Toth and B. Lake, J. Phys.: Condens. Matter **27**, 166002 (2015)).
+Given a crystal structure with magnetic atoms and exchange couplings, `spinwaves` computes spin wave
+energies E(Q) and spectral weights S(Q,E) across reciprocal space.
 
-## TODO
+- Magnetic space groups: symmetrization of atoms and couplings from a few generators
+- Exchange couplings of any form: Heisenberg, anisotropic, Dzyaloshinskii-Moriya, single-ion anisotropy
+- Commensurate and single-k incommensurate structures, applied magnetic field
+- Energies, spin-spin correlation functions, S⊥, single-crystal and powder spectra
+- Only `numpy` is required; plotting and GUI are optional (`graphics` extra)
 
-- DEV
-  - [ ] relax dependencies requirements: numpy, scipy, ...
+## Installation
 
-- Core
-  - [ ] Implement magnetic field
-    - [x] implement
-    - [ ] test -> sign convention unclear
-    - [ ] SpinW -> only obscure tutorials found
-  - [ ] Implement primitive/reduced cell such that the calculation is on smaller cell=matrix=faster, while the setup is in the coordinates of the main cell, which are easier to interpret
-  - [ ] standard paths of lattices doi.org/10.1016/j.commatsci.2010.05.010
-  - [x] MSG should inherit from Group
-  - [x] crystallographic SG should also inherit from Group
+With [uv](https://docs.astral.sh/uv/) in your project:
 
-- Future
-  - [ ] Lot of core functionalities rely on hashing the objects for unique identifiers:
-    -  `SymOps` do it from string for unique elements finding
-    -  `Atom` same, for unique position finding
-    Is there a sturdy way to implement hashing?
+```bash
+uv add "spinwaves @ git+https://github.com/mstekiel/spinwaves"
+```
 
-- Usage
-  - [ ] Plotting of unit cell edges.
-  - [x] coordinate systems.
-  - [x] lighting.
+With plotting and GUI (matplotlib, vispy, PyQt6, ...):
 
-- Make documentation:
-  For list of modules and their descriptions see documentation at: 
-  https://mstekiel.github.io/mikibox/build/html/index.html
+```bash
+uv add "spinwaves[graphics] @ git+https://github.com/mstekiel/spinwaves"
+```
 
-- Make GUI (PyQt6) with inline editeor (https://qscintilla.com), 3D viewer (https://vispy.org). The GUI can be a direct copy of vspy/.examples/../sandbox
-  - VISPY has a lot of beautiful examples for Ctrl+CV coding.
-    - whole GUI as in vispy\examples\basics\scene\modular_shaders\sandbox.py
-    - tubes vispy\examples\basics\visuals\tube.py
-    - check out `Canvas.measure_fps()`
-    - demo\gloo\boids.py for animatoins with particles (neutrons)
-    - demo\gloo\camera.py with gestures recognition neural network to control the viewing.
-  - https://mediapipe-studio.webapps.google.com/studio/demo/face_landmarker for gesture recognition and 3D navigation
+`pip install "spinwaves @ git+https://github.com/mstekiel/spinwaves"` works as well.
 
-
-## Managing project with uv
-
-Moved the project to uv. 
-
-Now, if you want to use `spinwaves` as library in editable mode include these in the `pyproject.toml`:
+To use a local clone in editable mode, add to your project's `pyproject.toml`:
 
 ```toml
 [project]
@@ -57,13 +42,139 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-spinwaves = { path = "path_to_spinwaves_project", editable=true }
+spinwaves = { path = "path_to_spinwaves_project", editable = true }
 ```
-### Testing
 
-`uv run pytest`
+## Quick start
 
+```python
+import numpy as np
+from spinwaves import Crystal, MSG, Atom, Coupling, SpinW
 
-## General notes
-- I tried to follow the structure of https://github.com/pypa/sampleproject for the development of this project. Following descriptions from https://python-packaging-tutorial.readthedocs.io/en/latest/setup_py.html
-- Tobi confirmed the factor of two is missing from single-ion naisotropies. He also mentioned the inverted sign mistake in the phase factor somewhere in the spin-spin correlation function calculations.
+# Ferromagnetic Heisenberg chain, SpinW tutorial 1
+P1 = MSG.from_xyz_strings(generators=['x, y, z, +1'])
+crystal = Crystal(lattice_parameters=[3, 8, 8, 90, 90, 90], MSG=P1,
+                  atoms=[Atom(label='Cu', r=(0, 0, 0), m=(0, 1, 0), s=1)])
+sw = SpinW(crystal=crystal,
+           couplings=[Coupling(label='J', id1=0, id2=0, n_uvw=[1, 0, 0], J=-np.eye(3))],
+           magnetic_modulation={'k': (0, 0, 0), 'n': (1, 0, 0)})
+
+Qhkl = np.linspace([0, 0, 0], [1, 0, 0], 101)
+E, S = sw.determine_ES(Qhkl)        # energies (meV) and spin-spin correlation of each mode
+```
+
+Plotting needs the `graphics` extra:
+
+```python
+import matplotlib.pyplot as plt
+from spinwaves.plotting import plot_dispersion
+
+sw.calculate_excitations(Qhkl)
+fig, ax = plt.subplots()
+plot_dispersion(sw, ax, xaxis=None, qPath=Qhkl)
+plt.show()
+```
+
+More examples: [`examples/`](examples) and the comparisons with SpinW tutorials in
+[`tests/comparisons/`](tests/comparisons).
+
+## Compatibility
+
+Supported: Python `>=3.9`, numpy `>=1.23.3`. The full test suite on each combination of Python and
+numpy release with wheels, run with `scripts/compat_matrix.py` before each release (see [DEV.md](DEV.md)).
+The [tests workflow](https://github.com/mstekiel/spinwaves/actions/workflows/tests.yml) checks the
+oldest and newest numpy for each Python on every push.
+
+<!-- compat-matrix:start -->
+| numpy \ Python | 3.9 | 3.10 | 3.11 | 3.12 | 3.13 | 3.14 |
+|---|---|---|---|---|---|---|
+| 1.23.3 | ✅ | ✅ | ✅ |  |  |  |
+| 1.23.5 | ✅ | ✅ | ✅ |  |  |  |
+| 1.24.4 | ✅ | ✅ | ✅ |  |  |  |
+| 1.25.2 | ✅ | ✅ | ✅ |  |  |  |
+| 1.26.4 | ✅ | ✅ | ✅ | ✅ |  |  |
+| 2.0.2 | ✅ | ✅ | ✅ | ✅ |  |  |
+| 2.1.3 |  | ✅ | ✅ | ✅ | ✅ |  |
+| 2.2.6 |  | ✅ | ✅ | ✅ | ✅ |  |
+| 2.3.5 |  |  | ✅ | ✅ | ✅ | ✅ |
+| 2.4.6 |  |  | ✅ | ✅ | ✅ | ✅ |
+| 2.5.4 |  |  |  | ✅ | ✅ | ✅ |
+
+_Generated by `scripts/compat_matrix.py` for spinwaves 0.3.0 on 2026-10-19, Windows AMD64. ✅ all tests pass, ❌ failing tests, ⚠️ environment could not be built, empty: no numpy wheel for that Python._
+<!-- compat-matrix:end -->
+
+The `graphics` extra is still pinned to matplotlib 3.5.2 and vispy 0.12.1, built against numpy 1,
+so it requires `numpy<2` and Python `<=3.10`.
+
+## Development
+
+```bash
+uv sync                          # dev environment
+uv run pytest                    # tests
+uv sync --group graphics         # add plotting and GUI dependencies
+```
+
+- [DEV.md](DEV.md): workflow, dependency checks, versioning rules and the release procedure
+- [ARCHITECTURE.md](ARCHITECTURE.md): module map, conventions, numerical tolerances, test layout
+- [CLAUDE.md](CLAUDE.md): rules for AI coding agents working on the project
+
+## Citation
+
+If you use `spinwaves`, please cite it as described in [CITATION.cff](CITATION.cff).
+
+## Roadmap
+
+### Known bugs
+
+- [ ] Some warning in the `databases` module prints many empty lines when the logging level is high.
+
+### Core
+
+- [x] Relax dependency requirements: numpy, Python (see [Compatibility](#compatibility))
+- [ ] Relax the `graphics` pins to allow numpy 2
+- [ ] Magnetic field
+  - [x] implement
+  - [ ] test: sign convention unclear
+  - [ ] compare with SpinW: only obscure tutorials found
+- [ ] Primitive/reduced cell, so the calculation runs on a smaller cell (smaller matrices, faster),
+      while the setup stays in the coordinates of the main cell, which are easier to interpret
+- [ ] Standard paths in reciprocal space of lattices, [doi:10.1016/j.commatsci.2010.05.010](https://doi.org/10.1016/j.commatsci.2010.05.010)
+- [x] `MSG` inherits from `Group`
+- [x] Crystallographic `SG` inherits from `Group`
+
+### Future
+
+- [ ] Many core functionalities rely on hashing objects as unique identifiers:
+  `SymOp`s for finding unique elements, `Atom`s for finding unique positions.
+  Is there a sturdier way to implement hashing?
+
+### Usage
+
+- [ ] Plotting of unit cell edges
+- [x] Coordinate systems
+- [x] Lighting
+
+### Documentation
+
+- [ ] Make documentation. For a list of modules and their descriptions see the documentation of
+  [mikibox](https://mstekiel.github.io/mikibox/build/html/index.html).
+
+### GUI
+
+- [ ] GUI (PyQt6) with an inline editor ([QScintilla](https://qscintilla.com)) and a 3D viewer
+  ([vispy](https://vispy.org)). The GUI can be a direct copy of the vispy examples sandbox.
+  vispy has many examples to build on:
+  - whole GUI as in `vispy/examples/basics/scene/modular_shaders/sandbox.py`
+  - tubes in `vispy/examples/basics/visuals/tube.py`
+  - `Canvas.measure_fps()`
+  - `demo/gloo/boids.py` for animations with particles (neutrons)
+  - `demo/gloo/camera.py` with a gesture recognition neural network to control the view
+- [ ] Gesture recognition and 3D navigation with
+  [MediaPipe face landmarker](https://mediapipe-studio.webapps.google.com/studio/demo/face_landmarker)
+
+## Notes
+
+- The project structure follows [pypa/sampleproject](https://github.com/pypa/sampleproject) and the
+  [Python packaging tutorial](https://python-packaging-tutorial.readthedocs.io/en/latest/setup_py.html).
+- Tobi confirmed the factor of two is missing from single-ion anisotropies. He also mentioned an
+  inverted sign in the phase factor somewhere in the calculation of the spin-spin correlation function.

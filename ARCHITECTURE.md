@@ -190,3 +190,6 @@ numpy 1.23.0-1.23.2 cannot evaluate the `np.ndarray[float]` annotations used acr
 The `graphics` extra is still pinned (matplotlib 3.5.2, vispy 0.12.1, built against numpy 1) and
 carries `numpy<2`. Since `uv.lock` holds a single numpy for all groups and extras, the lock is
 restricted to Python `<3.13` (`[tool.uv] environments`) until the graphics pins are relaxed.
+
+The matrix is produced by `scripts/compat_matrix.py` and shown in the README; CI
+(`.github/workflows/tests.yml`) checks the oldest and newest numpy for each Python. See DEV.md.
