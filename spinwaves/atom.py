@@ -109,9 +109,9 @@ class Atom:
             # TODO ensure is in database
             pass
         else:
-            if self.label[:2] in atom_data.entries:
+            if self.label[:2] in atom_data:
                 self.element_symbol = self.label[:2]
-            elif self.label[:1] in atom_data.entries:
+            elif self.label[:1] in atom_data:
                 self.element_symbol = self.label[:1]
 
         ### I now think that these properties should sit somewhere else, like in plot_options

@@ -1,253 +1,131 @@
 '''
-Common interface for various databases.
-
-For quick implementation copy the examples at the bottom of this file.
+Common interface for databases of atomic properties.
 '''
 
-from abc import ABCMeta, abstractmethod
-from dataclasses import dataclass
-
+import dataclasses
 import logging
+from abc import ABCMeta, abstractmethod
+from pathlib import Path
+
 logger = logging.getLogger('database')
 
-# need this metaclass to enforce implementation of `unique_label` in children
-@dataclass
+
+@dataclasses.dataclass
 class db_entry(metaclass=ABCMeta):
-    '''Template for a database entry.
-    
-    For each declared field performs typecasting and requires unit implementation.
+    '''Base class for a database entry.
 
-    Abstract fields:
-    `unique_label` method for proper indexing of the entries
-    `units` field to understand the units of stored values
-    
-    Example
-    -------
-    
-    >>> @dataclass
-    >>> class atom_entry(db_entry):
-    ...     symbol: str
-    ...     radius: float
-    ...     red: float
-    ...     green: float
-    ...     blue: float
-    ...     mass: float
-    ...     longname: str
-    ... 
-    ...     units = dict(symbol=None, longname=None, radius='Bohr_radius', mass='amu',
-    ...                 red=None, green=None, blue=None)
-    ... 
-    ...     @property
-    ...     def unique_label(self):
-    ...         return self.symbol
-    ... 
-    ...     @property
-    ...     def RGB(self):
-    ...         return np.array([self.red, self.green, self.blue])
-    ...
+    Subclasses must:
+    - be a @dataclass with typed fields
+    - define a class-level `units` dict mapping field name -> unit string or None
+    - implement the `unique_label` property returning the key used for indexing
 
-    In the example `unites` were given as a field (TODO: does that work?!?),
-    and an implementation of the derived field `RGB` is shown.
+    __post_init__ casts all fields to their declared types and verifies
+    that every field has a corresponding entry in `units`.
     '''
 
     @property
     @abstractmethod
-    def unique_label(self) -> str:
-        '''Unique label of the entry'''
-        ...
-
-    @property
-    @abstractmethod
-    def units(self) -> dict[str, str]:
-        '''Units of entry's values'''
-        ...
+    def unique_label(self) -> str: ...
 
     def __post_init__(self):
-        for field_name, field_type in self.__annotations__.items():
-            # Perform typecasting
-            if not isinstance(self.__getattribute__(field_name), field_type):
-                logger.debug(f'Typecasting {field_name} to {field_type}')
-            try:
-                casted_field_value = field_type(self.__getattribute__(field_name))
-            except ValueError:
-                raise ValueError(f'Type of the field {field_name!r} must be {field_type!r}')
+        for field in dataclasses.fields(self):
+            value = getattr(self, field.name)
+            if not isinstance(value, field.type):
+                logger.debug(f'Typecasting {field.name!r} to {field.type}')
+                try:
+                    object.__setattr__(self, field.name, field.type(value))
+                except (ValueError, TypeError):
+                    raise ValueError(f'Cannot cast field {field.name!r} value {value!r} to {field.type}')
 
-            self.__dict__[field_name] = casted_field_value
-
-            # Ensure all fields have declared units
-            if field_name not in self.units:
-                raise KeyError(f'Missing unit for {field_name!r}')
+            if field.name not in self.__class__.units:
+                raise KeyError(f'Missing unit declaration for field {field.name!r}')
 
 
-class Database(metaclass=ABCMeta):
-    '''Database template. Supports indexing and implements `search` method.
-    
+class Database:
+    '''Thin wrapper around a dict of db_entry objects.
+
+    Created by `load_from_txt`. Supports key lookup, field/unit
+    inspection, and filtered search.
+
     Example
     -------
-    >>>    @dataclass
-    >>>    class atom_entry(db_entry):
-    ...        symbol: str
-    ...        radius: float
-    ...        red: float
-    ...        green: float
-    ...        blue: float
-    ...        mass: float
-    ...        longname: str
-    ...
-    ...        units = dict(symbol=None, longname=None, radius='Bohr_radius', mass='amu',
-    ...                    red=None, green=None, blue=None)
-    ...
-    ...        @property
-    ...        def unique_label(self):
-    ...            return self.symbol
-    ...
-    ...        @property
-    ...        def RGB(self):
-    ...            return np.array([self.red, self.green, self.blue])
-                
-    >>> class Database_atom(Database):
-    ...    #Database of atomic properties used for plotting.
-    ...
-    ...    source_filename = PATH+'\\..\\data_tables\\atom.dat'
-    ...    entry_type = atom_entry
-    ...    header = ''
-    ...    entries = {}
-    ...
-    ...    def __init__(self):
-    ...        self.from_txt(comment='#')
+    >>> db = load_from_txt('atom.dat', atom_entry, comment='#')
+    >>> db['Fe'].RGB
+    >>> db.search(mass=lambda m: m > 50)
+    '''
 
-    >>> atom_data = Database_atom()
-    >>> atom_data.__doc__ = Database_atom.__doc__
+    def __init__(self, entries: dict[str, db_entry], entry_type: type):
+        self._entries   = entries
+        self._entry_type = entry_type
 
-    The above example can be contained in a file, e.g. `atomic_database.py` and imported as:
-    >>> from atomic_database import atom_data 
+    def __getitem__(self, key: str) -> db_entry:
+        return self._entries[key]
 
-    To access all functionalities of the database and its entries.
-'''
+    def __len__(self) -> int:
+        return len(self._entries)
 
-    @property
-    @abstractmethod
-    def entries(self) -> dict[str, db_entry]:
-        '''Entries of the database'''
-        ...
+    def __iter__(self):
+        return iter(self._entries)
 
-    @property
-    @abstractmethod
-    def entry_type(self) -> db_entry:
-        '''Datatype for Database entries'''
-        ...
-
-    #########################################################################################
-    def from_txt(self, ln_header_end: int=0, ln_data_start: int=0, comment: str=None):
-        '''Fills header and entries'''
-        with open(self.source_filename, 'r') as ff:
-            lines = ff.readlines()
-
-            self.header = ''.join(lines[:ln_header_end])
-
-            for line in lines[ln_data_start:]:
-                if bool(comment):
-                    if line.startswith(comment):
-                        continue
-
-                entry = self.entry_type(*line.split())
-                self.entries[entry.unique_label] = entry
-
+    def __repr__(self) -> str:
+        return f'<Database[{self._entry_type.__name__}], {len(self)} entries>'
 
     @property
     def fields(self) -> list[str]:
-        '''List fields of entries in the database'''
-        return list(self.entry_type.__dataclass_fields__.keys())
-    
-    @property
-    def units(self) -> list[str]:
-        '''List units of entry properties'''
-        return self.entry_type.units
-    
-    def __repr__(self) -> str:
-        return self.__doc__
+        return [f.name for f in dataclasses.fields(self._entry_type)]
 
-    def __getitem__(self, label: str) -> db_entry:
-        return self.entries[label]
+    @property
+    def units(self) -> dict[str, str]:
+        return self._entry_type.units
 
     def search(self, **kwargs) -> dict[str, db_entry]:
-        '''Search the database with given conditions.
-        
-        Conditions are given as kwargs, where each keywords dictionary is `dict[str, Callable]`,
-        where `str` corresponds to the column name in the database, and `Callable` is the test
-        function on that column. The `Callable` must return bool.'''
+        '''Return entries matching all conditions.
 
-        # Copy the main array and remove elements not fitting the conditions
-        search_candidates = self.entries.copy()
+        Each kwarg maps a field name to a callable predicate.
 
-        for property, condition in kwargs.items():
-            if property not in self.fields:
-                raise KeyError(f'{property!r} is an invalid entry name, try one of {self.fields}')
-            
-            for key in list(search_candidates.keys()):
-                entry = search_candidates[key]
-                if not condition( getattr(entry, property) ):
-                    del search_candidates[key]
-            
-        return search_candidates
-    
-########################## EXAMPLE IMPLEMENTATIONS #################################
-### db_entry 
-'''
-@dataclass
-class atom_entry(db_entry):
-    symbol: str
-    radius: float
-    red: float
-    green: float
-    blue: float
-    mass: float
-    longname: str
+        >>> db.search(mass=lambda m: m > 50, symbol=lambda s: s.startswith('F'))
+        '''
+        for prop in kwargs:
+            if prop not in self.fields:
+                raise KeyError(f'{prop!r} is not a valid field, choose from {self.fields}')
 
-    units = dict(symbol=None, longname=None, radius='Bohr_radius', mass='amu',
-                red=None, green=None, blue=None)
+        return {
+            k: v for k, v in self._entries.items()
+            if all(cond(getattr(v, prop)) for prop, cond in kwargs.items())
+        }
 
-    @property
-    def unique_label(self):
-        return self.symbol
 
-    @property
-    def RGB(self):
-        return np.array([self.red, self.green, self.blue])
-'''
+def load_database_from_txt(
+    filepath: Path,
+    entry_type: type,
+    ln_data_start: int = 0,
+    comment: str = None,
+) -> Database:
+    '''Load a whitespace-delimited text file into a Database.
 
-## DataBase
-'''
-@dataclass
-class atom_entry(db_entry):
-    symbol: str
-    radius: float
-    red: float
-    green: float
-    blue: float
-    mass: float
-    longname: str
-    
-    units = dict(symbol=None, longname=None, radius='Bohr_radius', mass='amu',
-                red=None, green=None, blue=None)
-    @property
-    def unique_label(self):
-        return self.symbol
-    @property
-    def RGB(self):
-        return np.array([self.red, self.green, self.blue])
-    
-class Database_atom(Database):
-   #Database of atomic properties used for plotting.
+    Parameters
+    ----------
+    filepath:
+        Path to the data file.
+    entry_type:
+        A db_entry subclass whose constructor accepts one value per column.
+    ln_data_start:
+        Line index (0-based) where data rows begin.
+    comment:
+        Lines starting with this string are skipped.
+    '''
+    entries: dict[str, db_entry] = {}
 
-   source_filename = PATH+'\\..\\data_tables\\atom.dat'
-   entry_type = atom_entry
-   header = ''
-   entries = {}
+    with open(filepath, 'r') as f:
+        lines = f.readlines()
 
-   def __init__(self):
-       self.from_txt(comment='#')
+    for line in lines[ln_data_start:]:
+        line = line.strip()
+        if not line:
+            continue
+        if comment and line.startswith(comment):
+            continue
+        entry = entry_type(*line.split())
+        entries[entry.unique_label] = entry
 
-atom_data = Database_atom()
-atom_data.__doc__ = Database_atom.__doc__
-'''
+    return Database(entries, entry_type)
