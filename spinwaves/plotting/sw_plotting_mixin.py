@@ -1,11 +1,13 @@
 from typing import TYPE_CHECKING
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from ..utils.functions import gauss_bkg
 
+# `SpinW` inherits from the mixin, so matplotlib must not be imported here
+# at runtime: it is part of the optional `graphics` dependencies.
 if TYPE_CHECKING:
+    import matplotlib.pyplot as plt
     from spinwaves import SpinW
 
 

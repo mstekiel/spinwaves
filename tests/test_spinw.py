@@ -10,6 +10,8 @@ from spinwaves import Crystal, MSG, Atom, Coupling, SpinW
 from spinwaves.plotting import plot_structure   # this takes some serious time
 from spinwaves.utils.linalg import DMI
 
+from .markers import needs_vispy
+
 '''
 # Some depracated test, maybe useful in the future
 def test_matrices():
@@ -44,6 +46,7 @@ def test_matrices():
     print(S)
 '''
 
+@needs_vispy
 def test_coupling_symmetrization_tetr():
     """Test symmetrization of the couplings in hexagonal system"""
     # Dice with 5, tetragonal lattice
@@ -73,8 +76,11 @@ def test_coupling_symmetrization_tetr():
     sw = SpinW(crystal=crystal, magnetic_modulation=magnetic_modulation, couplings=[J1, J2, J3])
     print(sw)
 
-    plot_opts = dict(boundaries=([-1.1, 2.1],[-1.1,2.1],[-0.2,0.2]), coupling_colors={'D1': 'Cyan', 'K':'Pink'})
-    plot_structure(sw, engine='vispy', plot_options=plot_opts)
+    ### Show the structure for setting up the test
+    # plot_opts = dict(boundaries=([-1.1, 2.1],[-1.1,2.1],[-0.2,0.2]), coupling_colors={'D1': 'Cyan', 'K':'Pink'})
+    # plot_structure(sw, engine='vispy', plot_options=plot_opts)
+
+    # TODO: Add some asserts to check the symmetrization of the couplings
 
 def test_coupling_symmetrization_hex():
     """Test symmetrization of the couplings in hexagonal system"""
@@ -116,7 +122,8 @@ def test_coupling_symmetrization_hex():
     is_DMI, Dvec = crystal.is_respectful_DMI(J1, return_symmetrized=True)
     print(is_DMI, Dvec)
 
-    if True:
+    ### Show the structure for setting up the test
+    if False:
         sw = SpinW(crystal=crystal, 
             couplings=[J1],
             magnetic_modulation=magnetic_modulation)
@@ -125,6 +132,9 @@ def test_coupling_symmetrization_hex():
         # plot_opts = dict(boundaries=([-0.5, 1.5],[-0.5,1.5],[-0.5,1]), coupling_colors={'J1a2': 'Cyan'})
         # plot_opts = dict(boundaries=([-1.1, 2.1],[-1.1,2.1],[-0.2,0.2]), coupling_colors={'D1': 'Cyan'})
         # plot_structure(sw, engine='vispy', plot_options=plot_opts)
+
+
+    # TODO: Add some asserts to check the symmetrization of the couplings
     
 if __name__ == "__main__":
     # pytest.main()

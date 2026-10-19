@@ -326,11 +326,11 @@ class Group(Generic[T]):
 
 def plot_network(group, layout: str='spring', seed:int=0, node_size: float=100, font_size: int=8):
     """Export Cayley digraph as a NetworkX MultiDiGraph with string node ids."""
-    try:
-        import networkx as nx
-        import matplotlib.pyplot as plt
-    except ImportError as e:
-        raise ImportError("Either `matplotlib` or `networkx` are not installed.") from e
+    from ..utils.graphics import require_graphics
+    require_graphics('networkx', 'matplotlib', feature='plot_network')
+
+    import networkx as nx
+    import matplotlib.pyplot as plt
 
 
     G = nx.DiGraph(name=group._name)

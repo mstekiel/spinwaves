@@ -278,6 +278,15 @@ wheels = [
 ]
 
 [[package]]
+name = "networkx"
+version = "3.4.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fd/1d/06475e1cd5264c0b870ea2cc6fdb3e37177c1e565c43f56ff17a10e3937f/networkx-3.4.2.tar.gz", hash = "sha256:307c3669428c5362aab27c8a1260aa8f47c4e91d3891f48be0141738d8d053e1", size = 2151368, upload-time = "2024-10-21T12:39:38.695Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b9/54/dd730b32ea14ea797530a4479b2ed46a6fb250f682a9cfb997e968bf0261/networkx-3.4.2-py3-none-any.whl", hash = "sha256:df5d4365b724cf81b8c6a7312509d0c22386097011ad1abe274afd5e9d3bbc5f", size = 1723263, upload-time = "2024-10-21T12:39:36.247Z" },
+]
+
+[[package]]
 name = "numpy"
 version = "1.23.5"
 source = { registry = "https://pypi.org/simple" }
@@ -357,6 +366,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pyopengl"
+version = "3.1.10"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6f/16/912b7225d56284859cd9a672827f18be43f8012f8b7b932bc4bd959a298e/pyopengl-3.1.10.tar.gz", hash = "sha256:c4a02d6866b54eb119c8e9b3fb04fa835a95ab802dd96607ab4cdb0012df8335", size = 1915580, upload-time = "2025-08-18T02:33:01.76Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/e4/1ba6f44e491c4eece978685230dde56b14d51a0365bc1b774ddaa94d14cd/pyopengl-3.1.10-py3-none-any.whl", hash = "sha256:794a943daced39300879e4e47bd94525280685f42dbb5a998d336cfff151d74f", size = 3194996, upload-time = "2025-08-18T02:32:59.902Z" },
+]
+
+[[package]]
 name = "pyparsing"
 version = "3.3.2"
 source = { registry = "https://pypi.org/simple" }
@@ -405,6 +423,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/87/ff/4df67b44e2b45e6f1c235b46eb6276afff2dd5b0bdb0fee8b240b61d0b9c/pyqt6_sip-13.11.0-cp310-cp310-manylinux1_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:261f8f7063c862863f05629219be08be9bddd01d1a83181f8439d19852ae1571", size = 282224, upload-time = "2026-01-13T16:00:59.714Z" },
     { url = "https://files.pythonhosted.org/packages/72/b9/036467387f7b025c0a3a7d3fb7f4a014cc7d69c08f3221cb758ffc98de0e/pyqt6_sip-13.11.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:b8532a5612762a5c1859e4b38359f847e07596ec210942221e22b10df5327fcc", size = 306070, upload-time = "2026-01-13T16:00:58.007Z" },
     { url = "https://files.pythonhosted.org/packages/de/dc/7aa44c77790f53f74de94da5c02acd6c919f17a44cc92096f7e6ab3a3724/pyqt6_sip-13.11.0-cp310-cp310-win_amd64.whl", hash = "sha256:87edd15791c7d20fa3ffc68e6f4825f989a6510c11019eb5a11c1622b8802f8d", size = 54107, upload-time = "2026-01-13T16:01:01.334Z" },
+]
+
+[[package]]
+name = "pyqtgraph"
+version = "0.13.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/33/d9/b62d5cddb3caa6e5145664bee5ed90223dee23ca887ed3ee479f2609e40a/pyqtgraph-0.13.7.tar.gz", hash = "sha256:64f84f1935c6996d0e09b1ee66fe478a7771e3ca6f3aaa05f00f6e068321d9e3", size = 2343380, upload-time = "2024-04-29T02:18:58.467Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7b/34/5702b3b7cafe99be1d94b42f100e8cc5e6957b761fcb1cf5f72d492851da/pyqtgraph-0.13.7-py3-none-any.whl", hash = "sha256:7754edbefb6c367fa0dfb176e2d0610da3ada20aa7a5318516c74af5fb72bf7a", size = 1925473, upload-time = "2024-04-29T02:18:56.206Z" },
 ]
 
 [[package]]
@@ -582,11 +612,17 @@ name = "spinwaves"
 version = "0.2.0"
 source = { editable = "." }
 dependencies = [
-    { name = "matplotlib" },
     { name = "numpy" },
-    { name = "pyqt6" },
-    { name = "pytest" },
     { name = "scipy" },
+]
+
+[package.optional-dependencies]
+graphics = [
+    { name = "matplotlib" },
+    { name = "networkx" },
+    { name = "pyopengl" },
+    { name = "pyqt6" },
+    { name = "pyqtgraph" },
     { name = "vispy" },
 ]
 
@@ -594,25 +630,34 @@ dependencies = [
 dev = [
     { name = "lmfit" },
     { name = "pandas" },
+    { name = "pytest" },
     { name = "sphinx" },
+]
+graphics = [
+    { name = "spinwaves", extra = ["graphics"] },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "matplotlib", specifier = "==3.5.2" },
+    { name = "matplotlib", marker = "extra == 'graphics'", specifier = "==3.5.2" },
+    { name = "networkx", marker = "extra == 'graphics'", specifier = ">=3.4.2" },
     { name = "numpy", specifier = "==1.23.5" },
-    { name = "pyqt6", specifier = ">=6.10.2" },
-    { name = "pytest", specifier = ">=9.0.2" },
+    { name = "pyopengl", marker = "extra == 'graphics'", specifier = ">=3.1.10" },
+    { name = "pyqt6", marker = "extra == 'graphics'", specifier = ">=6.10.2" },
+    { name = "pyqtgraph", marker = "extra == 'graphics'", specifier = ">=0.13.7" },
     { name = "scipy", specifier = "==1.9.1" },
-    { name = "vispy", specifier = "==0.12.1" },
+    { name = "vispy", marker = "extra == 'graphics'", specifier = "==0.12.1" },
 ]
+provides-extras = ["graphics"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "lmfit", specifier = ">=1.3.2" },
     { name = "pandas", specifier = ">=1.4.4" },
+    { name = "pytest", specifier = ">=9.0.2" },
     { name = "sphinx", specifier = ">=5.0.2" },
 ]
+graphics = [{ name = "spinwaves", extras = ["graphics"] }]
 
 [[package]]
 name = "tomli"

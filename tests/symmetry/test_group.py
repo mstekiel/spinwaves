@@ -7,6 +7,7 @@ from spinwaves.symmetry.group import Group
 import numpy as np
 
 from . import make_perm_symop, s3_generators, c4_generator
+from ..markers import needs_networkx
 
 SymOpPerm3 = make_perm_symop(3)
 SymOpPerm4 = make_perm_symop(4)
@@ -212,6 +213,7 @@ def hand_test():
 
     print(g2, SG.index_of(g2))
 
+@needs_networkx
 @pytest.mark.skip(reason="interactive")
 def test_plotting():
     sg = SG.from_xyz_strings([
