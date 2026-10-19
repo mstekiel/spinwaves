@@ -498,12 +498,12 @@ class SpinW:
             # (34) [SpinW]
             T = np.linalg.inv(K_up) @ U @ np.sqrt(E.astype(np.complex128)) # shape=(...,2M,2M)
 
-            r_i = np.asarray([atom_i.r for atom_i in self.magnetic_atoms])
+            r_i = np.asarray([atom_i.r for atom_i in self.magnetic_atoms])  # shape=(M,3)
             r_ij = r_i[None,:,:] - r_i[:,None,:]    # shape=(M,M,3)
             phase_factor = np.exp(2*np.pi*1j*np.tensordot(Qhkl, r_ij, axes=(-1,-1)))    # shape=(...,M,M)
 
-            S = np.asarray([atom.s for atom in self.magnetic_atoms])
-            SiSj = np.sqrt(S[None,:] * S[:,None])  # shape=(M,M,3)
+            S = np.asarray([atom.s for atom in self.magnetic_atoms])  # shape=(M,)
+            SiSj = np.sqrt(S[None,:] * S[:,None])  # shape=(M,M)
             spin_phase = phase_factor[..., :,:] * SiSj  # shape=(...,M,M)
 
             bose_factor = bose_occupation(energies, self.temperature) \
@@ -615,6 +615,7 @@ class SpinW:
 
         return ret
 
+
     def _determine_ESp_old(self, q_hkl, includeS=True):
         '''Determine characteristics of the excitations of the system.
 
@@ -699,7 +700,7 @@ class SpinW:
         # - SpinW matlab code:
         # [K, posDef]  = chol(ham(:,:,ii));     ## MS: so K is upper triangular
         # K2 = K*gComm*K';                      ## MS: prime in matlab does the hermitian conjugation
-        # K2 = 1/2*(K2+K2');                    ## MS: SNEAKY!
+        # K2 = 1/2*(K2+K2');                    ## MS: SNEAKY! hermitization of K, while it should be hermitian already. Numerics?
         # % Hermitian K2 will give orthogonal eigenvectors
         # [U, D] = eig(K2);
         # D      = diag(D);
@@ -723,7 +724,6 @@ class SpinW:
 
         energies = np.diag(E.real)
         # idE = np.argsort(energies)
-# 
         # why are energies not sorted as the g matrix, i.e. first N positive, last N negative?
     
         Sp = np.array([], dtype=complex)

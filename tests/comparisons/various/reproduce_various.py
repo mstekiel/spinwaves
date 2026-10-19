@@ -10,7 +10,7 @@ from spinwaves import Crystal, MSG, Atom, Coupling, SpinW
 from spinwaves.plotting import plot_structure   # this takes some serious time
 
 from pathlib import Path
-PATH_PLOTS = Path(r'C:\Users\Stekiel\Documents\GitHub\spinwaves\tests\Various_comparisons')
+PATH_PLOTS = Path(__file__).parent
 
 ### Altermagnets
 def make_comparison():

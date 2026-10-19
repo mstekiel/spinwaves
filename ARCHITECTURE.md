@@ -103,19 +103,41 @@ deduplicates by hash/equality, and optionally warns if attributes of equivalent 
 
 ## Test structure
 
+**Rule: `tests/` mirrors `spinwaves/`.** Every module `spinwaves/<pkg>/<module>.py` has its tests in
+`tests/<pkg>/test_<module>.py`; a package `__init__.py` with its own logic is tested in
+`tests/<pkg>/test_init.py`. Modules that only re-export names (`databases/__init__.py`,
+`symmetry/__init__.py`) and `plotting/archive/` have no test file.
+When adding, moving or renaming a module, do the same with its test file. Modules without tests
+yet have a stub file: a docstring listing the objects to cover, no test functions.
+
 ```
 tests/
-├── test_crystal.py           # Crystal construction, atom indexing, DMI validation
-├── test_spinw.py             # SpinW calculations, coupling symmetrization
-├── test_functions.py
-├── test_utils_arrays.py
+├── __init__.py, conftest.py   # Shared fixtures (e.g. `fm_chain`)
+├── markers.py                 # Skip markers for `graphics` tests: needs_matplotlib, needs_vispy, ...
+├── test_init.py               # spinwaves/__init__.py: core import loads no graphics libraries
+├── test_atom.py, test_coupling.py, test_crystal.py, test_lattice.py, test_spinw.py
+├── databases/                 # test_database.py, test_implement_txt.py, test_implement_spglib.py
+├── gui/                       # test_init.py, test_gui_vispy.py, test_gui_qtgraph.py, test_gui_plotly.py
+├── plotting/                  # test_init.py (plot_structure, plot_dispersion), test_network_plotter.py,
+│                              # test_supercell_plotter[_mpl|_qtgraph|_vispy|_vispy_advanced].py
 ├── symmetry/
-│   ├── test_group.py         # Group axioms, Cayley graph, symmetrize
-│   └── test_magnetic_symmetry.py
-└── SpinW_comparisons/        # Regression against original MATLAB SpinW
+│   ├── __init__.py            # `make_perm_symop(n)` factory and generator fixtures
+│   ├── test_group.py          # Group axioms, Cayley graph, symmetrize
+│   ├── test_magnetic_symmetry.py
+│   └── test_crystall_space_group.py
+├── utils/                     # test_init.py, test_arrays.py, test_functions.py, test_graphics.py,
+│                              # test_linalg.py, test_physics.py, test_symmetry.py
+├── data/                      # Input data for tests, not tests themselves
+└── comparisons/               # Not collected by pytest (no `test_` prefix)
+    ├── SpinW/                 # Regression scripts against original MATLAB SpinW tutorials
+    └── various/               # Comparisons with published results
 ```
 
-Tests use a `make_perm_symop(n)` factory (in `test_group.py`) that generates a `SymOp` class
+Every test directory is a package (has `__init__.py`), so equal basenames such as `test_init.py`
+do not clash. Tests needing the optional `graphics` dependencies use the markers from
+`tests/markers.py` and are skipped when those libraries are not installed.
+
+`make_perm_symop(n)` (in `tests/symmetry/__init__.py`) generates a `SymOp` class
 for permutations on `n` points — used as lightweight stubs for group tests.
 
 ## Active refactoring notes
