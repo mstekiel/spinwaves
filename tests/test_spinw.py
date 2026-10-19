@@ -10,6 +10,8 @@ from spinwaves import Crystal, MSG, Atom, Coupling, SpinW
 from spinwaves.plotting import plot_structure   # this takes some serious time
 from spinwaves.utils.linalg import DMI
 
+from spinwaves.config import NumericalToleranceError, override_tolerances
+
 from .markers import needs_vispy
 
 '''
@@ -136,6 +138,38 @@ def test_coupling_symmetrization_hex():
 
     # TODO: Add some asserts to check the symmetrization of the couplings
     
+### Numerical stability, see `spinwaves.config`
+def test_fm_chain_dispersion(fm_chain):
+    """E(h) = 2|J|S(1 - cos 2 pi h) for the ferromagnetic chain, SpinW tutorial 1"""
+    Q = np.linspace([0.05,0,0], [0.95,0,0], 19)
+    E = fm_chain.determine_ES(Q, includeS=False)
+
+    assert np.allclose(np.max(E, axis=-1), 2*(1-np.cos(2*np.pi*Q[:,0])))
+    assert np.allclose(np.min(E, axis=-1), -np.max(E, axis=-1))
+
+@pytest.mark.parametrize('rtol', [1e-10, 1e-6])
+def test_goldstone_gap(fm_chain, rtol):
+    """Zero mode at Q=0 is regularized: the gap is set by the numerical tolerance.
+
+    For the ferromagnetic chain `h(Q=0)` is the zero matrix, shifted by `rtol`.
+    """
+    with override_tolerances(numeric=rtol):
+        E = fm_chain.determine_ES(np.zeros((1,3)), includeS=False)
+
+    assert np.allclose(np.abs(E), rtol, rtol=1e-3)
+
+def test_not_ground_state_raises():
+    """Antiferromagnetic coupling on a ferromagnetic structure: `h` is not positive definite"""
+    P1 = MSG.from_xyz_strings(generators=['x, y, z, +1'])
+    crystal = Crystal(lattice_parameters=[3,8,8, 90,90,90], MSG=P1, atoms=[Atom(label='Cu', r=(0,0,0), m=(0,1,0), s=1)])
+    sw = SpinW(crystal=crystal, couplings=[Coupling(label='Ja', id1=0, id2=0, n_uvw=[1,0,0], J=np.eye(3,3))],
+               magnetic_modulation={'k':(0,0,0), 'n':(1,0,0)})
+
+    with pytest.raises(NumericalToleranceError, match='not the ground state') as excinfo:
+        sw.determine_ES(np.linspace([0,0,0], [1,0,0], 5))
+    assert excinfo.value.indices
+
+
 if __name__ == "__main__":
     # pytest.main()
     pass

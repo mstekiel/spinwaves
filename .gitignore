@@ -17,3 +17,6 @@ dirty/
 # Some examples should be hidden
 LuFeO3/
 FeV2O4/
+
+# Hide non-public references
+references/

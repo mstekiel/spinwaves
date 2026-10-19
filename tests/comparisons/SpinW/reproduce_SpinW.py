@@ -84,7 +84,7 @@ def reproduce_tutorial_1(Qsamples: float=10000):
     I = sw.calculate_powder_spectrum(Qrange, Qsamples, Erange, 0.1)
     axes[2].pcolormesh(Qrange, Erange, I)
 
-    fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_1.png')
+    fig.savefig(PATH_PLOTS / 'spinw_tutorial_1.png')
     
     return
 
@@ -137,16 +137,16 @@ def reproduce_tutorial_2():
 
     ylabels = ['energy transfer (meV)', 'Intensity (a.u.)']
     titles = ['dispersion', 'Intensity of the spin-spin correlations functions']
-    yvals = [excitations.E, np.log10(Sperp)]
+    yvals = [excitations.E, np.log(Sperp)]
     ylims = [(-2.5, 2.5), (-4, 4)]
 
     for n,ax in enumerate(axes):
         ax.set(title=titles[n], ylabel=ylabels[n], #ylim=ylims[n],
-               xlabel='L in (00L) (a.u.)', xlim=(0,1))
+               xlabel='H in (H00) (a.u.)', xlim=(0,1))
 
         ax.plot(Qpath[:,0], yvals[n])
 
-    fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_2.png')
+    fig.savefig(PATH_PLOTS / 'spinw_tutorial_2.png')
     
     return
 
@@ -198,12 +198,12 @@ def reproduce_tutorial_3():
 
     # TODO mode labels seem wrong.
     ax.plot(Qpath[:,0], excitations.E[:,0:2], 'o-', label='S(Q)')
-    ax.plot(Qpath[:,0], excitations.E[:,2:4], 'v--', label='S(Q+k)')
-    ax.plot(Qpath[:,0], excitations.E[:,4:6], '^:', label='S(Q-k)')
+    ax.plot(Qpath[:,0], excitations.E[:,2:4], '-', label='S(Q+k)')
+    ax.plot(Qpath[:,0], excitations.E[:,4:6], ':', label='S(Q-k)')
 
     ax.legend()
 
-    fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_3.png')
+    fig.savefig(PATH_PLOTS / 'spinw_tutorial_3.png')
     
     return
 
@@ -278,7 +278,7 @@ def reproduce_tutorial_4():
     # cbar.ax.text(3, 0.5, f'Intensity (a.u.)', va='center', ha='left', transform=cbar.ax.transAxes, rotation=-90)#, fontfamily='serif')
 
 
-    fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_4.png')
+    fig.savefig(PATH_PLOTS / 'spinw_tutorial_4.png')
     
     return
 
@@ -354,7 +354,7 @@ def reproduce_tutorial_5(Qsamples: float=10000):
                 ylabel='energy transfer (meV)', ylim=(0,7))
     axes[1].pcolormesh(Qrange, Erange, I, vmax=I.max()/3)
 
-    fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_5.png')
+    fig.savefig(PATH_PLOTS / 'spinw_tutorial_5.png')
     
     return
 
@@ -433,7 +433,7 @@ def reproduce_tutorial_6(Qsamples: float=10000):
                 ylabel='energy transfer (meV)', ylim=(0,7))
     axes[1].pcolormesh(Qrange, Erange, I, vmax=I.max()/3)
 
-    fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_6.png')
+    fig.savefig(PATH_PLOTS / 'spinw_tutorial_6.png')
     
     return
 
@@ -504,7 +504,7 @@ def reproduce_tutorial_7(Qsamples: float=10000):
     cbar = fig.colorbar(pcm, ax=axes[1], orientation='vertical', extend='max', label='intensity (a.u.)')
 
 
-    fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_7.png')
+    fig.savefig(PATH_PLOTS / 'spinw_tutorial_7.png')
     
     return
 
@@ -599,7 +599,7 @@ def reproduce_tutorial_8(Qsamples: float=10000):
     cbar = fig.colorbar(pcm, ax=axes[2], orientation='vertical', extend='max', label='intensity (a.u.)')
 
 
-    fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_8.png')
+    fig.savefig(PATH_PLOTS / 'spinw_tutorial_8.png')
     
     return
 
@@ -688,7 +688,7 @@ def reproduce_tutorial_9(Qsamples: float=10000):
     cbar = fig.colorbar(pcm, ax=axes[2], orientation='vertical', extend='max', label='intensity (a.u.)')
 
 
-    fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_9.png')
+    fig.savefig(PATH_PLOTS / 'spinw_tutorial_9.png')
     
     return
 
@@ -736,7 +736,7 @@ def reproduce_tutorial_11():
     Elims = (0,350)
     N = 100
     main_Qs = [[3/4, 1/4, 0], [1/2, 1/2, 0], [1/2, 0, 0], [3/4, 1/4, 0], [1, 0 ,0], [1/2, 0, 0]]
-    main_Q_names = ['P', 'M', 'X', 'P', '\Gamma', 'X']
+    main_Q_names = ['P', 'M', 'X', 'P', '$\Gamma$', 'X']
     Qpath, Qinc = crystal.make_qPath(main_Qs, N, return_Qinc=True)
 
 
@@ -745,6 +745,7 @@ def reproduce_tutorial_11():
     # exc.S[exc.E<1e-3] = 0
     # exc.Sperp[exc.E<1e-3] = 0
 
+    # Quantum renormalization factor
     exc.E *= 1.18
 
     ### PLOTTING
@@ -767,11 +768,11 @@ def reproduce_tutorial_11():
     Erange = np.linspace(0, Elims[1], 500)
     spectrum = sw.calculate_spectrum(Erange, 35)
     
-    pcm = axes[2].pcolormesh(Qinc, Erange, spectrum, cmap='cubehelix_r', vmax=0.05)
+    pcm = axes[2].pcolormesh(Qinc, Erange, spectrum, cmap='afmhot_r', vmax=0.05)
     cbar = fig.colorbar(pcm, ax=axes[2], orientation='vertical', extend='max', label='intensity (a.u.)')
 
 
-    fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_11.png')
+    fig.savefig(PATH_PLOTS / 'spinw_tutorial_11.png')
     
     return
 
@@ -833,7 +834,14 @@ def reproduce_tutorial_12():
                 xlabel='Qinc (A-1)',
                 ylabel='energy transfer (meV)', ylim=Elims)
 
-    axes[0].plot(Qinc, exc.E)
+    # axes[0].plot(Qinc, exc.E)
+
+    # TODO mode labels seem wrong.
+    axes[0].plot(Qinc, exc.E[:,0:2], 'o-', label='S(Q)')
+    axes[0].plot(Qinc, exc.E[:,2:4], '-', label='S(Q+k)')
+    axes[0].plot(Qinc, exc.E[:,4:6], ':', label='S(Q-k)')
+    axes[0].legend()
+
 
     Erange = np.linspace(*Elims, 500)
 
@@ -842,7 +850,7 @@ def reproduce_tutorial_12():
                ylabel='energy', ylim=Elims)
     
     spectrum = sw.calculate_spectrum(Erange, 0.4)
-    pcm = axes[1].pcolormesh(Qinc, Erange, spectrum, cmap='afmhot_r', vmax=4)
+    pcm = axes[1].pcolormesh(Qinc, Erange, spectrum, cmap='afmhot_r', vmax=4.5)
     cbar = fig.colorbar(pcm, ax=axes[1], orientation='vertical', extend='max', label='intensity (a.u.)')
 
 
@@ -857,7 +865,7 @@ def reproduce_tutorial_12():
     cbar = fig.colorbar(pcm, ax=axes[2], orientation='vertical', extend='both', label='intensity (a.u.)')
 
 
-    fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_12.png')
+    fig.savefig(PATH_PLOTS / 'spinw_tutorial_12.png')
     
     return
 
@@ -942,7 +950,7 @@ def reproduce_tutorial_19():
         ax.set(ylabel='energy', xlabel='Momentum', xlim=(0,1), ylim=(0,4.5))
 
 
-    fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_19.png')
+    fig.savefig(PATH_PLOTS / 'spinw_tutorial_19.png')
     
     return
 
@@ -1038,7 +1046,7 @@ def reproduce_tutorial_20():
     plot_spectrum('Q1')
     plot_spectrum('Q2')
 
-    fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_20.png')
+    fig.savefig(PATH_PLOTS / 'spinw_tutorial_20.png')
 
     return
     
@@ -1112,7 +1120,7 @@ def reproduce_tutorial_21():
     ax = axes[0]
     ax.plot(Qpath[:,0], E)
 
-    fig.savefig(f'{PATH_PLOTS}\spinw_tutorial_21.png')
+    fig.savefig(PATH_PLOTS / 'spinw_tutorial_21.png')
     
     return
 
@@ -1187,7 +1195,7 @@ if __name__ == "__main__":
     # reproduce_tutorial_6(Qsamples)
     # reproduce_tutorial_7(Qsamples)
     # reproduce_tutorial_8(Qsamples)
-    reproduce_tutorial_9(Qsamples)
+    # reproduce_tutorial_9(Qsamples)
 
     # reproduce_tutorial_11()
     # reproduce_tutorial_12()

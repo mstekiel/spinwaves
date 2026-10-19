@@ -16,6 +16,7 @@ spinwaves/
 ├── crystal.py               # Crystal(Lattice): atoms + MSG, generates full unit cell
 ├── coupling.py              # Coupling: pairwise exchange interaction J (3×3 matrix)
 ├── spinw.py                 # SpinW: LSW Hamiltonian, eigensolver, excitations
+├── config.py                # Global tolerances, override_tolerances(), NumericalToleranceError
 ├── symmetry/
 │   ├── group.py             # SymOp (ABC), Group[T] (generic, Cayley BFS)
 │   ├── magnetic_symmetry.py # mSymOp(SymOp), MSG(Group[mSymOp])
@@ -25,7 +26,7 @@ spinwaves/
 ├── legacy/                  # Deprecated implementations kept for reference, not imported by `spinwaves`
 │   └── spinw_old.py         # Old SpinW methods as functions of `sws`; scipy eigensolver (needs `dev` group)
 ├── utils/
-│   ├── linalg.py            # Rotation matrices, DMI, dipolar, vector ops
+│   ├── linalg.py            # Tolerance-checked hermitian_eig/regularized_cholesky, rotations, DMI, vector ops
 │   ├── arrays.py            # Structured dtypes, shape-validation decorators
 │   └── physics.py           # Bose-Einstein occupation
 └── data_tables/             # Raw database text files
@@ -62,6 +63,24 @@ SpinW  ←── spinw.py
 | Translation normalization | Always `% 1`, kept in `[0, 1)` as `Fraction` |
 | Time reversal | `+1` = no reversal, `-1` = reversal; affects axial vector transforms |
 | Hashing of SymOps | Based on raw components: `(matrix.tobytes(), tuple(translation), time_reversal)` |
+
+## Numerical tolerances (`config.py`)
+
+One rule for deviations that should be numerical noise: compare **relative** to the scale of the
+checked object against `config.tolerances.numeric` (default `1e-10`); below it correct silently
+(logged at DEBUG on logger `Numerics`), above it raise `NumericalToleranceError` (a `ValueError`
+carrying `deviation`, `tolerance` and failing batch `indices`). Read the tolerance at call time,
+never as a default argument, so `config.tolerances.numeric = ...` and `override_tolerances(...)` apply.
+
+| Check | Helper (`utils/linalg.py`) | Below tolerance | Above tolerance |
+|---|---|---|---|
+| Hermiticity, `‖A−A†‖/‖A‖` | `ensure_hermitian` | return `(A+A†)/2` | raise (construction bug) |
+| Definiteness of `h`, `λ_min/λ_max` | `regularized_cholesky` | shift zero modes by `tol·λ_max` | raise (not the ground state) |
+| Eigen-decomposition of `K†gK` | `hermitian_eig` | `ensure_hermitian` + `eigh`, ascending order | as `ensure_hermitian` |
+
+The zero-mode shift opens a gap at Goldstone modes of `tol·scale` (quadratic dispersion) up to
+`√tol·scale` (linear dispersion). `config.tolerances.geometric` (`1e-5`) is reserved for comparing
+user-given positions and directions; existing `np.allclose` calls do not use it yet.
 
 ## Group theory layer (`symmetry/group.py`)
 
@@ -117,7 +136,7 @@ tests/
 ├── __init__.py, conftest.py   # Shared fixtures (e.g. `fm_chain`)
 ├── markers.py                 # Skip markers for `graphics` tests: needs_matplotlib, needs_vispy, ...
 ├── test_init.py               # spinwaves/__init__.py: core import loads no graphics libraries
-├── test_atom.py, test_coupling.py, test_crystal.py, test_lattice.py, test_spinw.py
+├── test_atom.py, test_config.py, test_coupling.py, test_crystal.py, test_lattice.py, test_spinw.py
 ├── databases/                 # test_database.py, test_implement_txt.py, test_implement_spglib.py
 ├── gui/                       # test_init.py, test_gui_vispy.py, test_gui_qtgraph.py, test_gui_plotly.py
 ├── legacy/                    # test_spinw_old.py

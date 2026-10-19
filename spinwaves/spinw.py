@@ -20,7 +20,10 @@ from .coupling import Coupling
 # Internal
 from .crystal import Crystal
 from .utils.arrays import ensure_shape, make_exc_dtype
-from .utils.linalg import RfromZ, rot_Rn, rot_Rodrigues_complex
+from . import config
+from .config import NumericalToleranceError
+from .utils.linalg import (RfromZ, rot_Rn, rot_Rodrigues_complex,
+                           dagger, ensure_hermitian, regularized_cholesky, hermitian_eig)
 from .utils.physics import bose_occupation
 
 if TYPE_CHECKING:
@@ -329,98 +332,33 @@ class SpinW:
         '''
         M = len(self.magnetic_atoms)
 
-        h = self._construct_h(Qhkl) 
+        # Hermitian by construction: deviations above the numerical tolerance are bugs
+        h = ensure_hermitian(self._construct_h(Qhkl), name='h')
 
-        # Ok, so I learned the hard way this numerical accuracy is important to debug properly.
-        # SpinW does the block: (lines 812-840 spinwave.m)
-        # Try cholesky decomposition
-        # if failed: check smallest eigenvalue. 
-        #   If smaller than tolerance add to diagonal and try cholesky
-        #       if cholesky succeds everything is ok
-        #       if cholesky fails, add tolerance to diagonal, and try again
-        #           if cholesky fails, give up
-        # if failed, add tole
-        zeros = np.abs(np.linalg.det(h)) < 1e-10 
-        h[zeros] += np.eye(2*M,2*M) * 1e-10
-
-        # Cholesky decomposition
+        # SpinW (lines 812-840 spinwave.m) adds a tolerance to the diagonal when the Cholesky
+        # decomposition fails on zero modes. Here definiteness of `h` is checked against
+        # the global numerical tolerance, see `spinwaves.config` and `regularized_cholesky`.
         try:
-            K_lo = np.linalg.cholesky(h)
-        except Exception as e:
-            # if debug go through h in for loop and check which exactly fails?
-            raise ValueError("Cholesky decomposition failed. \n"
-                             "Most probably your structure is incombatible with exchange interactions.") from e
+            K_lo = regularized_cholesky(h, name='h')
+        except NumericalToleranceError as e:
+            Q_failing = [np.asarray(Qhkl)[idx].tolist() for idx in e.indices[:5]]
+            raise NumericalToleranceError(
+                f'{e}\nFirst failing Qhkl: {Q_failing}. Most probably the magnetic structure '
+                'is not the ground state of the exchange interactions.',
+                deviation=e.deviation, tolerance=e.tolerance, indices=e.indices) from e
 
-        K_up = K_lo.swapaxes(-2, -1).conj()
+        K_up = dagger(K_lo)
 
-        def numpy_schur(A):
-            '''Performr Schur decomposition of Hermitian matrix A
-            using fast numpy implementation.
-
-            Parameters
-            ----------
-            A: (...,N,N) ndarray
-                Hermitian matrix to decompose
-            
-            Returns
-            -------
-            T, Q such that A = Q @ T @ Q^dagger
-            
-            Notes
-            -----
-            Main motivation is that I want the eigenvectors to be orthonormal = 
-            Q is unitary, not gauranteed by `numpy.linalg.eigh`. Also,
-            `scipy.linalg.schur` is slow for large arrays.
-            TODO double check this function implementation and more importantly its stability
-            '''
-            ### Slow scipy schur version for comparison
-            # T = np.zeros(A.shape)
-            # Q = np.zeros(A.shape)
-            # for id, _ in np.ndenumerate(A[...,0,0]):
-            #     Ai = A[id]
-            #     Ti, Qi = scipy.linalg.schur(Ai)
-            #     T[id] = Ti
-            #     Q[id] = Qi
-
-            #     print(f'{Ti=} {Qi=}')
-
-            # return T, Q
-
-            # Compute eigen-decomposition
-            _, U = np.linalg.eigh(A)
-
-            # Make eigenvectors orthonormal (U may not be unitary as-is)
-            Q, R = np.linalg.qr(U)  # QR factorization gives orthonormal basis
-            # print('Q bef', Q)
-            # print('R bef', R)
-            # print(f'{Q.real=}')
-            # print(f'{R.real=}') # R should be eye
-            # Deep dive trick: trust R has +-1 on diagonal, then R @ R = 1
-            Q = Q @ R
-            R = R @ R
-            # print('Q aft', Q)
-            # print('R aft', R)
-            '''The main question is, when is R not identity? These are the weird
-            cases, probably when the eigenvalues are degenerate, and numerics
-            get involved.'''
-
-            # Transform A into Schur form
-            T = Q.conj().swapaxes(-2,-1) @ A @ Q
-            # print('T', T)
-            return T, Q
-        
         # (30) [SpinW]
         g = np.diag( [1]*M + [-1]*M )
 
-        # Between (31) (32) [SpinW]
-        E, U = numpy_schur(K_up @ g @ K_lo)
-        energies = np.diagonal(E.real, axis1=-2, axis2=-1)
+        # Between (31) (32) [SpinW], Hermitian by construction.
+        # Eigenvalues are in ascending order: the M negative ones come first.
+        energies, U = hermitian_eig(K_up @ g @ K_lo, name='K^dagger g K')
 
         if includeS:
-            # E = energies[...,:,None] * np.eye(2*M, 2*M)
-
-            # (34) [SpinW]
-            T = np.linalg.inv(K_up) @ U @ np.sqrt(E.astype(np.complex128)) # shape=(...,2M,2M)
+            # (34) [SpinW], U @ sqrt(diag(E)) as scaling of the columns of U
+            T = np.linalg.inv(K_up) @ (U * np.sqrt(energies.astype(np.complex128))[..., None, :]) # shape=(...,2M,2M)
 
             r_i = np.asarray([atom_i.r for atom_i in self.magnetic_atoms])  # shape=(M,3)
             r_ij = r_i[None,:,:] - r_i[:,None,:]    # shape=(M,M,3)
@@ -578,7 +516,8 @@ class SpinW:
 
         E = 0.5*np.einsum('pq,pi,...pqij,qj->...', SiSj, v, Jp, v)
         
-        if np.any(np.abs(E.imag) > 1e-10):
+        scale = np.max(np.abs(E), initial=0) or 1.0
+        if np.any(np.abs(E.imag) > config.tolerances.numeric * scale):
             logger.warning(f'Ground state energy has imaginary part: {E.imag=}')
 
         return E.real
