@@ -16,7 +16,7 @@ class SWPlottingMixin:
   
     def plot_dispersion(self: 'SpinW', ax: 'plt.Axes', xaxis: np.ndarray, qPath: np.ndarray,
                         plot_type: str='dispersion', plot_kwargs: dict={},
-                        ret_data: bool=False) -> 'plt.Axes':
+                        ret_data: bool=False) -> 'plt.Axes' | tuple['plt.Axes', list]:
         '''
         Plot dispersions
 
@@ -71,13 +71,14 @@ class SWPlottingMixin:
 
 
         ### Plot type
+        data = None
         if plot_type == 'dispersion':
             Es = self.excitations.E
             x = x_arg.repeat(2*len(self.magnetic_atoms))
 
             ax.scatter(x, Es, **plot_kwargs)    # 0 branch
 
-            ret_data = [x_arg, Es]
+            data = [x_arg, Es]
         elif plot_type == 'dispersion_scaled':
             Es = self.excitations.E
             Is = self.excitations.Sperp
@@ -93,8 +94,8 @@ class SWPlottingMixin:
             y = Es.flatten()
             # z = Is.flatten()
 
-            ax.scatter(x, y, s=s, c=c, cmap='magma_r', **plot_kwargs)    # 0 branch
-            ret_data = [x, y, s]
+            ax.scatter(x, y, s=s, c=c, **plot_kwargs)    # 0 branch
+            data = [x, y, s]
         elif plot_type == 'spectral_weight':
 
             Egrid = []
@@ -117,13 +118,13 @@ class SWPlottingMixin:
             cmap = plot_kwargs.pop('cmap', 'RdBu')
 
             ax.pcolormesh(x_arg, Erange, Egrid, cmap=cmap, vmax=plot_kwargs['vmax'])
-            ret_data = [x_arg, Erange, Egrid]
+            data = [x_arg, Erange, Egrid]
         else:
             raise KeyError(f"Unknown plot_type {plot_type!r}")
 
         # Set up the return values
         ret = ax
         if ret_data:
-            ret = (ax, ret_data)
+            ret = (ax, data)
 
         return ret
