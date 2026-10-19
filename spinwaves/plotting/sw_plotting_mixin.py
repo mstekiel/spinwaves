@@ -16,7 +16,7 @@ class SWPlottingMixin:
   
     def plot_dispersion(self: 'SpinW', ax: 'plt.Axes', xaxis: np.ndarray, qPath: np.ndarray,
                         plot_type: str='dispersion', plot_kwargs: dict={},
-                        ret_data: bool=False) -> 'plt.Axes' | tuple['plt.Axes', list]:
+                        ret_data: bool=False) -> tuple['plt.Axes', list]:
         '''
         Plot dispersions
 

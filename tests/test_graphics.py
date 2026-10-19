@@ -58,8 +58,7 @@ def test_plot_structure_missing_engine(fm_chain, monkeypatch):
 @needs_matplotlib
 @pytest.mark.parametrize('plot_type', [
     'dispersion',
-    pytest.param('dispersion_scaled', marks=pytest.mark.xfail(
-        raises=TypeError, strict=True, reason='`cmap` passed twice to `ax.scatter`')),
+    'dispersion_scaled',
     'spectral_weight'])
 def test_plot_dispersion(fm_chain, plot_type):
     import matplotlib

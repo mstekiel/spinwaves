@@ -1,6 +1,10 @@
 import numpy as np
 
-from ..spinw import SpinW
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ..spinw import SpinW
+    
 from .supercell_plotter import SupercellPlotter
 
 # import matplotlib
@@ -21,7 +25,7 @@ class MPLSupercellPlotter(SupercellPlotter):
     ax: Axes
     fig: Figure
 
-    def __init__(self, sws: SpinW):
+    def __init__(self, sws: 'SpinW', plot_options: dict={}):
         super().__init__(sws=sws)
 
         # TODO move these setting to config file
