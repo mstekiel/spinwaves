@@ -21,7 +21,7 @@ spinwaves/
 │   ├── magnetic_symmetry.py # mSymOp(SymOp), MSG(Group[mSymOp])
 │   └── crystall_space_group.py  # cSymOp(SymOp), SG(Group[cSymOp])
 ├── databases/               # Atomic data: radii, colors, masses, form factors
-├── plotting/                # Visualization backends (vispy, matplotlib, qtgraph)
+├── plotting/                # plot_structure, plot_dispersion; backends (vispy, matplotlib, qtgraph)
 ├── utils/
 │   ├── linalg.py            # Rotation matrices, DMI, dipolar, vector ops
 │   ├── arrays.py            # Structured dtypes, shape-validation decorators
@@ -43,7 +43,7 @@ Group[T: SymOp]  ←── group.py  (generic, Cayley-BFS)
 Lattice  ←── lattice.py
 └── Crystal(Lattice)  ←── crystal.py  (atoms + MSG)
 
-SpinW(SWPlottingMixin)  ←── spinw.py
+SpinW  ←── spinw.py
     ├── .crystal: Crystal
     ├── .couplings: list[Coupling]       # user-defined unique bonds
     └── .couplings_all: list[Coupling]   # symmetry-expanded

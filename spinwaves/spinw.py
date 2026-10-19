@@ -21,7 +21,6 @@ from .coupling import Coupling
 
 # Internal
 from .crystal import Crystal
-from .plotting.sw_plotting_mixin import SWPlottingMixin
 from .utils.arrays import ensure_shape, make_exc_dtype
 from .utils.linalg import RfromZ, rot_Rn, rot_Rodrigues_complex
 from .utils.physics import bose_occupation
@@ -36,7 +35,7 @@ logger = logging.getLogger('SpinW')
 class Dispersion:
     pass
 
-class SpinW(SWPlottingMixin):
+class SpinW:
     '''Spin wave calculator.
 
     Core functionalities encapsulate calculating all matrices required to derive spin wave dynamics as per linear spin wave theory.

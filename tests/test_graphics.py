@@ -12,7 +12,7 @@ import pytest
 
 from spinwaves import Crystal, MSG, Atom, Coupling, SpinW
 import spinwaves.plotting
-from spinwaves.plotting import plot_structure
+from spinwaves.plotting import plot_structure, plot_dispersion
 from spinwaves.utils.graphics import require_graphics, GRAPHICS_HINT
 
 from .markers import needs_matplotlib, needs_vispy
@@ -69,7 +69,7 @@ def test_plot_dispersion(fm_chain, plot_type):
     fm_chain.calculate_excitations(Qhkl=Qpath)
 
     fig, ax = plt.subplots()
-    fm_chain.plot_dispersion(ax, xaxis=None, qPath=Qpath, plot_type=plot_type)
+    plot_dispersion(fm_chain, ax, xaxis=None, qPath=Qpath, plot_type=plot_type)
 
     assert ax.has_data()
     plt.close(fig)
