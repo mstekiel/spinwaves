@@ -134,7 +134,8 @@ yet have a stub file: a docstring listing the objects to cover, no test function
 ```
 tests/
 ├── __init__.py, conftest.py   # Shared fixtures (e.g. `fm_chain`)
-├── markers.py                 # Skip markers for `graphics` tests: needs_matplotlib, needs_vispy, ...
+├── markers.py                 # Skip markers for optional dependencies: needs_matplotlib, needs_vispy, needs_scipy, ...
+├── helpers.py                 # Reference LSWT systems, `assert_no_numpy_scalar_repr`
 ├── test_init.py               # spinwaves/__init__.py: core import loads no graphics libraries
 ├── test_atom.py, test_config.py, test_coupling.py, test_crystal.py, test_lattice.py, test_spinw.py
 ├── databases/                 # test_database.py, test_implement_txt.py, test_implement_spglib.py
@@ -150,6 +151,7 @@ tests/
 ├── utils/                     # test_init.py, test_arrays.py, test_functions.py, test_graphics.py,
 │                              # test_linalg.py, test_physics.py, test_symmetry.py
 ├── data/                      # Input data for tests, not tests themselves
+│                              # lswt_reference.npz + make_lswt_reference.py (numpy-version-independent E, S)
 └── comparisons/               # Not collected by pytest (no `test_` prefix)
     ├── SpinW/                 # Regression scripts against original MATLAB SpinW tutorials
     └── various/               # Comparisons with published results
@@ -158,6 +160,12 @@ tests/
 Every test directory is a package (has `__init__.py`), so equal basenames such as `test_init.py`
 do not clash. Tests needing the optional `graphics` dependencies use the markers from
 `tests/markers.py` and are skipped when those libraries are not installed.
+
+**numpy 1/2 compatibility.** Test files of `atom`, `coupling`, `crystal`, `spinw`, `magnetic_symmetry` and
+`crystall_space_group` have a section `numpy 1/2 compatibility` guarding behaviour numpy 2 changed: default
+integer on Windows (int32 to int64), scalar reprs (`np.int64(1)`), NEP 50 promotion (`float32` kept), sorting of
+object arrays in `np.unique`, and the BLAS/LAPACK builds (`test_lswt_reference`). Known breaks are strict xfails,
+conditioned on the numpy/Python version where the behaviour differs.
 
 `make_perm_symop(n)` (in `tests/symmetry/__init__.py`) generates a `SymOp` class
 for permutations on `n` points — used as lightweight stubs for group tests.

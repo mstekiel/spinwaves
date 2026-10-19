@@ -2,6 +2,8 @@
 r"""Tests lattice math
 
 """
+from pathlib import Path
+
 import numpy as np
 from fractions import Fraction
 import pytest
@@ -13,6 +15,7 @@ from spinwaves.utils.linalg import DMI
 from spinwaves.config import NumericalToleranceError, override_tolerances
 
 from .markers import needs_vispy
+from .helpers import REFERENCE_SYSTEMS, assert_no_numpy_scalar_repr, lswt_invariants
 
 '''
 # Some depracated test, maybe useful in the future
@@ -168,6 +171,74 @@ def test_not_ground_state_raises():
     with pytest.raises(NumericalToleranceError, match='not the ground state') as excinfo:
         sw.determine_ES(np.linspace([0,0,0], [1,0,0], 5))
     assert excinfo.value.indices
+
+
+#########################################################################################
+# numpy 1/2 compatibility
+
+def tetragonal_system(generators=('-y, x, z, +1', 'y, x, z, +1')) -> SpinW:
+    """P4mm with on-site anisotropy and a DMI bond; not a ground state, used for symmetrization"""
+    P4mm = MSG.from_xyz_strings(generators=list(generators))
+    atoms = [Atom(label='Dy', r=(0.5,0.5,0), m=(0,0,5), s=2.5), Atom(label='Fe', r=(0.1,0.1,0), m=(1,1,0), s=2.5)]
+    crystal = Crystal(lattice_parameters=[4,4,10, 90,90,90], MSG=P4mm, atoms=atoms)
+    couplings = [Coupling(label='K_Fe', id1=0, id2=0, n_uvw=[0,0,0], J=np.array([[-0.2,0,0],[0,-0.2,0],[0,0,0]])),
+                 Coupling(label='D1', id1=0, id2=3, n_uvw=[1,0,0], J=5*np.eye(3) + DMI([0,0,0.1]))]
+    return SpinW(crystal=crystal, couplings=couplings, magnetic_modulation={'k':(0,0,0), 'n':(0,0,1)})
+
+def bond(cpl: Coupling) -> tuple:
+    return (cpl.id1, cpl.id2, tuple(int(n) for n in cpl.n_uvw))
+
+def test_symmetrize_couplings_bonds():
+    """Bonds and their J after symmetrization are independent of the generator order,
+    and every bond comes with its reverse with transposed J
+    """
+    sw = tetragonal_system()
+    sw_swapped = tetragonal_system(generators=('y, x, z, +1', '-y, x, z, +1'))
+    J = {bond(c): c.J for c in sw.couplings_all}
+    J_swapped = {bond(c): c.J for c in sw_swapped.couplings_all}
+
+    assert len(J) == len(sw.couplings_all) == 12
+    assert J.keys() == J_swapped.keys()
+    for b, Jb in J.items():
+        assert np.allclose(Jb, J_swapped[b])
+        reverse = (b[1], b[0], tuple(-n for n in b[2]))
+        assert np.allclose(J[reverse], Jb.T)
+
+@pytest.mark.xfail(strict=True, reason='`np.unique` on the object array of couplings keeps an unspecified one of '
+                   'the equal couplings; labels of the survivors differ between numpy 1.23 and 1.26+')
+def test_symmetrize_couplings_keeps_first_generated(monkeypatch):
+    """Each bond is generated twice (from the coupling and its reverse);
+    a deterministic rule, here the first generated, makes labels reproducible
+    """
+    generated = {}
+    unique = np.unique
+    def spy(ar, *args, **kwargs):
+        generated['all'] = list(ar)
+        return unique(ar, *args, **kwargs)
+    monkeypatch.setattr(np, 'unique', spy)
+    sw = tetragonal_system()
+    monkeypatch.undo()
+
+    first = {}
+    for c in generated['all']:
+        first.setdefault(bond(c), c.label)
+    assert {bond(c): c.label for c in sw.couplings_all} == first
+
+def test_lswt_reference():
+    """Energies and mode-summed S against stored values, see `tests/data/make_lswt_reference.py`.
+
+    The reference was verified to agree between numpy 1.23 and 2.4 to 1e-14.
+    """
+    ref = np.load(Path(__file__).parent / 'data' / 'lswt_reference.npz')
+    for name, make in REFERENCE_SYSTEMS.items():
+        E, S = lswt_invariants(make(), ref['Qhkl'])
+        assert np.allclose(E, ref[f'{name}_E'], rtol=1e-10, atol=1e-12), name
+        assert np.allclose(S, ref[f'{name}_S'], rtol=1e-10, atol=1e-12), name
+
+def test_spinw_repr(fm_chain):
+    assert_no_numpy_scalar_repr(repr(fm_chain))
+    for c in tetragonal_system().couplings_all:
+        assert_no_numpy_scalar_repr(c.label)
 
 
 if __name__ == "__main__":

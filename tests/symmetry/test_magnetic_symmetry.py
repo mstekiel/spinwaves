@@ -8,6 +8,8 @@ import pytest
 
 from spinwaves.symmetry.magnetic_symmetry import mSymOp, MSG
 
+from ..helpers import assert_no_numpy_scalar_repr
+
 g_1 = mSymOp.from_string('x, y, z, +1') # 1
 g_m1 = mSymOp.from_string('-x, -y, -z, +1')  # -1
 g_1p = mSymOp.from_string('x, y, z, -1') # 1'
@@ -149,6 +151,62 @@ def test_orbits():
     
     assert np.allclose(positions, positions_bilbao)
     
+#########################################################################################
+# numpy 1/2 compatibility: default integer on Windows changed from int32 to int64,
+# scalar reprs changed to `np.int64(1)`, numpy 2 wheels ship different BLAS/LAPACK builds
+
+OH_GENERATORS = ['z, x, y, +1', '-y, x, z, +1', '-x, -y, -z, +1']    # m-3m, order 48
+
+def test_mSymOp_matrix_is_integer():
+    g = mSymOp.from_string('-y, x-y, z, +1')
+    assert np.issubdtype(g.matrix.dtype, np.integer)
+    assert np.issubdtype((g*g).matrix.dtype, np.integer)
+    assert np.issubdtype(g.inv().matrix.dtype, np.integer)
+
+@pytest.mark.xfail(strict=True, reason='`mSymOp.__hash__` uses `matrix.tobytes()` and `__eq__` compares hashes: '
+                   'equal operations with int32 and int64 matrices, the numpy 1 and 2 defaults on Windows, are not equal')
+def test_mSymOp_eq_hash_independent_of_matrix_dtype():
+    g = mSymOp.from_string('-y, x, z+1/2, -1')
+    g32 = mSymOp(g.matrix.astype(np.int32), g._translation, g.time_reversal)
+    g64 = mSymOp(g.matrix.astype(np.int64), g._translation, g.time_reversal)
+
+    assert g32 == g64
+    assert hash(g32) == hash(g64)
+
+@pytest.mark.parametrize('xyz', ['x, y, z, +1', '-y, x-y, z+1/3, +1', 'x+1/2, -z+1/4, y+3/4, -1', '-x+y, -x, -z+5/6, -1'])
+def test_mSymOp_string_roundtrip(xyz):
+    g = mSymOp.from_string(xyz)
+    assert g.to_string() == xyz
+    assert_no_numpy_scalar_repr(repr(g))
+
+def test_MSG_strings():
+    G = MSG.from_xyz_strings(generators=OH_GENERATORS)
+    for g in G:
+        assert_no_numpy_scalar_repr(g.to_string())
+    assert_no_numpy_scalar_repr(str(G))
+
+def test_inversion_and_character_Oh():
+    """`inversion` truncates det(matrix) with `astype(int)`: LAPACK round-off of the
+    determinant below 1 would give 0, it must be exactly +-1 for every operation.
+    """
+    ops = list(MSG.from_xyz_strings(generators=OH_GENERATORS))
+
+    assert len(ops) == 48
+    for g in ops:
+        assert g.inversion in (-1, 1)
+        assert g.inversion == np.rint(np.linalg.det(g.matrix))
+        assert g.character == np.trace(g.matrix)
+    assert sum(g.inversion == -1 for g in ops) == 24
+
+def test_orbit_Oh():
+    """`get_orbit` uses `np.unique(..., axis=0, return_index=True)` on rounded positions"""
+    G = MSG.from_xyz_strings(generators=OH_GENERATORS)
+
+    assert len(G.get_orbit([0.1, 0.2, 0.3])) == 48
+    assert len(G.get_orbit([0, 0, 0.5])) == 3
+    assert len(G.get_orbit([0, 0, 0])) == 1
+
+
 if __name__ == "__main__":
     # pytest.main()
 

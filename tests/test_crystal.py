@@ -10,6 +10,8 @@ from spinwaves import Crystal, MSG, Atom
 from spinwaves.spinw import Coupling
 from spinwaves.utils.linalg import DMI
 
+from .helpers import assert_no_numpy_scalar_repr
+
 
 
 def test_crystal_constructor():
@@ -88,6 +90,18 @@ def test_crystal_couplings():
     assert not inappropriate
     assert np.allclose(D2_symmetrized, [0.275, 0.275, 0.005])
     
+#########################################################################################
+# numpy 1/2 compatibility: scalar reprs changed to `np.float64(1.0)`
+
+def test_crystal_repr():
+    P4mm = MSG.from_xyz_strings(generators=['-y, x, z, +1', 'y, x, z, +1'])
+    atoms = [Atom(label='Dy', r=(0.5, 0.5, 0), m=(0,0,5), s=2.5), Atom(label='Fe', r=(0.1, 0.1, 0), m=(1,1,0), s=2.5)]
+    crystal = Crystal(lattice_parameters=(4,4,10, 90,90,90), MSG=P4mm, atoms=atoms)
+
+    assert_no_numpy_scalar_repr(repr(crystal))
+    assert_no_numpy_scalar_repr(str(crystal))
+
+
 if __name__ == "__main__":
     # pytest.main()
     test_get_atom_index()

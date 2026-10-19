@@ -63,10 +63,10 @@ class SpinW:
     CRYSTAL will become a state machine
     - pyLiSW is great inspiration. Split _determine_ESp into hamiltonian prep and intensity calc.
     - add functionality of magnetic field
-    - seems liek we also have all components to determine the bond symmetry i nthe symbolic picture.
+    - seems like we also have all components to determine the bond symmetry in the symbolic picture.
       Take a looka at https://doi.org/10.1103/fgc1-5blp
     - Clarify the calculation and definitions of spectral weight and intensity.
-      I like the notation from gen Shirane book, I \propto kf/ki f^2(Q) exp(-W) S_perp
+      I like the notation from gen Shirane book, I propto kf/ki f^2(Q) exp(-W) S_perp
       I dont understand where DW-factor is coming from. Detailed balance is in S
     - add functionalities to force certain magnetic structure.
       Feels like it should be after the constructor. Maybe I can also figure out which symmetries are broken.
