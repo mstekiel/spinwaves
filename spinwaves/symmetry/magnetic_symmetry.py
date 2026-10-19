@@ -73,7 +73,8 @@ class mSymOp(SymOp):
         # Matrix elements can only be [-1, 0, 1] for MSG
         if not set(matrix.flatten()).issubset({-1,0,1}):
             raise ValueError('`mSymOp` matrix elements larger than 1. Check if you operation has multiplicity <=6')
-        self._matrix = matrix
+
+        self._matrix = np.asarray(matrix).astype(np.int64)
 
         # Current implementation assumes denominator max 6
         if any([t.denominator>6 for t in translation]):

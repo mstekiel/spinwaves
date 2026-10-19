@@ -1,4 +1,5 @@
 # Core
+import numbers
 from fractions import Fraction
 from typing import Sequence
 
@@ -14,6 +15,17 @@ from .utils.arrays import ensure_shape
 
 # config constants
 config = dict(MAX_DENOMINATOR = 1000)
+
+def _to_fraction(x) -> Fraction:
+    '''Closest fraction with denominator up to `MAX_DENOMINATOR`.
+
+    `Fraction` accepts rationals, strings and `float` (including `np.float64`), but
+    before Python 3.14 not `np.float32`, which numpy 2 (NEP 50) keeps in arithmetic
+    where numpy 1 promoted to `np.float64`.
+    '''
+    if not isinstance(x, (numbers.Rational, str)):
+        x = float(x)
+    return Fraction(x).limit_denominator(config['MAX_DENOMINATOR'])
 
 import logging
 logger = logging.getLogger('Atom')
@@ -145,7 +157,7 @@ class Atom:
     @r.setter
     @ensure_shape(r_new=(3,))
     def r(self, r_new: Sequence):
-        self._r = tuple([Fraction(x).limit_denominator(config['MAX_DENOMINATOR']) % 1 for x in r_new])
+        self._r = tuple([_to_fraction(x) % 1 for x in r_new])
 
     @property
     def m(self) -> np.ndarray[float]:
@@ -164,7 +176,7 @@ class Atom:
     
     @s.setter
     def s(self, s_new: Sequence):
-        self._s = Fraction(s_new).limit_denominator(config['MAX_DENOMINATOR'])
+        self._s = _to_fraction(s_new)
 
     @property
     def g_tensor(self) -> np.ndarray[float]:

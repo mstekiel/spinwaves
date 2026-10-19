@@ -16,13 +16,14 @@ from ..helpers import assert_no_numpy_scalar_repr
 # numpy 1/2 compatibility: default integer on Windows changed from int32 to int64,
 # scalar reprs changed to `np.int64(1)`
 
-@pytest.mark.parametrize('dtype', [np.int8, np.int32, np.int64])
+@pytest.mark.parametrize('dtype', [np.int8, np.int32, np.int64, np.float64])
 def test_cSymOp_eq_hash_independent_of_matrix_dtype(dtype):
     g = cSymOp.from_string('-y, x-y, z+1/3')
     g_dtype = cSymOp(g._matrix.astype(dtype), g._translation)
 
     assert g_dtype == g
     assert hash(g_dtype) == hash(g)
+    assert g_dtype._matrix.dtype == np.int64
 
 def test_SG_strings():
     """Strings feed `cSymOp.__hash__`, so they must not depend on the numpy version"""

@@ -163,15 +163,19 @@ def test_mSymOp_matrix_is_integer():
     assert np.issubdtype((g*g).matrix.dtype, np.integer)
     assert np.issubdtype(g.inv().matrix.dtype, np.integer)
 
-@pytest.mark.xfail(strict=True, reason='`mSymOp.__hash__` uses `matrix.tobytes()` and `__eq__` compares hashes: '
-                   'equal operations with int32 and int64 matrices, the numpy 1 and 2 defaults on Windows, are not equal')
-def test_mSymOp_eq_hash_independent_of_matrix_dtype():
+@pytest.mark.parametrize('dtype', [np.int8, np.int32, np.int64, np.float64])
+def test_mSymOp_eq_hash_independent_of_matrix_dtype(dtype):
+    """`__hash__` uses the raw bytes of the matrix and `__eq__` compares hashes,
+    so the matrix is stored with a fixed dtype: int32 and int64 are the numpy 1
+    and 2 defaults on Windows.
+    """
     g = mSymOp.from_string('-y, x, z+1/2, -1')
-    g32 = mSymOp(g.matrix.astype(np.int32), g._translation, g.time_reversal)
-    g64 = mSymOp(g.matrix.astype(np.int64), g._translation, g.time_reversal)
+    g_dtype = mSymOp(g.matrix.astype(dtype), g._translation, g.time_reversal)
 
-    assert g32 == g64
-    assert hash(g32) == hash(g64)
+    assert g_dtype == g
+    assert hash(g_dtype) == hash(g)
+    assert g_dtype.matrix.dtype == np.int64
+    assert g_dtype.to_string() == g.to_string()
 
 @pytest.mark.parametrize('xyz', ['x, y, z, +1', '-y, x-y, z+1/3, +1', 'x+1/2, -z+1/4, y+3/4, -1', '-x+y, -x, -z+5/6, -1'])
 def test_mSymOp_string_roundtrip(xyz):

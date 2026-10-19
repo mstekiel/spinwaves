@@ -177,6 +177,16 @@ for permutations on `n` points — used as lightweight stubs for group tests.
 - `SymOp` ABC still has a naming issue: abstract method declared as `to_string()` but `mSymOp` implements `to_str()` — needs reconciliation
 - `MSG` in `magnetic_symmetry.py` still has its own group-generation algorithm (older, slower pairwise closure) and duplicates some `Group` logic — planned to be replaced by `Group[mSymOp]`
 
-## Python version
+## Supported versions
 
-Requires Python `>=3.10, <3.11`. Package managed with `uv`.
+Package managed with `uv`. Core dependency is `numpy` only.
+
+| | Supported | Tested |
+|---|---|---|
+| Python | `>=3.9` | 3.9 - 3.14 |
+| numpy | `>=1.23.3` | 1.23.3 - 2.5, every minor with wheels for the Python version |
+
+numpy 1.23.0-1.23.2 cannot evaluate the `np.ndarray[float]` annotations used across the code base.
+The `graphics` extra is still pinned (matplotlib 3.5.2, vispy 0.12.1, built against numpy 1) and
+carries `numpy<2`. Since `uv.lock` holds a single numpy for all groups and extras, the lock is
+restricted to Python `<3.13` (`[tool.uv] environments`) until the graphics pins are relaxed.

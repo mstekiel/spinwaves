@@ -3,7 +3,6 @@ r"""Tests of `spinwaves.atom`
 Objects to cover:
 - `Atom`
 """
-import sys
 from fractions import Fraction
 
 import numpy as np
@@ -13,9 +12,6 @@ from spinwaves import Atom
 
 from .helpers import assert_no_numpy_scalar_repr
 
-NUMPY_2 = np.lib.NumpyVersion(np.__version__) >= '2.0.0'
-# Python 3.14 `Fraction` accepts any object with `as_integer_ratio`, including `np.float32`
-FRACTION_ACCEPTS_FLOAT32 = sys.version_info >= (3, 14)
 
 
 #########################################################################################
@@ -30,19 +26,18 @@ def test_atom_position_fractions():
     assert a._r == (Fraction(1,2), Fraction(1,3), Fraction(1,4))
     assert a.r.dtype == np.float64
 
-@pytest.mark.xfail(not FRACTION_ACCEPTS_FLOAT32, strict=True, raises=TypeError,
-                   reason='`Fraction` before Python 3.14 rejects `np.float32`, which is not a subclass of `float`')
-def test_atom_position_float32():
-    a = Atom(label='Fe', r=np.array([0.5, 0.25, 0], dtype=np.float32), m=(0,0,1), s=2.5)
+@pytest.mark.parametrize('dtype', [np.float16, np.float32, np.float64, np.longdouble])
+def test_atom_position_numpy_floats(dtype):
+    """`Fraction` before Python 3.14 rejects numpy floats that are not a subclass of `float`"""
+    a = Atom(label='Fe', r=np.array([0.5, 0.25, 0], dtype=dtype), m=(0,0,1), s=dtype(2.5))
     assert a._r == (Fraction(1,2), Fraction(1,4), 0)
+    assert a._s == Fraction(5,2)
 
-@pytest.mark.xfail(NUMPY_2 and not FRACTION_ACCEPTS_FLOAT32, strict=True, raises=TypeError,
-                   reason='NEP 50: `np.float32(x) * 2.0` stays float32 in numpy 2 (float64 in numpy 1), '
-                   'which `Fraction` before Python 3.14 rejects')
 def test_atom_position_from_numpy_arithmetic():
+    """NEP 50: `np.float32(x) * 2.0` stays float32 in numpy 2, float64 in numpy 1"""
     x = np.float32(0.25) * 2.0
-    a = Atom(label='Fe', r=(x, 0, 0), m=(0,0,1), s=2.5)
-    assert a._r == (Fraction(1,2), 0, 0)
+    a = Atom(label='Fe', r=(x, np.float32(1/3), 0), m=(0,0,1), s=2.5)
+    assert a._r == (Fraction(1,2), Fraction(1,3), 0)
 
 def test_atom_eq_hash_independent_of_input_type():
     a = Atom(label='Fe', r=(0.5, 0, 0.25), m=(0,0,1), s=2.5)

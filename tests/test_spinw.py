@@ -204,25 +204,16 @@ def test_symmetrize_couplings_bonds():
         reverse = (b[1], b[0], tuple(-n for n in b[2]))
         assert np.allclose(J[reverse], Jb.T)
 
-@pytest.mark.xfail(strict=True, reason='`np.unique` on the object array of couplings keeps an unspecified one of '
-                   'the equal couplings; labels of the survivors differ between numpy 1.23 and 1.26+')
-def test_symmetrize_couplings_keeps_first_generated(monkeypatch):
-    """Each bond is generated twice (from the coupling and its reverse);
-    a deterministic rule, here the first generated, makes labels reproducible
+def test_symmetrize_couplings_labels():
+    """Each bond is generated twice, from the coupling and its reverse; the first generated
+    is kept. With `np.unique` the survivor, and so the labels, differed between numpy 1.23 and 1.26.
     """
-    generated = {}
-    unique = np.unique
-    def spy(ar, *args, **kwargs):
-        generated['all'] = list(ar)
-        return unique(ar, *args, **kwargs)
-    monkeypatch.setattr(np, 'unique', spy)
-    sw = tetragonal_system()
-    monkeypatch.undo()
+    expected = ['D1_(-x, -y, z, +1)', 'D1_(-x, y, z, +1)', 'D1_(-y, -x, z, +1)', 'D1_(-y, x, z, +1)',
+                'D1_(x, -y, z, +1)', 'D1_(x, y, z, +1)', 'D1_(y, -x, z, +1)', 'D1_(y, x, z, +1)',
+                'K_Fe_(-x, -y, z, +1)', 'K_Fe_(-y, x, z, +1)', 'K_Fe_(x, y, z, +1)', 'K_Fe_(y, -x, z, +1)']
 
-    first = {}
-    for c in generated['all']:
-        first.setdefault(bond(c), c.label)
-    assert {bond(c): c.label for c in sw.couplings_all} == first
+    assert [c.label for c in tetragonal_system().couplings_all] == expected
+    assert [c.label for c in tetragonal_system(generators=('y, x, z, +1', '-y, x, z, +1')).couplings_all] == expected
 
 def test_lswt_reference():
     """Energies and mode-summed S against stored values, see `tests/data/make_lswt_reference.py`.

@@ -196,7 +196,12 @@ class SpinW:
         # Could it be that the bond reversal is not always working nicely as here?
         # couplings_all.extend([c.revert() for c in couplings_all]) # The bond reversal should be done already in symmetrization
         # couplings_unique = couplings_all
-        couplings_unique = np.unique(couplings_all)
+        
+        # Keep the first generated of equal couplings (same atoms and n_uvw). 
+        couplings_first = {}
+        for cpl in couplings_all:
+            couplings_first.setdefault(cpl, cpl)
+        couplings_unique = list(couplings_first.values())
 
         logger.info(f'Symmetrization report: generated / unique / provided = {len(couplings_all)} / {len(couplings_unique)} / {len(couplings)}')
         return sorted(couplings_unique, key=lambda cpl: cpl.label)

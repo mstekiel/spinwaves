@@ -57,7 +57,8 @@ class cSymOp(SymOp):
         # Matrix elements can only be [-1, 0, 1]
         if not set(matrix.flatten()).issubset({-1,0,1}):
             raise ValueError('`cSymOp` matrix elements larger than 1. Check if you operation has multiplicity <=6')
-        self._matrix = matrix
+
+        self._matrix = np.asarray(matrix).astype(np.int64)
 
         # Current implementation assumes denominator max 6
         if any([t.denominator>6 for t in translation]):

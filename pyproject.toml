@@ -6,26 +6,28 @@ authors = [
     { name = "Michal Stekiel", email = "michal.stekiel@gmail.com" },
 ]
 readme = "README.md"
-requires-python = ">=3.10,<3.11"
+# Tested on Python 3.9-3.14 with numpy 1.23.3-2.5; numpy<1.23.3 fails on `np.ndarray[float]` annotations
+requires-python = ">=3.9"
 dependencies = [
-    "numpy==1.23.5",
+    "numpy>=1.23.3",
 ]
 
 [project.optional-dependencies]
 # Plotting and GUI: `spinwaves.plotting`, `spinwaves.gui`, `Group` network plots
 graphics = [
+    "numpy<2",      # matplotlib 3.5.2 and vispy 0.12.1 are built against numpy 1
     "matplotlib==3.5.2",
     "vispy==0.12.1",
     "pyqt6>=6.10.2",
     "pyqtgraph>=0.13.7",
     "pyopengl>=3.1.10",
-    "networkx>=3.4.2",
+    "networkx>=3.2",   # 3.2 is the last release supporting Python 3.9
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.2",
-    "scipy==1.9.1",     # `spinwaves.legacy` only
+    "pytest>=8.0",      # pytest 9 requires Python>=3.10
+    "scipy>=1.9.1",     # `spinwaves.legacy` and comparison tests only
     "lmfit>=1.3.2",
     "pandas>=1.4.4",
     "sphinx>=5.0.2",
@@ -34,6 +36,12 @@ dev = [
 graphics = [
     "spinwaves[graphics]",
 ]
+
+[tool.uv]
+# The lockfile has a single numpy for all groups and extras: `numpy<2` from the
+# pinned `graphics` extra forces numpy 1.26, which has no wheels for Python>=3.13.
+# Remove once the graphics pins allow numpy 2; the package itself supports Python>=3.9.
+environments = ["python_version < '3.13'"]
 
 [build-system]
 requires = ["uv_build>=0.9.18,<0.10.0"]
