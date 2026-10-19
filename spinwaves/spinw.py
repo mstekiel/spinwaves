@@ -9,24 +9,23 @@ heavy checks.
 # Core
 # from scipy.linalg import schur, cholesky
 # from copy import deepcopy
-import scipy
-import numpy as np
-
 import logging
 
+# Typing
+from typing import TYPE_CHECKING, Callable, Dict, List, Sequence, Union
 
+import numpy as np
+import scipy
+
+from .coupling import Coupling
 
 # Internal
 from .crystal import Crystal
-from .coupling import Coupling
-from .utils.arrays import ensure_shape, make_exc_dtype
-from .utils.physics import bose_occupation
-from .utils.linalg import rot_Rn, RfromZ, rot_Rodrigues_complex
 from .plotting.sw_plotting_mixin import SWPlottingMixin
+from .utils.arrays import ensure_shape, make_exc_dtype
+from .utils.linalg import RfromZ, rot_Rn, rot_Rodrigues_complex
+from .utils.physics import bose_occupation
 
-
-# Typing
-from typing import Callable, List, Dict, TYPE_CHECKING, Union, Sequence
 if TYPE_CHECKING:
     from .symmetry.magnetic_symmetry import mSymOp
     from .crystal import Crystal

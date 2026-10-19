@@ -1,17 +1,16 @@
 # Core
 from fractions import Fraction
 from typing import Sequence
-import numpy as np
 
-from spinwaves.utils.arrays import ensure_shape
+import numpy as np
 
 # Typing
 # from typing import Dict, Union, TYPE_CHECKING
 # if TYPE_CHECKING:
 #     from .magnetic_symmetry import MSG
-
 # Internal
 from .databases import atom_data, color_data
+from .utils.arrays import ensure_shape
 
 # config constants
 config = dict(MAX_DENOMINATOR = 1000)

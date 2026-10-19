@@ -1,10 +1,11 @@
 # Core
-from copy import deepcopy
-import numpy as np
 import warnings
+from copy import deepcopy
 
 # Typing
 from typing import TYPE_CHECKING, Union
+
+import numpy as np
 
 # from spinwaves import atom
 
