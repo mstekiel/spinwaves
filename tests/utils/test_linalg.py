@@ -347,8 +347,6 @@ def test_dipolar_symmetric(rng):
     assert J.shape == (3,3)
     assert np.allclose(J, J.T)
 
-@pytest.mark.xfail(strict=True, reason='Code returns (r r^T - |r|^2 I)/|r|^3, docstring states '
-                   '/|r|^5; standard dipolar tensor is (3 r r^T - |r|^2 I)/|r|^5')
 def test_dipolar_standard_tensor(rng):
     r = rng.normal(size=3)
     expected = (3*np.outer(r, r) - np.eye(3)*np.dot(r, r)) / np.linalg.norm(r)**5
@@ -499,8 +497,6 @@ def test_angle_parallel_no_nan():
     assert np.isclose(sw_linalg.angle(v, v), 0, atol=1e-7)
     assert np.isclose(sw_linalg.angle(v, -np.array(v)), np.pi, atol=1e-7)
 
-@pytest.mark.xfail(strict=True, reason='arccos loses precision near 0 and pi: error ~sqrt(eps) = 1.5e-8; '
-                   'arctan2(|v1 x v2|, v1.v2) would be accurate')
 def test_angle_parallel_precision():
     v = [1e-8, 1, 1]
     assert np.isclose(sw_linalg.angle(v, v), 0, atol=1e-12)

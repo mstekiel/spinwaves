@@ -183,9 +183,10 @@ def DMI(v: tuple[float,float,float]) -> np.ndarray:
 
 def dipolar(r: np.ndarray[float]) -> np.ndarray:
     '''Interaction matrix for the dipolar interaction between two magnetic moments.
+    [ref] https://en.wikipedia.org/wiki/Magnetic_dipole-dipole_interaction
 
     Magnetic dipolar interaction:
-    H_dip = -mu_0*g_i*g_j*hbar^2/(4pi) [ 3(S_i . r) * (S_j . r) - S_i.S_j) / |r|^3
+    H_dip = -mu_0*g_i*g_j*hbar^2/(4pi) [ 3(S_i . r) * (S_j . r) - S_i.S_j * |r|^2 ] / |r|^5
 
     Can be rewritten as:
     H_dip = S_i . Jdip_ij . S_j
@@ -193,16 +194,15 @@ def dipolar(r: np.ndarray[float]) -> np.ndarray:
     In case ions are the same their spin numbers S, and gyromagnetic factors g are the same
     and can be factored out
     
-    Jdip_ij = [r_i r_j - delta_ij |r|^2 ] / |r|^5
+    Jdip_ij = [3 r_i r_j - delta_ij |r|^2 ] / |r|^5
 
     Returns
     -------
     Jdip_ij : ndarray
         3x3 interaction matrix for dipolar interaction between two magnetic moments
     '''
-    Jdd =  r[:, None] * r[None, :] - np.eye(3)*np.linalg.norm(r)**2
-    # print('DEBUG:', r, r[:, None] * r[None, :], - np.eye(3)*np.linalg.norm(r)**2, Jdd)
-    return Jdd/ np.linalg.norm(r)**3
+    Jdd =  3 * r[:, None] * r[None, :] - np.eye(3)*np.linalg.norm(r)**2
+    return Jdd/ np.linalg.norm(r)**5
 
 
 #### Rotations
@@ -358,8 +358,11 @@ def angle(v1: list[float], v2: list[float]) -> float:
     '''
     Return the angle in radians between two vectors
     '''
-    # Clip is required to deal with floating points.
-    return np.arccos(np.clip( np.dot(v1,v2)/norm(v1)/norm(v2), -1, 1))
+    # Trick to deal with numerics is using arctan2
+    # Use arctan2(|v1 x v2|, v1.v2)
+    # it is effectively arctan( v1*v2*sin(alpha) , v2*v2*cos(alpha) ) = alpha
+
+    return np.arctan2(np.linalg.norm(np.cross(v1, v2)), np.dot(v1, v2))
 
 
 def perp_matrix(q: list[float]):
