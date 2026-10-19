@@ -6,11 +6,14 @@
 
 ## TODO
 
+- DEV
+  - [ ] relax dependencies requirements: numpy, scipy, ...
+
 - Core
   - [ ] Implement magnetic field
     - [x] implement
     - [ ] test -> sign convention unclear
-    - [ ] SpinW -> only obscuretutorials found
+    - [ ] SpinW -> only obscure tutorials found
   - [ ] Implement primitive/reduced cell such that the calculation is on smaller cell=matrix=faster, while the setup is in the coordinates of the main cell, which are easier to interpret
   - [ ] standard paths of lattices doi.org/10.1016/j.commatsci.2010.05.010
   - [x] MSG should inherit from Group

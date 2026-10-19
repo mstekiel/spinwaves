@@ -8,7 +8,6 @@ spinwaves.egg*
 
 # Local env
 .venv
-uv.lock
 
 # Dirty tests
 pyopengl.py
